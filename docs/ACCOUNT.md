@@ -66,7 +66,7 @@ This is accidental-cross-account-send protection, not a defense against a malici
 
 ## Android
 
-Android Chat access is implemented but not yet released: the app signs in with email and password on Tinfoil's own sign-in page, shown on a separate screen with no bridge and a WebView profile of its own. Google OAuth requires a supported native/browser integration and is refused on that screen. The check with a real account is pending. On a WebView without profiles or message ports, the app keeps using a developer API key. The same `AccountSession` runs in the Android host worker, so the renewal rules above apply unchanged; the key exchange runs natively. [ANDROID.md](ANDROID.md#tinfoil-chat-sign-in) lists what Google's route would need from Tinfoil, and [ANDROID-ACCOUNT.md](ANDROID-ACCOUNT.md) describes the Android design and its weaker session storage.
+Android Chat access is implemented but not yet released: the app signs in with email and password on Tinfoil's own sign-in page, shown on a separate screen with no bridge and a WebView profile of its own. Google OAuth requires a supported native/browser integration and is refused on that screen. It has been checked with a real account on one phone. On a WebView without profiles or message ports, the app keeps using a developer API key. The same `AccountSession` runs in the Android host worker, so the renewal rules above apply unchanged; the key exchange runs natively. [ANDROID.md](ANDROID.md#tinfoil-chat-sign-in) lists what Google's route would need from Tinfoil, and [ANDROID-ACCOUNT.md](ANDROID-ACCOUNT.md) describes the Android design and its weaker session storage.
 
 ## Offline preview and tests
 

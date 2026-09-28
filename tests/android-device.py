@@ -62,7 +62,8 @@ def find(label, timeout=20, exact=True):
     end = time.time() + timeout
     while time.time() < end:
         for text, desc, cls, box in nodes():
-            if any((v == label) if exact else (label in v) for v in (text, desc)): return box
+            # Some devices draw dialog buttons in capitals, so labels match regardless of case.
+            if any((v.casefold() == label.casefold()) if exact else (label.casefold() in v.casefold()) for v in (text, desc)): return box
         time.sleep(1)
     return None
 

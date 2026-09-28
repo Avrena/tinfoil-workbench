@@ -113,7 +113,7 @@ Results for this release are in [VALIDATION.md](VALIDATION.md).
 
 ## Tinfoil Chat sign-in
 
-Android Chat access is implemented but not yet released: the app signs in with email and password on Tinfoil's own sign-in page, shown on a separate screen with no bridge and a WebView profile of its own. Google OAuth requires a supported native/browser integration and is refused on that screen. The check with a real account is pending. On a WebView without profiles or message ports, the app keeps using a developer API key. [ANDROID-ACCOUNT.md](ANDROID-ACCOUNT.md) records the design, the implementation and the checks.
+Android Chat access is implemented but not yet released: the app signs in with email and password on Tinfoil's own sign-in page, shown on a separate screen with no bridge and a WebView profile of its own. Google OAuth requires a supported native/browser integration and is refused on that screen. It has been checked with a real account on one phone. On a WebView without profiles or message ports, the app keeps using a developer API key. [ANDROID-ACCOUNT.md](ANDROID-ACCOUNT.md) records the design, the implementation and the checks.
 
 The provider's page never loads in the app's WebView beside the privileged Capacitor bridge, and browser cookies are never copied. Tinfoil's page runs in a separate WebView with no bridge (`WorkbenchAccount.java`), and account credentials reach the host worker only over a private message port. That page is still an embedded browser, and Google refuses OAuth there.
 
