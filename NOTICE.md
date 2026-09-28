@@ -12,6 +12,8 @@ The offline preview contains clearly labeled synthetic responses and no provider
 
 PDF.js (`pdfjs-dist` 5.4.149) is an external Apache-2.0 dependency, not downloaded into this preparation archive. Bootstrap installs it; the build copies its module, worker and LICENSE into `dist/vendor/pdfjs`. No standard-font binaries, external viewer resources or third-party script CDNs are bundled here. Review the complete resolved dependency notices before distribution.
 
+The model picker's maker logos are single-colour paths from LobeHub Icons (`@lobehub/icons-static-svg` 1.95.1, MIT), copied into `src/renderer/maker-logos.ts`. The logos are trademarks of their owners (DeepSeek, Z.ai, Moonshot AI, Google, OpenAI, Meta, Mistral AI and Alibaba Cloud's Qwen); they only identify each model's maker, and no endorsement is implied.
+
 The model capability adapter references the public Tinfoil webapp's `src/config/models.ts` schema. The visual tool implementations and panel are original project code, not copies of proprietary ChatGPT/Claude tools. The Kimi K3 fallback follows the specified behavior; it is not an independently verified account-specific capability result.
 
 ## Android app (0.11)

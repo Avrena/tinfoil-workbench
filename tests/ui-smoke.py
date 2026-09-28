@@ -42,16 +42,24 @@ with sync_playwright() as p:
  expect(page.locator('#model-options [aria-current=true]')).to_have_attribute('data-quick-model','demo/writer')
  expect(page.locator('[data-quick-model=kimi-k3] .maker-badge')).to_have_class(re.compile('maker-moonshot'))
  expect(page.locator('[data-quick-model=kimi-k3]')).to_have_attribute('aria-label','Kimi K3, Moonshot AI, reasoning, image input, tool calling, 256K context')
- checks.append('the model picker opens on the whole list with maker badges, capabilities and the current model marked')
+ expect(page.locator('[data-quick-model=kimi-k3] .maker-badge.maker-logo path')).not_to_have_count(0);expect(page.locator('[data-quick-model="demo/writer"] .maker-badge text')).to_have_text('DW')
+ expect(page.locator('[data-quick-model=deepseek-v4-pro] .option-description')).to_contain_text('Synthetic preview entry')
+ assert page.locator('[data-quick-model=deepseek-v4-pro] .option-description').evaluate('e=>getComputedStyle(e).webkitLineClamp')=='2'
+ slots=rows.evaluate_all('r=>r.map(b=>[...b.querySelectorAll(".option-flag,.option-context")].map(f=>Math.round(f.getBoundingClientRect().left)))')
+ assert all(len(s)==4 and s==slots[0] for s in slots),slots
+ checks.append('the model picker opens on the whole list with maker logos, descriptions, capability columns and the current model marked')
  page.locator('#quick-model').fill('moonshot');assert rows.evaluate_all('r=>r.map(b=>b.dataset.quickModel)')==['kimi-k3']
  page.locator('#quick-model').fill('vendor/custom-model');expect(page.locator('.model-status')).to_contain_text('No listed model matches');expect(page.locator('.model-custom')).to_have_attribute('data-quick-model','vendor/custom-model')
  page.locator('#quick-model').fill('');page.locator('#quick-model').press('ArrowDown');expect(page.locator('[data-quick-model=deepseek-v4-pro]')).to_be_focused()
  checks.append('model search matches makers, offers any other model ID and arrow keys move into the list')
  expect(page.locator('.empty-mark .maker-mark text')).to_have_text('DW')
  page.locator('[data-quick-model=kimi-k3]').click();expect(page.locator('#model-dialog')).to_be_hidden();expect(page.locator('#composer-model .model-label')).to_have_text('Kimi K3')
- mark=page.locator('.empty-mark .maker-mark');expect(mark).to_have_class(re.compile('maker-moonshot'));expect(mark.locator('text')).to_have_text('Ki')
+ mark=page.locator('.empty-mark .maker-mark');expect(mark).to_have_class(re.compile('maker-moonshot maker-logo'));expect(mark.locator('text')).to_have_count(0);expect(mark.locator('path')).not_to_have_count(0)
+ centre=lambda s:page.locator(s).evaluate('e=>{const r=e.getBoundingClientRect();return r.top+r.height/2}')
+ badge,label,chevron=centre('#composer-model .maker-badge'),centre('#composer-model .model-label'),centre('#composer-model .model-chevron svg')
+ assert abs(badge-label)<=1.5 and abs(chevron-label)<=1.5,(badge,label,chevron)
  assert mark.evaluate('e=>getComputedStyle(e).color')=='rgba(236, 238, 242, 0.62)'
- checks.append('choosing a model shows its maker on the composer and as the muted-white welcome mark')
+ checks.append('choosing a model shows its maker logo, centred with its name, on the composer and alone in muted white on the welcome page')
  page.locator('#composer-model').click();page.locator('#quick-model').fill('demo/writer');page.locator('#quick-model').press('Enter');expect(page.locator('#composer-model .model-label')).to_have_text('Demo Writer')
  checks.append('model choice is available without opening the inspector')
  page.locator('#prompt').fill('Estimate a repair deadline from 142, 180 and 218 seconds.');page.locator('#send').click()

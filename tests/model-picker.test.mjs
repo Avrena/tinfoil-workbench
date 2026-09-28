@@ -4,7 +4,8 @@ import { APIConnectionError, APIConnectionTimeoutError } from 'tinfoil';
 import { normalizeCapability, capabilityFor } from '../dist/core/capabilities.js';
 import { pickerModels, pickerModel, makerOf, modelMatches, contextLabel } from '../dist/core/model-list.js';
 import { publicError, networkFailure, moduleFailure } from '../dist/core/security.js';
-import { makerMark, modelRow, customModelRow } from '../dist/renderer/model-view.js';
+import { makerMark, modelRow, customModelRow, composerModel } from '../dist/renderer/model-view.js';
+import { makerLogo } from '../dist/renderer/maker-logos.js';
 import { WorkbenchService } from '../desktop/service.mjs';
 
 const settle = () => new Promise(resolve => setImmediate(resolve));
@@ -60,8 +61,22 @@ test('picker rows escape provider text and name their marks for screen readers',
   assert.ok(!row.includes('<img') && !row.includes('<b>')); assert.match(row, /data-quick-model="evil&quot;id"/); assert.match(row, /aria-current="true"/);
   assert.match(row, /aria-label="&lt;img src=x onerror=alert\(1\)&gt;, reasoning, image input, 128K context, current model"/);
   assert.ok(!customModelRow('a<b').includes('a<b'));
-  assert.match(makerMark(pickerModel('deepseek-v4-1-flash')), /class="maker-mark maker-deepseek"/);
+  assert.match(row, /<span class="option-description">&quot;&gt;&lt;b&gt;<\/span>/);
+  // The marks keep fixed columns: an absent one leaves an empty slot.
+  assert.equal(row.match(/class="option-flag"/g).length, 3); assert.equal(row.match(/class="option-flag" title=/g).length, 2);
   assert.match(makerMark(null, 'maker-badge'), /class="maker-badge maker-none"/);
+  assert.match(composerModel(null, false), /Choose model<\/span><span class="model-chevron" aria-hidden="true"><svg/);
+});
+test('known makers are drawn with their logo, others with a monogram', () => {
+  const alone = makerMark(pickerModel('deepseek-v4-1-flash'));
+  assert.match(alone, /^<svg class="maker-mark maker-deepseek maker-logo" viewBox="0 0 24 24"[^>]*><g fill-rule="evenodd"><path d="M23\.748 /);
+  assert.ok(!alone.includes('<circle') && !alone.includes('<text'));
+  assert.match(makerMark(pickerModel('kimi-k3'), 'maker-badge'), /^<svg class="maker-badge maker-moonshot maker-logo" viewBox="0 0 32 32"[^>]*><circle cx="16" cy="16" r="15\.5"\/><g fill-rule="evenodd" transform="translate\(6\.4 6\.4\) scale\(\.8\)"><path d="M/);
+  for (const key of ['deepseek', 'zai', 'moonshot', 'gemma', 'google', 'openai', 'meta', 'mistral', 'qwen'])
+    assert.ok(makerLogo(key)?.every(d => /^[MmLlHhVvCcSsQqTtAaZz0-9., -]+$/.test(d)), key);
+  assert.equal(makerLogo('llama'), makerLogo('meta')); assert.equal(makerLogo('nomic'), null); assert.equal(makerLogo('__proto__'), null);
+  const unknown = makerMark(pickerModel('vendor/unknown-model'));
+  assert.match(unknown, /<text[^>]*>UM<\/text>/); assert.ok(!unknown.includes('maker-logo'));
 });
 test('connection failures without an HTTP status say what failed', () => {
   assert.match(publicError(new APIConnectionError({ cause: Object.assign(new Error('socket hang up'), { code: 'ECONNRESET' }) })), /^Tinfoil could not be reached \(ECONNRESET\)\./);

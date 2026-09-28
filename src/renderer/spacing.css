@@ -403,8 +403,10 @@ dialog:not(.message-editor) .modal-body { padding: 8px 20px 20px; }
 .model-options{gap:2px}
 .model-options .model-option{gap:12px;padding:9px 10px}
 .option-title{gap:8px}
+.option-description,.option-detail{margin-top:2px}
 .option-tag{padding:0 5px}
 .option-flags{gap:8px;margin-inline-start:8px}
+@media(max-width:780px){.model-options .model-option{row-gap:6px}.option-flags{margin-inline-start:0}}
 .model-status{margin:10px 4px}
 .model-name{gap:6px}
 .model-count{margin-inline-start:-2px}

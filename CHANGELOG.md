@@ -1,5 +1,15 @@
 # Changelog
 
+## Unreleased
+
+- Windows: the installed app can now connect. The Windows builds up to 0.13.1 lacked zod, which the attested SDK's AI SDK dependencies import; npm had installed it only as their peer dependency, and electron-builder does not pack such packages. Loading the SDK failed with ERR_MODULE_NOT_FOUND, so every verification failed, with an API key and with Chat sign-in. Runs from source were not affected, and neither is the Android app, whose build bundles its dependencies. zod is now a direct dependency.
+- The packaged Windows app is now checked, not only the source: `npm run dist:win` ends with `scripts/check-package.mjs`, which requires every packaged module's dependencies and required peer dependencies to be in `app.asar`; the smoke test loads the attested SDK; and a release gate, `scripts/check-packaged-provider.mjs`, verifies a live enclave through the packaged app. Windows CI runs the package check and the packaged app's smoke test.
+- A module that cannot be loaded is reported as such: "Workbench could not load part of its secure connection code (ERR_MODULE_NOT_FOUND). Reinstall or update Workbench." Only socket, DNS and TLS errors now read "Tinfoil could not be reached", and other failures show their error code.
+- *Choose model* shows each maker's logo (DeepSeek, Z.ai, Moonshot AI, Google, OpenAI, Meta, Mistral AI, Qwen) in white on the maker's colour, instead of a monogram, and the welcome page shows the logo alone in muted white. Makers without a logo keep the monogram. The logos come from LobeHub Icons (MIT).
+- Model rows show the description from Tinfoil's catalog in two lines at most, with the full text as the row's tooltip, and the capability marks keep fixed columns. On narrow screens the marks and the context size take their own line.
+- The model button centres its badge, name and arrow. A display rule had turned off its flex layout, which placed the badge above the name.
+- Add `tests/packaging.test.mjs` (2 tests) and model picker tests for logos, descriptions, mark columns, the button's alignment and the new messages.
+
 ## 0.13.1 — model list and clearer connection errors
 
 - *Choose model* lists Tinfoil's chat models instead of asking for a model ID. Each row shows the maker's badge, the model's name, marks for reasoning, image input and tool calling, and the context size. The list opens in full with the current model marked, search matches names, IDs and makers, and any other ID can still be entered. Speech, embedding, document, tool and safety models are left out.

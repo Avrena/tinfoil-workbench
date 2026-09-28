@@ -15,8 +15,9 @@ const emit=()=>{const s=snapshot();for(const fn of listeners)fn(s);};
 // Synthetic picker metadata. Display-only (`known: false`), so the bundled reasoning profiles still apply.
 function previewModel(id,display){return {id,label:display.name,known:false,source:'unknown',reasoning:false,effort:[],toggle:false,defaultEnabled:true,enable:{},disable:{},toolCalling:null,
   display:{short:'',maker:'',type:'chat',contextWindow:null,multimodal:false,reasoning:false,tools:false,experimental:false,description:'Synthetic offline preview entry.',...display}};}
-const previewCatalog=[previewModel('deepseek-v4-pro',{name:'DeepSeek V4 Pro',maker:'deepseek',contextWindow:1048576,reasoning:true,tools:true}),
-  previewModel('kimi-k3',{name:'Kimi K3',maker:'moonshot',contextWindow:262144,multimodal:true,reasoning:true,tools:true}),
+const previewCatalog=[previewModel('deepseek-v4-pro',{name:'DeepSeek V4 Pro',maker:'deepseek',contextWindow:1048576,reasoning:true,tools:true,
+    description:'Synthetic preview entry with a longer description, as Tinfoil’s catalog gives for its models. The picker shows two lines and the rest in the row’s tooltip.'}),
+  previewModel('kimi-k3',{name:'Kimi K3',maker:'moonshot',contextWindow:262144,multimodal:true,reasoning:true,tools:true,description:'Synthetic preview entry for a multimodal reasoning model.'}),
   previewModel('demo/writer',{name:'Demo Writer',contextWindow:131072}),previewModel('demo/analyst',{name:'Demo Analyst',contextWindow:131072,experimental:true})];
 const pause=ms=>new Promise(r=>setTimeout(r,ms));
 function encodeArtifact(value){const bytes=new TextEncoder().encode(value);let str='';for(const b of bytes)str+=String.fromCharCode(b);return btoa(str);}
