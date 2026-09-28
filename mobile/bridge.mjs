@@ -52,21 +52,6 @@ worker.addEventListener('message', ({ data }) => {
 });
 worker.addEventListener('error', () => failAll('Tinfoil Workbench could not start its secure host.'));
 
-// Tinfoil Chat sign-in (docs/ANDROID-ACCOUNT.md). Native code posts one message port to this page, which runs
-// before the renderer. It goes to the host worker unread, so account credentials never pass through this
-// document. Only a message from native code (no source window) is accepted, and only the first.
-let accountSettled = false;
-function settleAccount(port) {
-  if (accountSettled) return;
-  accountSettled = true;
-  worker.postMessage({ kind: 'account', port }, port ? [port] : []);
-}
-window.addEventListener('message', event => {
-  if (accountSettled || event.source !== null || event.data !== 'tinfoil-account-port' || event.ports.length !== 1) return;
-  event.stopImmediatePropagation();
-  settleAccount(event.ports[0]);
-}, true);
-Workbench.accountChannel().catch(() => settleAccount(null));
 
 // Back closes the topmost renderer layer first; otherwise the app moves to the background
 // instead of finishing, so an active response is not cut off.
@@ -81,6 +66,23 @@ void Workbench.addListener('backButton', async () => { if (!await appEvent('back
 void Workbench.addListener('pause', () => { void appEvent('pause'); });
 // On resume the account session drops a key that expired meanwhile; timers do not run while the app sleeps.
 void Workbench.addListener('resume', () => { worker.postMessage({ kind: 'resume' }); });
+
+// Tinfoil Chat sign-in (docs/ANDROID-ACCOUNT.md). Native code posts one message port to this page, which runs
+// before the renderer. It goes to the host worker unread, so account credentials never pass through this
+// document. Only a message from native code (no source window) is accepted, and only the first. The channel is
+// requested after the app-event listeners, so a Back press right after launch is not lost behind this call.
+let accountSettled = false;
+function settleAccount(port) {
+  if (accountSettled) return;
+  accountSettled = true;
+  worker.postMessage({ kind: 'account', port }, port ? [port] : []);
+}
+window.addEventListener('message', event => {
+  if (accountSettled || event.source !== null || event.data !== 'tinfoil-account-port' || event.ports.length !== 1) return;
+  event.stopImmediatePropagation();
+  settleAccount(event.ports[0]);
+}, true);
+Workbench.accountChannel().catch(() => settleAccount(null));
 
 Object.defineProperty(window, 'tinfoil', { configurable: false, enumerable: false, writable: false, value: Object.freeze({
   snapshot: () => request('snapshot'),

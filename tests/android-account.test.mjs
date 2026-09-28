@@ -248,6 +248,8 @@ test('Tinfoil\'s page may load only Tinfoil\'s sign-in hosts, and credentials ne
   const bridge = readFileSync(new URL('../mobile/bridge.mjs', import.meta.url), 'utf8');
   assert.match(bridge, /event\.source !== null/); assert.match(bridge, /stopImmediatePropagation/);
   assert.match(bridge, /worker\.postMessage\(\{ kind: 'account', port \}, port \? \[port\] : \[\]\)/);
+  // Requested after the app-event listeners: a Back press right after launch must not wait behind this call.
+  assert.ok(bridge.indexOf('Workbench.accountChannel()') > bridge.indexOf("Workbench.addListener('backButton'"));
 });
 
 // ---- Commands -----------------------------------------------------------------------------------
