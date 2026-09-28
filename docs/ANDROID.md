@@ -72,7 +72,7 @@ npm run android:apk            # release APK; signed only when signing is config
 node scripts/android-build.mjs --debug   # debuggable build for device tests
 ```
 
-`npm run android:apk` compiles the renderer and runs `scripts/build-mobile.mjs`, which writes `mobile-dist/` with the bridge and worker bundles and `THIRD-PARTY-NOTICES.txt`. It then runs `cap sync android` and Gradle (`assembleRelease`). A signed APK is verified with `apksigner` and copied to `release/Tinfoil-Workbench-<version>-android.apk` with its SHA-256. The version comes from `package.json`: `0.12.0` gives versionCode `12000`.
+`npm run android:apk` compiles the renderer and runs `scripts/build-mobile.mjs`, which writes `mobile-dist/` with the bridge and worker bundles and `THIRD-PARTY-NOTICES.txt`. It then runs `cap sync android` and Gradle (`assembleRelease`). A signed APK is verified with `apksigner` and copied to `release/Tinfoil-Workbench-<version>-android.apk` with its SHA-256. The version comes from `package.json`: `0.12.1` gives versionCode `12001`.
 
 Toolchain: Capacitor 8.5.2, Android Gradle Plugin 8.13.0, Gradle 8.14.3, compile and target SDK 36, minimum SDK 24.
 
@@ -97,8 +97,8 @@ Android only installs updates signed with the same key. Keep an offline backup o
 `tests/android-device.py` runs on one attached emulator or device (Python 3 with `websocket-client`, `ANDROID_HOME` set, English system locale):
 
 ```powershell
-python tests/android-device.py --debug --live --apk release/Tinfoil-Workbench-0.12.0-android-debug.apk
-python tests/android-device.py --release --apk release/Tinfoil-Workbench-0.12.0-android.apk
+python tests/android-device.py --debug --live --apk release/Tinfoil-Workbench-0.12.1-android-debug.apk
+python tests/android-device.py --release --apk release/Tinfoil-Workbench-0.12.1-android.apk
 ```
 
 Installing replaces the app and its local data on that device. The two modes cover:
@@ -109,9 +109,25 @@ Installing replaces the app and its local data on that device. The two modes cov
 
 Results for this release are in [VALIDATION.md](VALIDATION.md).
 
+## Tinfoil Chat sign-in
+
+Android has no Chat account adapter. `mobile/commands.mjs` refuses the account commands and Chat mode, and the host worker runs the service without an account session, so the app uses a developer API key. This is deliberate. The Windows adapter reads the Clerk session of a desktop browser window that Workbench owns. On Android the equivalent would be loading the provider's sign-in page into the app's WebView beside the privileged Capacitor bridge, or copying browser cookies, and neither is acceptable.
+
+A supported Android sign-in would follow [RFC 8252](https://www.rfc-editor.org/rfc/rfc8252): the system browser or a Custom Tab, the authorization-code flow with PKCE, and a registered redirect back to the app. Tinfoil's Clerk instance does advertise OAuth endpoints. Its discovery document (`https://clerk.tinfoil.sh/.well-known/openid-configuration`) lists authorization, token, device-authorization and revocation endpoints, `S256` PKCE, and the authorization-code, refresh-token and device-code grants. That is not a usable integration on its own. As of 28 September 2026, no public Tinfoil documentation provides:
+
+1. A client ID for a third-party app on Tinfoil's Clerk instance, set up as a public client with PKCE. None is published, and the discovery document has no registration endpoint; in Clerk, OAuth applications are created by the instance owner.
+2. The redirect URIs allowed for that client (an Android App Link, a reverse-domain scheme or a loopback address).
+3. Whether `GET https://api.tinfoil.sh/api/chat/token`, or inference, accepts a Clerk OAuth access token. Tinfoil's own clients send a Clerk session token, and a backend accepts OAuth tokens only when it is configured to.
+4. A scope or consent for Chat-subscription access. The discovery document lists only Clerk's built-in scopes.
+5. A specification of the token endpoint: its response fields and the meaning of 401, 402, 429, `HOURLY_LIMIT_REACHED`, `resets_at` and `Retry-After`. Workbench follows Tinfoil's open-source web and iOS clients.
+6. Session and refresh-token lifetimes and revocation on Tinfoil's instance. Only Clerk's defaults are documented: refresh tokens that never expire, and JWT access tokens that cannot be revoked.
+7. Permission for third-party clients. Tinfoil's terms and acceptable-use policy contain no clause that explicitly permits or forbids using a Chat subscription from a third-party client.
+
+There is no Tinfoil Android app or Android SDK to follow. Tinfoil's iOS app signs in with Clerk's native iOS SDK and Tinfoil's own publishable key; that is Tinfoil's registered integration, not one a third party can reuse. Until Tinfoil provides items 1–4, and ideally 5–7, Android stays on developer API keys. `tests/android-device.py` covers the app's foreground, background and resume behavior with that connection.
+
 ## Known limitations
 
-- Chat sign-in, Python and HTML-to-PDF export are not implemented on Android.
+- Chat sign-in, Python and HTML-to-PDF export are not implemented on Android. Chat sign-in needs a provider contract that does not exist yet; see [Tinfoil Chat sign-in](#tinfoil-chat-sign-in).
 - Tested on Android 16 and Android 14 emulator images (x86_64). Physical devices, ARM hardware, OEM WebView variants, tablets, foldables, TalkBack and non-English system pickers have not been tested.
 - A response streams only while Android keeps the app process running. Partial text is saved every 1.5 seconds and on interruption; after the process is stopped, the reply is marked interrupted when the app reopens.
 - Updating Android System WebView is outside the app's control. Rejecting an old WebView is deliberate.

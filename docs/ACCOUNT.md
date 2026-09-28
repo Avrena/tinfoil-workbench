@@ -1,4 +1,4 @@
-# Account access and optional instructions — 0.9
+# Account access and optional instructions
 
 The custom system prompt is optional and not required. Leave it blank for ordinary chat without an application-supplied custom system message. Provider-side defaults still apply. The existing, separately approved text-only delegate retains its narrow worker-protocol instruction; that does not make the user's custom prompt mandatory.
 
@@ -6,11 +6,19 @@ The custom system prompt is optional and not required. Leave it blank for ordina
 
 Account & connection is available in the sidebar, conversation menu, command palette and Settings. It separates **Tinfoil Chat account** from **developer API key** access. There is no automatic fallback between these modes. Installing the client, opening Account or restoring a workspace does not sign in, copy browser cookies, request a token or generate a response.
 
-**Sign in to Tinfoil Chat** opens the official `https://chat.tinfoil.sh/` site in a separate Electron window. Workbench asks the site's loaded Clerk instance to open its normal sign-in component. The provider handles credentials and any enabled authentication factors. The window has no native preload, no Node integration, no filesystem/IPC bridge and a separate temporary browser partition. Top-level navigation and popups are restricted to an explicit HTTPS account/provider host list; web permissions and downloads are denied. There is no invented desktop OAuth callback, client ID, device-code flow or pasted-session-token form.
+**Sign in to Tinfoil Chat** opens Tinfoil's own sign-in page, `https://chat.tinfoil.sh/signin`, in a separate Electron window. The site handles Google, Apple and email sign-in and the account's second factor; Workbench shows no password or code field and injects no sign-in script. After a social sign-in redirect, the site's `/sso-callback` page continues a sign-in that still needs the second factor at `/signin?resume=1`. (Clerk's generic sign-in modal, which earlier versions opened, did not continue that step.) The window has no native preload, no Node integration, no filesystem/IPC bridge and a separate temporary browser partition. Web permissions and downloads are denied. There is no invented desktop OAuth callback, client ID, device-code flow or pasted-session-token form.
 
-Once the site's current user and current session agree, the main-process adapter requests the current Clerk session token through its public `getToken` API. It exchanges that token at Tinfoil's published web-client `GET /api/chat/token` endpoint. The returned inference credential is passed to the official Tinfoil SDK; inference still requires attestation and EHBP. Authentication/control-plane HTTPS calls do not carry prompts or attachments and are not described as enclave-attested inference.
+The page itself may navigate, redirect or open a popup only to an explicit HTTPS host list:
 
-**This is an experimental website-session adapter, not a verified native desktop login integration.** The exact-origin scripts and token state machine have been exercised with injected test objects and synthetic responses. The actual production website, sign-in factors, social redirects, native Electron, Windows and live inference have not been exercised. Upstream page/Clerk changes may require adapter updates. Some sign-in methods may not work in an embedded browser; the client does not spoof the browser, bypass provider restrictions, or quietly replace account access with paid API access. An official native OAuth/PKCE integration, if available, should replace this adapter after its contract is verified.
+- Tinfoil: `chat.tinfoil.sh`, `clerk.tinfoil.sh`, `accounts.tinfoil.sh`.
+- Google: `accounts.google.com`, `accounts.youtube.com`, and `accounts.<domain>` for each of the 187 domains in Google's published list of its own domains (`https://www.google.com/supported_domains`, embedded as retrieved on 28 September 2026). At the end of its sign-in, Google moves the page through `accounts.youtube.com` and the account host of the user's country domain (for example `accounts.google.co.uk`) to set its account cookies. No other host under those domains is allowed.
+- Apple, GitHub and Microsoft sign-in: `appleid.apple.com`, `github.com`, `login.microsoftonline.com`, `login.live.com`.
+
+Frames inside those pages (provider cookie checks, CAPTCHAs) are limited to HTTPS by the partition's request filter, not by this host list; the list is not an allowlist for every network destination. When the page tries to open a host outside the list, the navigation is refused and the Account view names the host ("The sign-in page tried to open …"), instead of leaving the page stalled.
+
+Workbench accepts a sign-in only when two reads of the site's Clerk session, a second apart, report the same user and session, so the redirects that follow a provider sign-in have settled. It then binds both the Clerk user ID and the Clerk session ID. Through the session's public `getToken` API it obtains an identity token and exchanges it at `GET https://api.tinfoil.sh/api/chat/token`, the endpoint Tinfoil's own web and iOS clients use. The returned inference credential is passed to the official Tinfoil SDK; inference still requires attestation and EHBP. Authentication and token calls are HTTPS control-plane calls: they carry no prompt or attachment and are not described as enclave-attested inference.
+
+**Status: a website-session adapter, tested on Windows.** It is not a registered native OAuth integration; Tinfoil publishes none. The token endpoint comes from Tinfoil's open-source clients, not from public API documentation, and Tinfoil's terms contain no clause that explicitly permits or forbids third-party Chat clients; [ANDROID.md](ANDROID.md#tinfoil-chat-sign-in) lists what the provider does not document. Additional sign-in methods have not been exercised; [VALIDATION.md](VALIDATION.md) records what was. Upstream page or Clerk changes may require adapter updates. Some sign-in methods may not work in an embedded browser; the client does not spoof the browser, bypass provider restrictions, or quietly replace account access with paid API access.
 
 ## Profile and usage
 
@@ -22,13 +30,31 @@ Subscription & usage starts collapsed. It shows only budgets returned by the pro
 
 After sign-in and a successful account-access check, choose **Verify enclave & load models**, select a chat model and send a message. An API key is not required when this account path works. Account access does not automatically provision hosted Python/code-execution sessions or arbitrary MCP servers.
 
-## Lifetime, expiry and failure handling
+## Chat access: renewal, expiry and failures
 
-The website browser session, identity token and inference credential stay in memory. They are not written into workspace.vault, renderer snapshots, logs or exports. There is no Remember me option: quitting the app requires signing in again next time. The website window remains hidden while signed in so its normal Clerk session can refresh on demand; it has the usual resource/network overhead of that page. Workbench only polls during the explicit sign-in attempt and otherwise reads session state on account actions and requests. The remote website can perform its own normal account operations; it cannot read the local Workbench vault.
+The website browser session, identity token and inference credential stay in memory. They are not written into workspace.vault, renderer snapshots, logs or exports. There is no Remember me option: quitting the app requires signing in again next time. The website window stays hidden while signed in so its Clerk session can refresh on demand; it has the usual resource/network overhead of that page. Workbench polls only during the explicit sign-in attempt and otherwise reads session state on account actions and requests. The remote website can perform its own normal account operations; it cannot read the local Workbench vault.
 
-Token exchange is single-flight, size-bounded and timed out, rejects redirects, and checks the current identity before reusing a cached inference token. A 401 during exchange causes at most one identity refresh and one repeat of that exchange—not a generation retry. 401/403 session rejection asks for reconnection; 402 keeps the signed-in identity but reports subscription required; 429 preserves a reported cooldown. A failed or unavailable session never becomes an anonymous/free-tier key or a separately billed developer request. Inference authorization failures also clear the cached connection and show an account-specific error, with partial text preserved.
+A Chat inference key is renewed when a request needs one, not by a timer, so system sleep cannot leave an expired key in use:
 
-Sign out requires native confirmation, cancels active work, clears the in-memory state and destroys the temporary website windows. Ending the remote Clerk session is best-effort; local cleanup is unconditional. Regular-browser sessions are not imported or signed out. Quitting stops the main app even when a hidden website window is present.
+- Every request, tool round, comparison lane and approved delegated request asks for a key. Before a cached key is reused, the website session is read and must still have the bound user and Clerk session. A cached key is reused only while more than 60 seconds remain, and never for more than an hour.
+- Otherwise Workbench gets the session's current identity token and exchanges it. Concurrent callers share one session read and one exchange. The exchange goes to a fixed URL with the identity token only in the Authorization header, rejects redirects, is not cached, times out after 15 seconds and reads at most 64 KiB.
+- The response needs a key and an explicit UTC `expires_at`. A missing, malformed or zone-less time (JavaScript reads a zone-less date-time as local time), an expired key, or one with under 30 seconds left is refused. Tinfoil's own web client keeps a key without an expiry indefinitely; Workbench does not. The lifetime is measured against the response's `Date` header, so a wrong local clock neither refuses a valid key nor reuses an expired one. The observed lifetime is 15 minutes, but nothing depends on that value.
+- After the exchange, the site's current user and session are read again. If either changed, the result is discarded and the account view asks you to reconnect. Sign-out or a new sign-in discards any exchange still in flight, so a late response cannot restore a key.
+- A new key gets a new SDK client, which completes attestation before any content is sent. A response that is already streaming keeps its client; a renewal never restarts or repeats it. Each request checks that its client belongs to the account its send was bound to.
+- On resume from sleep, a cached key that has expired or is about to is dropped at once, without a network request.
+
+| Result | Handling |
+|---|---|
+| Token exchange returns 401 | One forced identity-token refresh and one repeat of that exchange — never of a generation |
+| 401 again, or 403 | Credentials are cleared and the account view asks you to sign in again |
+| 402 | You stay signed in; the view reports that a Chat subscription is required |
+| 429, or the hourly-limit code with any status | A cooldown until the reported reset on the server's clock, else `Retry-After`, else 60 seconds, bounded to between 10 seconds and one hour (the order Tinfoil's own client uses). Requests during it send nothing; **Refresh account** can check again after 30 seconds |
+| Network failure, 5xx, malformed or unusable response | Access is reported as unavailable. Nothing is sent with an old key and nothing is retried automatically |
+| Inference returns 401 or 403 | That key and its SDK client are dropped and partial output is kept. You stay signed in; retrying the turn requests a new key. Nothing is retried automatically |
+
+No failure switches to anonymous/free access or to a developer API key. Generation retries stay off.
+
+Sign out requires native confirmation, cancels active work and any exchange in flight, clears the in-memory state and destroys the temporary website windows. Ending the remote Clerk session is best-effort; local cleanup is unconditional. Earlier Chat keys are not claimed to be revoked by the server. Regular-browser sessions are not imported or signed out. Quitting stops the main app even when a hidden website window is present.
 
 ## Local workspace and cross-account history
 
@@ -38,19 +64,27 @@ When an existing thread moves between Chat identities or Chat/API modes, a separ
 
 This is accidental-cross-account-send protection, not a defense against a malicious OS user or compromised native application. Switching accounts does not silently move cloud chats. Native Python retains its existing explicit per-run approvals and local account permissions.
 
+## Android
+
+The Android app has no Chat account sign-in; it uses a developer API key. No provider-supported native sign-in exists for a third-party app today. [ANDROID.md](ANDROID.md#tinfoil-chat-sign-in) lists the provider contract that would be needed.
+
 ## Offline preview and tests
 
 The HTML preview refuses login, credentials, real profile updates and sign-out. Account → Toggle sample profile displays explicitly labelled synthetic identity and usage. That action never represents a real authenticated account. The test hook in ui-account.py exists only in an in-memory copy of the HTML for synthetic error/rotation cases, not in the shipped production renderer.
 
-`tests/account.test.mjs` checks normalization, actual wire-shape budgets, exact-origin scripts, identity races, token expiry, one-refresh authorization, subscription/usage errors, cancellation, no secret serialization, fake-Electron window boundaries, service routing and history approvals. It does not test native Electron. `tests/ui-account.py` exercises the production renderer using synthetic account snapshots and real emulated taps; its viewport checks are not physical-device compatibility tests.
+`tests/account.test.mjs` uses injected test objects and synthetic responses. It covers normalization and wire-shape budgets, exact-origin scripts, user and Clerk-session binding, changes during an exchange, strict UTC expiry, clock skew through the `Date` header, reuse margins, cooldowns, one-refresh authorization, every exchange status, timeouts, cancellation and late responses, account replacement, inference rejection, renewal between tool rounds without replay, the page-versus-frame navigation policy, refused-host reporting, the two-read sign-in rule, service routing and history approvals. It does not run native Electron.
+
+`tests/account-live.mjs` is a manual check with a real account; see its header. It starts the app from source with a temporary profile, waits for a person to sign in, then drives the real renderer: verification, a send, a send after the first key has expired (unless `--quick`), sign-out during a refresh, and a refused send. It logs only statuses, UTC times, counts, booleans and sign-in host names (plus paths on Tinfoil's origin), and compares credentials only in memory. `tests/ui-account.py` exercises the production renderer using synthetic account snapshots and real emulated taps; its viewport checks are not physical-device compatibility tests.
 
 ## Source contracts inspected
 
 All retrieved on 28 September 2026; upstream behavior can change. No upstream application code was copied as an authentication implementation.
 
-- Tinfoil web client token exchange and real flat quota fields: https://github.com/tinfoilsh/tinfoil-webapp/blob/8621c246b4b6c0c4b854a8a30f7756cce1262b33/src/services/inference/tinfoil-client.ts (fetched blob `c5b6df1ab3562eab2d2a948a6d66df65f4d934ab`).
-- Tinfoil subscription metadata: https://github.com/tinfoilsh/tinfoil-webapp/blob/8621c246b4b6c0c4b854a8a30f7756cce1262b33/src/hooks/use-subscription-status.ts (fetched blob `974a43230ccaeb0d701ae5968c279ea36ced6082`).
-- Clerk public session methods and identity: https://clerk.com/docs/js-frontend/reference/objects/session .
-- Clerk sign-in and profile components: https://clerk.com/docs/js-frontend/reference/objects/clerk and https://clerk.com/docs/js-frontend/reference/components/authentication/sign-in . Modern forceRedirectUrl/signUpForceRedirectUrl keep the return destination on the exact Tinfoil origin.
+- Tinfoil web client token exchange, refresh margin, hourly-limit handling and cooldown order: https://github.com/tinfoilsh/tinfoil-webapp/blob/6869354445d9e273b090bbf5fcd1c711e901bc2d/src/services/inference/tinfoil-client.ts (identical at `8621c246b4b6c0c4b854a8a30f7756cce1262b33`).
+- Tinfoil's sign-in page and social-sign-in callback: https://github.com/tinfoilsh/tinfoil-webapp/blob/8621c246b4b6c0c4b854a8a30f7756cce1262b33/src/pages/signin.tsx and https://github.com/tinfoilsh/tinfoil-webapp/blob/8621c246b4b6c0c4b854a8a30f7756cce1262b33/src/pages/sso-callback.tsx.
+- Tinfoil subscription metadata: https://github.com/tinfoilsh/tinfoil-webapp/blob/8621c246b4b6c0c4b854a8a30f7756cce1262b33/src/hooks/use-subscription-status.ts.
+- Tinfoil iOS token request (same endpoint): https://github.com/tinfoilsh/tinfoil-ios/blob/f413f869f1f246b18ef063beb5dae3cc138540a4/TinfoilChat/Services/ChatTokenRequestGate.swift.
+- Google's own domains: https://www.google.com/supported_domains.
+- Clerk session methods, `getToken` and `skipCache`: https://clerk.com/docs/js-frontend/reference/objects/session and https://clerk.com/docs/guides/sessions/force-token-refresh.
 - Electron temporary partition semantics: https://www.electronjs.org/docs/latest/api/session . A partition without the `persist:` prefix is in memory.
 - Electron remote-content security checklist: https://www.electronjs.org/docs/latest/tutorial/security .

@@ -1,5 +1,18 @@
 # Changelog
 
+## 0.12.1 — Tinfoil Chat sign-in and token renewal on Windows
+
+- Sign in on Tinfoil's own sign-in page (`chat.tinfoil.sh/signin`) instead of Clerk's generic modal. The page continues pending authentication steps by itself; the generic modal required another action.
+- The sign-in window no longer stalls during account-cookie redirects. Afterwards Google moves the page to `accounts.youtube.com` and to the account host of the user's country domain (for example `accounts.google.co.uk`) to set account cookies, and the sign-in window refused both. It now allows `accounts.youtube.com` and the account host of each of the 187 domains Google publishes as its own, and nothing else under them. The host list now applies to the page but not to its frames, whose redirects were also being cancelled. If the page tries to open any other site, the Account view names it instead of leaving the page stalled.
+- Chat access renews without another sign-in. A key is renewed when a request needs it and 60 seconds or less would remain, and its lifetime is measured against the server's `Date` header, so a wrong PC clock does not matter. A token response without a valid UTC expiry, already expired or expiring within 30 seconds is refused; a missing expiry used to be accepted for 60 seconds.
+- A sign-in is bound to the website's Clerk session as well as its user. If either changes, including during a token exchange, the result is discarded and the account must be reconnected. Signing out during a token exchange discards its late response.
+- A usage limit, recognized by HTTP 429 or Tinfoil's hourly-limit code, waits for the reported reset, then `Retry-After`, then 60 seconds, for at most one hour. It is no longer retried on the next request or treated as a rejected session.
+- If Tinfoil rejects a Chat key during a reply, only that key is dropped: you stay signed in, partial text is kept, and retrying the turn requests a new key. This used to sign the account out.
+- Waking the PC from sleep drops an expired key at once. A failed access check right after sign-in keeps you signed in, so Refresh account can try again.
+- Android is unchanged and still connects with a developer API key: Chat sign-in there needs a provider contract that Tinfoil does not publish, listed in docs/ANDROID.md. The device test now also checks that Android refuses Chat sign-in and resumes from the background in the same process.
+- Add `tests/account-live.mjs`, a manual check with a real account that logs no credentials, and 27 more tests in `tests/account.test.mjs`.
+- Verified on Windows 11 with a real Tinfoil account, including a key renewal after expiry; see docs/VALIDATION.md. The custom system prompt remains optional and not required.
+
 ## 0.12.0 — system instructions selection and reading type
 
 - Choose optional system instructions per conversation from a composer button, the conversation menu, the command palette or Advanced. The choices are None (the default), saved instructions, or read-only starters (Concise, Explainer, Editor, Code assistant) that can be customized as a copy. The custom system prompt remains optional and not required; None sends no custom system message.

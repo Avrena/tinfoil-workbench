@@ -18,7 +18,7 @@ Releases are published on this private repository's **Releases** page. Each rele
 
 The Windows executables are **not code-signed**, so SmartScreen shows a warning the first time you run them. The Android APK is signed with the project's release key (certificate SHA-256 `63:95:EA:D7:97:A5:20:C6:32:15:6A:BC:D9:EE:27:31:86:9C:64:ED:0E:E5:10:AD:5B:52:E8:87:18:54:94:CB`). Later updates install over it only if they are signed with the same key.
 
-On first launch choose **Set up connection**. On Windows you can use a developer API key or the experimental Tinfoil Chat website sign-in. On Android, use a developer API key.
+On first launch choose **Set up connection**. On Windows you can use a developer API key or sign in with a Tinfoil Chat account on Tinfoil's website. On Android, use a developer API key.
 
 ## Platforms
 
@@ -29,7 +29,7 @@ On first launch choose **Set up connection**. On Windows you can use a developer
 | Optional system instructions: picker, saved library, starters | ✓ | ✓ |
 | Tinfoil web search, text-only delegation | ✓ | ✓ |
 | Developer API key | ✓ | ✓ |
-| Tinfoil Chat website sign-in (experimental) | ✓ | — |
+| Tinfoil Chat sign-in (website session) | ✓ | — |
 | Local Python execution (not a sandbox) | ✓ | — |
 | Export artifacts as PDF | ✓ | existing PDFs only |
 | Encrypted workspace key protection | DPAPI (Windows user) | Android Keystore (device) |
@@ -70,9 +70,9 @@ Signing, device tests and the toolchain versions are described in [docs/ANDROID.
 
 ## Accounts, responses and tools
 
-Open Account & connection to choose the connection. Windows offers the experimental Tinfoil Chat website-session flow or the separate developer API-key mode. Both feed the official verified SDK/EHBP inference adapter, and neither silently falls back to the other. The custom system prompt is optional throughout.
+Open Account & connection to choose the connection. Windows offers the Tinfoil Chat website-session flow or the separate developer API-key mode. Both feed the official verified SDK/EHBP inference adapter, and neither silently falls back to the other. The custom system prompt is optional throughout.
 
-On Windows, Chat sign-in uses a temporary provider-website window with no Workbench preload or Node bridge. Sessions last until sign-out or app exit; there is no Remember me. Signing in does not enable cloud sync or conceal the locally stored conversations. Existing history requires explicit approval before crossing Chat identities or Chat/API modes. [Account behavior and limitations](docs/ACCOUNT.md) describes the experimental integration.
+On Windows, Chat sign-in opens Tinfoil's own sign-in page in a temporary window with no Workbench preload or Node bridge. Chat access renews automatically while that website session lasts, which is until sign-out or app exit; there is no Remember me. It has been tested on Windows; additional sign-in methods have not. Signing in does not enable cloud sync or conceal the locally stored conversations. Existing history requires explicit approval before crossing Chat identities or Chat/API modes. [Account behavior and limitations](docs/ACCOUNT.md) describes the integration.
 
 System instructions are optional and not required. The instructions button next to the model in the composer chooses them per conversation: None (the default, which sends no custom system message), your saved instructions, or read-only starters you can customize as a copy. A choice applies from the next message, and each answer ends with a quiet line naming the model and the instructions it was sent with. Saved instructions stay in the encrypted workspace. Selecting one copies it into the conversation, so later edits or deletion never change an existing conversation. Instruction names are never sent to a model.
 
