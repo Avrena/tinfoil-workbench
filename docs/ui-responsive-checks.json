@@ -1,5 +1,5 @@
 {
-  "checks": 90,
+  "checks": 93,
   "passed": [
     "phone-small: transcript and header fit 320\u00d7740 without page overflow",
     "phone-small: chart labels remain at least 9 CSS pixels at actual render scale",
@@ -90,6 +90,9 @@
     "landscape rotation preserves an open editor and its unsent draft",
     "keyboard-height simulation: the instructions editor keeps Save and Use visible and on top in portrait and landscape",
     "responsive drawers never overwrite the saved desktop sidebar preference",
+    "android-phone: with system-bar insets {'top': 40, 'right': 0, 'bottom': 48, 'left': 0}, the shell, all eleven dialogs including the message editor, and a toast stay clear of the bars and cutout",
+    "android-landscape: with system-bar insets {'top': 24, 'right': 48, 'bottom': 0, 'left': 32}, the shell, all eleven dialogs including the message editor, and a toast stay clear of the bars and cutout",
+    "android-keyboard: with system-bar insets {'top': 40, 'right': 0, 'bottom': 0, 'left': 0}, the shell, all eleven dialogs including the message editor, and a toast stay clear of the bars and cutout",
     "responsive matrix produced no unhandled JavaScript errors"
   ],
   "matrix": [

@@ -97,10 +97,10 @@ Keyboard shortcuts on Windows: Ctrl+N new thread; Ctrl+K commands; Ctrl+F conver
 
 [docs/VALIDATION.md](docs/VALIDATION.md) records what ran for this release:
 
-- **Windows:** Node tests, the ten browser suites, and native smoke tests of the source tree, the packaged app and a silent install.
-- **Android:** unit tests, plus device checks on Android 16 and Android 14 emulators, including a live enclave verification.
+- **Windows:** Node tests, the ten browser suites, and native smoke tests of the source tree and the packaged app.
+- **Android:** unit tests, and device checks on Android 16 and Android 14 emulators, including a live enclave verification and the sign-in screen. Chat sign-in was also checked with a real account on one phone, including a key renewal after expiry.
 
-It also lists what did not run. That includes chat with a real API key, live Chat sign-in, physical Android devices and a clean Windows machine. [docs/HANDOFF.md](docs/HANDOFF.md) is the manual acceptance checklist for those remaining checks.
+It also lists what did not run. That includes chat with a real API key, sign-in from the installed Windows app or the release-signed Android app, other physical devices and a clean Windows machine. [docs/HANDOFF.md](docs/HANDOFF.md) is the manual acceptance checklist for those remaining checks.
 
 `preview/index.html` (built by `npm run preview:build`) is a standalone renderer demonstration with labelled synthetic responses; it cannot authenticate. [Rendering measurements](docs/RENDERING.md) describe a synthetic workload.
 

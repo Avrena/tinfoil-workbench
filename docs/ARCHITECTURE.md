@@ -44,7 +44,7 @@ The encrypted version-1 workspace gains additive visual settings and artifact me
 
 Snapshots exclude API key, cache secret and Python path. Artifacts and source are private conversation data, encrypted at rest but present in renderer memory while the app is open. Source/JSON export and explicitly saved files are unencrypted copies.
 
-Build compiles TypeScript and copies renderer assets. PDF.js module/worker/license are copied from the declared dependency when installed. No font binaries are copied. The reviewed npm lockfile is committed. Desktop smoke checks actual DPAPI/bridge initialization and a production PDF print→PDF.js canvas round trip on Windows (executed for 0.12.1; see VALIDATION.md). Windows CI packages only after tests/smoke succeed.
+Build compiles TypeScript and copies renderer assets. PDF.js module/worker/license are copied from the declared dependency when installed. No font binaries are copied. The reviewed npm lockfile is committed. Desktop smoke checks actual DPAPI/bridge initialization and a production PDF print→PDF.js canvas round trip on Windows (executed for 0.13.0; see VALIDATION.md). Windows CI packages only after tests/smoke succeed.
 
 ## Motion, rendering and theme (0.5)
 
