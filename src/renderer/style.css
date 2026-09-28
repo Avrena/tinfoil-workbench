@@ -788,3 +788,38 @@ dialog[open]{transform:translateZ(0);isolation:isolate}
 [data-platform=android] .shortcut{display:none!important}
 [data-platform=android] body{box-sizing:border-box;padding:var(--safe-area-inset-top,0px) var(--safe-area-inset-right,0px) var(--safe-area-inset-bottom,0px) var(--safe-area-inset-left,0px)}
 [data-platform=android] #app{height:100%}
+
+/* Reply footer: actions, then a quiet signature naming the model and any instructions sent. */
+.reply-signature{display:flex;align-items:center;flex-wrap:wrap;justify-content:flex-end;min-width:0;font-size:11px;line-height:1.6;color:#8b919a}
+.signature-model{color:#a8aeb7;overflow-wrap:anywhere}
+.signature-instructions{display:inline-flex;align-items:center;color:#9dbad8;min-width:0;overflow-wrap:anywhere}
+.signature-instructions svg{width:12px;height:12px}
+.reply-signature .usage,.reply-signature .meta{margin:0;font-size:11px;color:#8b919a}
+.reply-signature .edited-label{font-size:10px;line-height:1.4}
+
+/* Instructions entry points: the composer chip stays an icon until instructions are set. */
+.instructions-chip{font-size:11px;color:#8b929c;white-space:nowrap;overflow:hidden;max-width:190px}
+.instructions-chip>span{overflow:hidden;text-overflow:ellipsis;min-width:0}
+.instructions-chip>span:empty{display:none}
+.instructions-chip svg{width:15px;height:15px}
+.instructions-chip.is-set{color:#a7c9ec}
+.field-heading{display:flex;align-items:baseline;justify-content:space-between}
+.field-heading label{margin:0}
+.field-action{font-size:11px;color:#9cbfdf;white-space:nowrap;flex-shrink:0}
+.inspector-body .instructions-applied{color:#9dbad8}
+#instructions-dialog{width:min(560px,calc(100vw - 32px))}
+.instruction-options{display:flex;flex-direction:column}
+.instruction-heading{font-size:10px;text-transform:uppercase;letter-spacing:.1em;font-weight:600;color:#9a9a9a}
+.instruction-row{display:flex;align-items:center}
+.instruction-option{flex:1;min-width:0;justify-content:flex-start;align-items:center;text-align:left;border-radius:8px}
+.instruction-option[aria-current=true]{background:#2b3036}
+.instruction-copy{display:flex;flex-direction:column;min-width:0;flex:1}
+.instruction-copy strong{font-size:13px;font-weight:500;color:#e2e2e2;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.instruction-copy small{font-size:11px;line-height:1.5;color:#9aa0a8;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+.instruction-check{display:flex;color:#8fc1f0}
+.instruction-edit{color:#9aa0a8}
+.modal-body .instruction-empty,.modal-body .instructions-count,.modal-body .instructions-note{font-size:11px;color:#9aa0a8;line-height:1.6}
+.instructions-form textarea{line-height:1.6;resize:vertical}
+.instructions-confirm{display:flex;align-items:center;flex-wrap:wrap;background:#34302a;border:1px solid #575042;border-radius:6px;font-size:12px}
+.instructions-confirm span{flex:1 1 180px}
+@media(forced-colors:active){.instruction-option[aria-current=true]{outline:1px solid Highlight}}

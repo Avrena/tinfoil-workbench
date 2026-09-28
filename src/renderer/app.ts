@@ -4,7 +4,7 @@ import { toolActive } from '../core/activity.js';
 import { openModal } from './modal.js';
 import { MessageEditor } from './editor.js';
 import { ResponsiveLayout } from './responsive.js';
-import type { Attachment, Command, DesktopBridge, GenerationSettings, Reply, Snapshot, Thread, Turn, ToolRun, Artifact } from '../core/types.js';
+import type { Attachment, Command, DesktopBridge, GenerationSettings, InstructionPreset, Reply, Snapshot, Thread, Turn, ToolRun, Artifact } from '../core/types.js';
 import { ArtifactPanel, type ArtifactEntry } from './artifact-panel.js';
 import { updateMarkup } from './dom.js';
 import { RichTextRenderer } from './rich-text.js';
@@ -15,34 +15,19 @@ import { capabilityFor } from '../core/capabilities.js';
 import { viewPreferences, type ViewPreferences } from '../core/preferences.js';
 import { renderDataPreview, staticPreview } from './artifacts.js';
 import { escapeHtml as e, clearMarkdownCaches, extractCodeBlocks } from '../core/markdown.js';
-const paths: Record<string,string> = {
-  folder:'M3 6h7l2 2h9v12H3zM3 6V4h7l2 2', expand:'M8 3H3v5M16 3h5v5M3 16v5h5M21 16v5h-5', eye:'M2 12s3-7 10-7 10 7 10 7-3 7-10 7S2 12 2 12M12 9a3 3 0 1 0 0 6 3 3 0 0 0 0-6', up:'m6 15 6-6 6 6',
-  logo:'M4 4h16v4h-6v12h-4V8H4z', chat:'M4 4h16v12H9l-5 4z', plus:'M12 5v14M5 12h14',
-  search:'M10 3a7 7 0 1 0 0 14 7 7 0 0 0 0-14m5 12 6 6',
-  settings:'M12 8a4 4 0 1 0 0 8 4 4 0 0 0 0-8M10 3h4l1 3 3-1 2 4-2 3 2 3-2 4-3-1-1 3h-4l-1-3-3 1-2-4 2-3-2-3 2-4 3 1z',
-  shield:'M12 3 4 6v6c0 5 8 9 8 9s8-4 8-9V6zM8 12l3 3 5-6',
-  lock:'M6 10h12v11H6zM8 10V6a4 4 0 0 1 8 0v4', compare:'M3 4h7v16H3zM14 4h7v16h-7z',
-  branch:'M6 3v13a3 3 0 1 0 3 3H6M6 9h6a6 6 0 0 0 6-6M16 3h4',
-  attach:'m8 13 6-6a3 3 0 0 1 4 4l-8 8a5 5 0 0 1-7-7l8-8',
-  send:'M12 20V4M5 11l7-7 7 7', stop:'M6 6h12v12H6z', close:'m6 6 12 12M18 6 6 18',
-  more:'M5 12h.01M12 12h.01M19 12h.01', panel:'M3 4h18v16H3zM15 4v16',
-  copy:'M8 8h12v13H8zM15 8V3H3v13h5', download:'M12 3v12m-5-5 5 5 5-5M4 17v4h16v-4',
-  upload:'M12 17V3m-5 5 5-5 5 5M4 17v4h16v-4', code:'m8 6-6 6 6 6m8-12 6 6-6 6M14 3 10 21',
-  write:'m4 16 12-12 4 4L8 20H4zM13 7l4 4', spark:'m12 3 2.4 6.6L21 12l-6.6 2.4L12 21l-2.4-6.6L3 12l6.6-2.4z',
-  minus:'M5 12h14', square:'M5 5h14v14H5z', check:'m5 12 4 4L19 6', down:'m6 9 6 6 6-6', pin:'m8 3 8 0-1 6 4 4H5l4-4zM12 13v8',
-};
-const icon = (name:string):string => `<svg viewBox="0 0 24 24" aria-hidden="true"><path d="${paths[name] ?? paths.chat}"/></svg>`;
-const button = (action:string, label:string, glyph:string, extra=''):string => `<button type="button" data-action="${action}" title="${label}" aria-label="${label}" ${extra}>${icon(glyph)}</button>`;
+import { icon, button } from './icons.js';
+import { STARTER_INSTRUCTIONS, activeInstructions } from '../core/instructions.js';
+import { instructionsListMarkup, instructionsSummary } from './instructions-view.js';
 const app = document.querySelector<HTMLDivElement>('#app')!;
 app.innerHTML = `<div class="shell no-inspector" id="shell">
   <header class="titlebar"><div class="title-brand">${icon('logo')}<span>Tinfoil Workbench</span></div><button class="title-search" data-action="palette" aria-label="Open command palette">${icon('search')}<span>Search or command</span><kbd class="shortcut">Ctrl K</kbd></button><div class="title-trailing"><span id="preview-label" class="preview-label hidden">Offline preview</span><div class="window-controls">${button('minimize','Minimize','minus')}${button('maximize','Maximize or restore','square')}${button('close','Close window','close')}</div></div></header>
   <aside class="sidebar" aria-label="Conversations"><div class="sidebar-head"><h2>Workspace</h2>${button('new','New conversation','plus','class="icon-button"')}${button('close-drawers','Close navigation','close','class="icon-button drawer-close"')}</div><div class="sidebar-search">${icon('search')}<input id="search" type="search" placeholder="Search conversations" aria-label="Filter conversations"></div><div class="nav-section-heading"><h2>Projects</h2>${button('project-create','New project','plus','class="icon-button"')}</div><div class="sr-only" id="thread-count"></div><div class="thread-list" id="thread-list"></div><div class="sidebar-bottom"><button class="account-footer" data-action="account" id="account-footer" aria-label="Account & connection"></button><button data-action="settings">${icon('settings')}Settings</button></div></aside>
-  <main class="main"><header class="toolbar">${button('sidebar','Toggle conversation sidebar','panel','class="icon-button"')}<div class="thread-heading"><button class="project-breadcrumb" data-action="thread-project" id="project-breadcrumb" title="Move thread to project">Unfiled</button><h1><button class="toolbar-title" data-action="rename-thread" id="thread-title" title="Rename thread"></button></h1><button id="branch-origin" class="branch-origin hidden" data-action="original-thread">Original thread</button></div><span class="spacer"></span>${button('find','Find in conversation','search','class="icon-button"')}${button('view','Reading & visibility','eye','class="icon-button"')}<details class="export-menu"><summary aria-label="Conversation menu" title="Conversation menu">${icon('more')}</summary><div class="export-popover"><button data-action="account">Account & connection</button><button data-action="rename">Rename thread</button><button data-action="move-project">Move to project…</button><button class="mobile-menu-item" data-action="mobile-find">Find in thread</button><button class="mobile-menu-item" data-action="mobile-view">Reading & visibility</button><button data-action="pin">Pin / unpin</button><button data-action="compare" id="compare-toggle" aria-pressed="false">Compare models</button><button data-action="export-md">Export Markdown</button><button data-action="export-json">Export JSON</button><button data-action="import">Import conversation</button><button data-action="delete" class="danger">Delete conversation…</button></div></details>${button('artifacts','Artifact workspace','panel','class="icon-button"')}${button('inspector','Advanced conversation settings','settings','class="icon-button"')}</header>
+  <main class="main"><header class="toolbar">${button('sidebar','Toggle conversation sidebar','panel','class="icon-button"')}<div class="thread-heading"><button class="project-breadcrumb" data-action="thread-project" id="project-breadcrumb" title="Move thread to project">Unfiled</button><h1><button class="toolbar-title" data-action="rename-thread" id="thread-title" title="Rename thread"></button></h1><button id="branch-origin" class="branch-origin hidden" data-action="original-thread">Original thread</button></div><span class="spacer"></span>${button('find','Find in conversation','search','class="icon-button"')}${button('view','Reading & visibility','eye','class="icon-button"')}<details class="export-menu"><summary aria-label="Conversation menu" title="Conversation menu">${icon('more')}</summary><div class="export-popover"><button data-action="account">Account & connection</button><button data-action="rename">Rename thread</button><button data-action="move-project">Move to project…</button><button class="mobile-menu-item" data-action="mobile-find">Find in thread</button><button class="mobile-menu-item" data-action="mobile-view">Reading & visibility</button><button data-action="pin">Pin / unpin</button><button data-action="compare" id="compare-toggle" aria-pressed="false">Compare models</button><button data-action="instructions-picker">System instructions…</button><button data-action="export-md">Export Markdown</button><button data-action="export-json">Export JSON</button><button data-action="import">Import conversation</button><button data-action="delete" class="danger">Delete conversation…</button></div></details>${button('artifacts','Artifact workspace','panel','class="icon-button"')}${button('inspector','Advanced conversation settings','settings','class="icon-button"')}</header>
     <div id="find-bar" class="find-bar hidden"><input id="find-input" type="search" placeholder="Find in this conversation" aria-label="Find in this conversation"><span id="find-count"></span>${button('find-prev','Previous match','up','class="icon-button"')}${button('find-next','Next match','down','class="icon-button"')}${button('find-close','Close find','close','class="icon-button"')}</div>
     <div id="notice" class="notice hidden" role="status"></div><div class="transcript" id="transcript" tabindex="0" aria-label="Conversation"><div id="transcript-inner" class="transcript-inner"></div></div><button class="jump hidden" id="jump" data-action="jump">${icon('down')}Latest</button>
-    <div class="composer-region"><div class="pending-settings hidden" id="pending-settings" role="status"><span>Unapplied settings</span><button type="button" data-action="apply-pending">Apply</button><button type="button" data-action="discard-pending">Discard</button></div><form id="composer-form" class="composer"><div class="attachments hidden" id="attachments"></div><textarea id="prompt" enterkeyhint="enter" placeholder="Message Tinfoil…" aria-label="Message" rows="1" maxlength="160000"></textarea><div class="composer-tools">${button('attach','Attach text or code files','attach','class="icon-button"')}${button('edit-draft','Expand message editor','expand','class="icon-button"')}<button type="button" data-action="model-picker" class="model-name" id="composer-model">Choose model</button><select id="quick-effort" class="quick-effort hidden" aria-label="Thinking effort"></select><span id="tools-badge" class="tools-badge hidden">Python · ask first</span><span class="spacer"></span><button type="button" data-action="stop" class="stop hidden" id="stop">${icon('stop')}Stop</button><button type="submit" class="send" id="send" title="Send message">${icon('send')}<span class="sr-only">Send</span></button></div></form><div class="composer-meta"><span id="compose-hint">Enter to send · Shift + Enter for a new line</span><span id="context-size"></span></div></div>
+    <div class="composer-region"><div class="pending-settings hidden" id="pending-settings" role="status"><span>Unapplied settings</span><button type="button" data-action="apply-pending">Apply</button><button type="button" data-action="discard-pending">Discard</button></div><form id="composer-form" class="composer"><div class="attachments hidden" id="attachments"></div><textarea id="prompt" enterkeyhint="enter" placeholder="Message Tinfoil…" aria-label="Message" rows="1" maxlength="160000"></textarea><div class="composer-tools">${button('attach','Attach text or code files','attach','class="icon-button"')}${button('edit-draft','Expand message editor','expand','class="icon-button"')}<button type="button" data-action="model-picker" class="model-name" id="composer-model">Choose model</button><select id="quick-effort" class="quick-effort hidden" aria-label="Thinking effort"></select><button type="button" data-action="instructions-picker" class="instructions-chip" id="composer-instructions" aria-label="System instructions (optional)">${icon('instructions')}<span id="composer-instructions-name"></span></button><span id="tools-badge" class="tools-badge hidden">Python · ask first</span><span class="spacer"></span><button type="button" data-action="stop" class="stop hidden" id="stop">${icon('stop')}Stop</button><button type="submit" class="send" id="send" title="Send message">${icon('send')}<span class="sr-only">Send</span></button></div></form><div class="composer-meta"><span id="compose-hint">Enter to send · Shift + Enter for a new line</span><span id="context-size"></span></div></div>
   </main>
-  <aside class="inspector" id="inspector"><header class="inspector-header"><span>Advanced</span>${button('inspector','Close advanced settings','close','class="icon-button"')}</header><div class="inspector-body"><form id="config-form"><section><div class="eyebrow">Conversation</div><label for="model">Model</label><input id="model" list="models" placeholder="Model ID" autocomplete="off"><datalist id="models"></datalist><div id="compare-field" class="hidden"><label for="compare-model">Compare with</label><input id="compare-model" list="models" placeholder="Second model ID" autocomplete="off"><p>Two independent requests. Select one reply to continue.</p></div><label for="instructions">System instructions <span class="field-optional">Optional</span></label><textarea id="instructions" placeholder="Optional — leave blank for provider defaults" maxlength="40000" aria-describedby="system-optional"></textarea><p id="system-optional">Not required. You can chat without setting a custom system prompt.</p></section><section><div class="eyebrow">Generation</div><div class="two-fields"><div><label for="temperature">Temperature</label><input id="temperature" type="number" min="0" max="2" step="0.1" placeholder="Default"></div><div><label for="max-tokens">Output limit</label><input id="max-tokens" type="number" min="1" max="131072" step="1" value="8192"></div></div><div id="reasoning-controls"><label for="reasoning">Thinking effort</label><select id="reasoning"></select></div><div id="thinking-controls"><label for="thinking-mode">Thinking mode</label><select id="thinking-mode"><option value="default">Provider default</option><option value="enabled">Enabled</option><option value="disabled">Disabled</option></select></div><p id="capability-note"></p><div id="compare-reasoning-controls" class="hidden"><label for="compare-reasoning">Comparison model effort</label><select id="compare-reasoning"></select><div id="compare-thinking-controls"><label for="compare-thinking-mode">Comparison thinking mode</label><select id="compare-thinking-mode"><option value="default">Provider default</option><option value="enabled">Enabled</option><option value="disabled">Disabled</option></select></div><p id="compare-capability-note"></p></div><label class="toggle-row"><span>Charts, documents & visual tools</span><input id="visual-tools" type="checkbox"></label><p>Creates in-app artifacts without running Python. Files are saved only when you choose Save.</p><label for="tools-mode">Model-requested Python</label><select id="tools-mode"><option value="off">Off</option><option value="ask">Ask before every run</option></select><p>Local execution, not a Tinfoil-hosted sandbox. Every run needs approval.</p><div class="eyebrow activity-settings-heading">Provider tools & delegation</div><label class="toggle-row"><span>Tinfoil web search</span><input id="web-search" type="checkbox"></label><p>Uses Tinfoil’s built-in MCP-backed search. Requires provider access; additional tool usage may apply.</p><label for="delegate-mode">Text-only sub-agents</label><select id="delegate-mode"><option value="off">Off</option><option value="ask">Ask before each request</option></select><p>Client-orchestrated, same model, task-only context. Up to two additional requests per send; no child tools or recursion.</p><details class="tool-support"><summary>API support & limits</summary><p>Batch: multiple tool calls in one completion round, executed sequentially here. This is not an offline billing Batch API.</p><p>MCP: displays Tinfoil-managed search and code-execution events. Arbitrary MCP server connections are not configured by this client.</p><p>Native hosted sub-agent events have not been verified. The optional delegate tool makes a separate approved Chat Completions request.</p></details><button class="primary apply" type="submit" id="apply-settings">Apply settings</button></section></form><details class="connection-details"><summary>Connection & verification</summary><div id="connection-card" class="connection-card"></div></details></div></aside>
+  <aside class="inspector" id="inspector"><header class="inspector-header"><span>Advanced</span>${button('inspector','Close advanced settings','close','class="icon-button"')}</header><div class="inspector-body"><form id="config-form"><section><div class="eyebrow">Conversation</div><label for="model">Model</label><input id="model" list="models" placeholder="Model ID" autocomplete="off"><datalist id="models"></datalist><div id="compare-field" class="hidden"><label for="compare-model">Compare with</label><input id="compare-model" list="models" placeholder="Second model ID" autocomplete="off"><p>Two independent requests. Select one reply to continue.</p></div><div class="field-heading"><label for="instructions">System instructions <span class="field-optional">Optional</span></label><button type="button" class="field-action" data-action="instructions-picker" aria-label="Choose saved or starter instructions" title="Choose saved or starter instructions">Choose…</button></div><textarea id="instructions" placeholder="Optional — leave blank for provider defaults" maxlength="40000" aria-describedby="system-optional instructions-applied"></textarea><p id="system-optional">Not required. You can chat without setting a custom system prompt.</p><p id="instructions-applied" class="instructions-applied" hidden></p></section><section><div class="eyebrow">Generation</div><div class="two-fields"><div><label for="temperature">Temperature</label><input id="temperature" type="number" min="0" max="2" step="0.1" placeholder="Default"></div><div><label for="max-tokens">Output limit</label><input id="max-tokens" type="number" min="1" max="131072" step="1" value="8192"></div></div><div id="reasoning-controls"><label for="reasoning">Thinking effort</label><select id="reasoning"></select></div><div id="thinking-controls"><label for="thinking-mode">Thinking mode</label><select id="thinking-mode"><option value="default">Provider default</option><option value="enabled">Enabled</option><option value="disabled">Disabled</option></select></div><p id="capability-note"></p><div id="compare-reasoning-controls" class="hidden"><label for="compare-reasoning">Comparison model effort</label><select id="compare-reasoning"></select><div id="compare-thinking-controls"><label for="compare-thinking-mode">Comparison thinking mode</label><select id="compare-thinking-mode"><option value="default">Provider default</option><option value="enabled">Enabled</option><option value="disabled">Disabled</option></select></div><p id="compare-capability-note"></p></div><label class="toggle-row"><span>Charts, documents & visual tools</span><input id="visual-tools" type="checkbox"></label><p>Creates in-app artifacts without running Python. Files are saved only when you choose Save.</p><label for="tools-mode">Model-requested Python</label><select id="tools-mode"><option value="off">Off</option><option value="ask">Ask before every run</option></select><p>Local execution, not a Tinfoil-hosted sandbox. Every run needs approval.</p><div class="eyebrow activity-settings-heading">Provider tools & delegation</div><label class="toggle-row"><span>Tinfoil web search</span><input id="web-search" type="checkbox"></label><p>Uses Tinfoil’s built-in MCP-backed search. Requires provider access; additional tool usage may apply.</p><label for="delegate-mode">Text-only sub-agents</label><select id="delegate-mode"><option value="off">Off</option><option value="ask">Ask before each request</option></select><p>Client-orchestrated, same model, task-only context. Up to two additional requests per send; no child tools or recursion.</p><details class="tool-support"><summary>API support & limits</summary><p>Batch: multiple tool calls in one completion round, executed sequentially here. This is not an offline billing Batch API.</p><p>MCP: displays Tinfoil-managed search and code-execution events. Arbitrary MCP server connections are not configured by this client.</p><p>Native hosted sub-agent events have not been verified. The optional delegate tool makes a separate approved Chat Completions request.</p></details><button class="primary apply" type="submit" id="apply-settings">Apply settings</button></section></form><details class="connection-details"><summary>Connection & verification</summary><div id="connection-card" class="connection-card"></div></details></div></aside>
   <button id="drawer-backdrop" data-action="close-drawers" aria-label="Close drawer" tabindex="-1" hidden></button>
   <footer class="statusbar"><button data-action="verify" id="status-connection"></button><span class="spacer"></span><span id="status-activity" role="status" aria-live="polite">Ready</span><span id="status-storage">Encrypted on this device</span></footer>
 </div>
@@ -50,6 +35,13 @@ app.innerHTML = `<div class="shell no-inspector" id="shell">
 <dialog id="settings-dialog"><div class="modal-head"><h2>Settings</h2>${button('dismiss','Close settings','close','class="icon-button"')}</div><div class="modal-body"><form id="key-form"><div class="settings-account-link"><div><strong>Tinfoil Chat account</strong><p>Sign in with your subscription, or use a separate API key below.</p></div><button type="button" data-action="account">Account…</button></div><div class="eyebrow">Developer API key</div><p>This key is separate from a Chat subscription. Saving a key does not switch an active Chat account to API billing.</p><div class="key-status" id="key-status"></div><label for="api-key">Tinfoil API key</label><input id="api-key" type="password" placeholder="Paste a new API key" autocomplete="off" spellcheck="false" maxlength="4096"><div class="modal-actions"><button type="button" data-action="docs">API key guide</button><button type="button" data-action="forget-key" class="danger" id="forget-key">Forget key</button><button type="submit" class="primary" id="save-key">Save & verify</button></div><p class="modal-foot" id="key-feedback" role="status"></p></form><details class="execution-settings"><summary>Execution</summary><p>Python runs locally with your account's permissions. It can access files and the network; this is not a sandbox. Only approve code you trust.</p><div id="python-status" class="key-status"></div><button data-action="python-pick">Choose Python interpreter…</button><p>No Python installation is needed for ordinary chat. Running Python requires an installed interpreter; packages are never installed automatically.</p></details></div></dialog>
 <dialog id="view-dialog"><div class="modal-head"><h2>Reading & visibility</h2>${button('dismiss','Close reading settings','close','class="icon-button"')}</div><div class="modal-body"><label for="view-reasoning">Model reasoning</label><select id="view-reasoning"><option value="collapsed">Collapsed by default</option><option value="expanded">Expanded</option><option value="hidden">Hidden</option></select><p>Only reasoning actually returned by the provider is shown. Hiding it does not disable model reasoning.</p><label class="toggle-row"><span>Render Markdown</span><input id="view-markdown" type="checkbox"></label><label class="toggle-row"><span>Render LaTeX maths</span><input id="view-math" type="checkbox"></label><label class="toggle-row"><span>Show timing, tokens & context size</span><input id="view-metadata" type="checkbox"></label><label class="toggle-row"><span>Wrap long code lines</span><input id="view-wrapCode" type="checkbox"></label><label class="toggle-row"><span>Also open the workspace automatically</span><input id="view-autoArtifacts" type="checkbox"></label><label for="view-motion">Animations</label><select id="view-motion"><option value="system">Follow Windows motion preference</option><option value="reduced">Reduced motion</option></select><label class="toggle-row"><span>Focus mode <kbd>Ctrl Shift F</kbd></span><input id="view-focus" type="checkbox"></label><p>Tool approvals and errors remain visible in every mode.</p></div></dialog>
 <dialog id="model-dialog"><div class="modal-head"><h2>Choose model</h2>${button('dismiss','Close model picker','close','class="icon-button"')}</div><form id="model-form" class="modal-body"><label for="quick-model">Model</label><input id="quick-model" list="models" placeholder="Search or enter a model ID" autocomplete="off"><div id="model-options" class="model-options"></div><div class="modal-actions"><button type="button" data-action="show-inspector">Advanced…</button><button class="primary" type="submit">Use model</button></div></form></dialog>
+<dialog id="instructions-dialog" aria-labelledby="instructions-title"><div class="modal-head"><h2 id="instructions-title">System instructions</h2>${button('instructions-close','Close system instructions','close','class="icon-button"')}</div><div class="modal-body">
+<div id="instructions-list-view"><p class="instructions-intro">Optional — not required. The selection is sent as the system message of each new request in this conversation. None keeps provider defaults.</p><p id="instructions-locked" class="instructions-note" hidden>Stop the active response to change this conversation’s instructions. Saved instructions can still be managed.</p><div id="instructions-options" class="instruction-options" role="group" aria-label="Instructions for this conversation"></div><div class="modal-actions"><button type="button" data-action="instructions-new">${icon('plus')}New instructions</button></div></div>
+<form id="instructions-form" class="instructions-form" hidden><label for="instructions-name">Name <span class="field-optional">Needed to save for reuse</span></label><input id="instructions-name" maxlength="80" autocomplete="off" placeholder="For example, Code reviewer"><label for="instructions-text">Instructions</label><textarea id="instructions-text" maxlength="40000" rows="8" placeholder="How should the model respond in this conversation?" aria-describedby="instructions-count instructions-storage"></textarea><p class="instructions-count" id="instructions-count"></p><p class="instructions-note" id="instructions-storage">Saved instructions stay in this device’s encrypted workspace. A conversation keeps the text it was given, even if the saved copy later changes or is deleted.</p>
+<div class="instructions-confirm" id="instructions-discard" role="alert" hidden><span>Discard these changes?</span><button type="button" data-action="instructions-keep">Keep editing</button><button type="button" class="danger" data-action="instructions-discard">Discard</button></div>
+<div class="instructions-confirm" id="instructions-delete-confirm" role="alert" hidden><span id="instructions-delete-text"></span><button type="button" data-action="instructions-keep-saved">Cancel</button><button type="button" class="danger" data-action="instructions-confirm-delete">Delete</button></div>
+<div class="modal-actions"><button type="button" id="instructions-delete" data-action="instructions-delete" class="danger" hidden>Delete…</button><span class="spacer"></span><button type="button" data-action="instructions-back">Back</button><button type="button" id="instructions-save" data-action="instructions-save">Save for reuse</button><button type="submit" class="primary" id="instructions-use">Use in this conversation</button></div></form>
+</div></dialog>
 <dialog id="rename-dialog"><div class="modal-head"><h2>Rename conversation</h2>${button('dismiss','Close rename dialog','close','class="icon-button"')}</div><form id="rename-form" class="modal-body"><label for="rename-input">Conversation name</label><input id="rename-input" maxlength="120" required><div class="modal-actions"><button type="button" data-action="dismiss">Cancel</button><button type="submit" class="primary">Save name</button></div></form></dialog>
 <dialog id="palette-dialog"><input class="palette-input" id="palette-search" placeholder="Type a command…" aria-label="Find a command"><div class="palette-items" id="palette-items"></div></dialog>
 
@@ -105,7 +97,7 @@ function restoreConfiguration():void {
   for(const id of ['model','compare-model'])$<HTMLInputElement>(id).value=String(draft[id]??'');
   renderReasoningControls();
   for(const [id,value] of Object.entries(draft)){const el=$(id) as HTMLInputElement;if(typeof value==='boolean')el.checked=value;else el.value=value;}
-  configDirty=true;pendingSettings();$('apply-settings').textContent='Apply changes';
+  renderInstructionsApplied();configDirty=true;pendingSettings();$('apply-settings').textContent='Apply changes';
 }
 const replyCache = new Map<string, (string | number | boolean | null | undefined)[]>();
 const chromeTemplates = new WeakMap<HTMLElement,string>();
@@ -127,7 +119,7 @@ function accept(snapshot:Snapshot):void {
   // Snapshot sequence is optional only for independently supplied development bridges.
   const sequence = (snapshot as Snapshot & { sequence?:number }).sequence ?? ++revision;
   if (sequence < revision) return;
-  revision=sequence; state=snapshot;state.workspace.projects??=[];
+  revision=sequence; state=snapshot;state.workspace.projects??=[];state.workspace.instructionPresets??=[];
   if(state.platform&&document.documentElement.dataset.platform!==state.platform){
     document.documentElement.dataset.platform=state.platform;
     const motion=document.querySelector<HTMLOptionElement>('#view-motion option[value="system"]');
@@ -149,6 +141,7 @@ function accept(snapshot:Snapshot):void {
   $('preview-label').classList.toggle('hidden',state.storage!=='preview');
   const compare=$<HTMLButtonElement>('compare-toggle'); compare.classList.toggle('on',thread.settings.compare); compare.setAttribute('aria-pressed',String(thread.settings.compare)); compare.disabled=!!state.busyThreadId;
   $('composer-model').textContent=(thread.settings.model || 'Choose model') + (thread.settings.compare ? ' × 2' : '');
+  renderInstructionsChip();renderInstructionsApplied();if($<HTMLDialogElement>('instructions-dialog').open)renderInstructionsLock();
   $('tools-badge').classList.toggle('hidden', thread.settings.toolsMode !== 'ask');
   $('send').querySelector('span')!.textContent=thread.settings.compare?'Send to 2':'Send';
   $<HTMLButtonElement>('send').disabled=!!state.busyThreadId || sending;
@@ -234,13 +227,24 @@ function replyMarkup(reply:Reply, turn:Turn):string {
   const status=reply.status==='awaiting_approval'?'Approval needed':active.some(t=>t.name==='delegate_task'&&t.status==='running')?'Sub-agent working':active.some(t=>t.provider&&t.status==='running')?'Using provider tools':reply.status==='executing'?(active.some(t=>t.name==='python')?'Running Python':'Creating visualization'):thinking?'Thinking':writing?'Writing':'Waiting for response';
   const reasonOpen=disclosures.get(`reason-${reply.id}`)??view.reasoning==='expanded';
   const hasArtifact=tools.some(t=>t.artifacts.length);
-  return `<div class="message-label" data-key="identity"><span class="assistant-dot">${icon('logo')}</span><span>${e(reply.model)}</span>${reply.edit?'<span class="edited-label" title="Manually revised; the original text is preserved">Edited</span>':''}${view.metadata?`<span class="meta">${e(reply.status)} · ${(reply.elapsedMs/1000).toFixed(1)}s</span>`:''}</div>
+  // A single answer starts with its content. Side-by-side lanes still name their model up front.
+  return `${turn.replies.length>1?`<div class="message-label lane-label" data-key="identity"><span class="assistant-dot">${icon('logo')}</span><span>${e(reply.model)}</span></div>`:''}
     <div class="reply-context ${(!reply.reasoning||view.reasoning==='hidden')&&!tools.length?'hidden':''}" data-key="context">${reply.reasoning&&view.reasoning!=='hidden'?`<details class="reasoning ${thinking?'is-thinking':''}" data-key="reasoning" data-disclosure="reason-${e(reply.id)}" ${reasonOpen?'open':''}><summary><span class="reasoning-label">${thinking?'Thinking':'Reasoning'}</span><span class="thinking-wave" aria-hidden="true"><i></i><i></i><i></i></span><small>${reply.edit?.reasoningEdited?'Manually edited · local only':'Provided by the model'}</small></summary><div class="reasoning-content" data-key="reason-text" data-rich-host></div>${!streaming?`<div class="reasoning-actions"><button data-action="edit-thinking" data-turn="${e(turn.id)}" data-reply="${e(reply.id)}">${icon('write')}Edit thinking text</button></div>`:''}</details>`:''}
     <div class="reply-tool-activity" data-key="tools">${activityMarkup(reply)}</div></div>
     <div class="reply-content response-flow ${writing?'streaming-answer':''}" data-key="answer" aria-busy="${streaming}">${responseFlow(reply,raw)}${!streaming&&!reply.content&&!hasArtifact?'<div class="waiting">No answer text was returned.</div>':''}</div>
     ${streaming?`<div class="response-activity ${reply.status==='awaiting_approval'?'needs-approval':''} ${thinking&&reply.reasoning&&view.reasoning!=='hidden'?'sr-only':''}" data-key="activity" role="status" aria-live="polite"><span class="activity-orbit" aria-hidden="true"></span><span>${status}</span></div>`:''}
     ${reply.error?`<div class="reply-note" data-key="error" role="status">${e(reply.error)}</div>`:''}
-    <div class="reply-actions" data-key="actions">${reply.status==='complete'?`<button data-action="edit-reply" data-turn="${e(turn.id)}" data-reply="${e(reply.id)}" title="Edit answer or thinking text">${icon('write')}<span>Edit</span></button>`:''}<button data-action="copy-reply" data-reply="${e(reply.id)}" title="Copy answer">${icon('copy')}<span>Copy</span></button><button data-action="source" data-reply="${e(reply.id)}" aria-pressed="${raw}">${icon('code')}<span>${raw?'Rendered':'Source'}</span></button>${reply.status==='complete'?`<button data-action="branch" data-turn="${e(turn.id)}" data-reply="${e(reply.id)}" title="Continue in a new branch">${icon('branch')}<span>Branch</span></button>`:!streaming?`<button data-action="retry" data-turn="${e(turn.id)}">Retry in new branch</button>`:''}${reply.status==='complete'&&turn.replies.length>1?(selected?'<span class="chosen-label">Selected</span>':`<button class="choose-reply" data-action="choose" data-turn="${e(turn.id)}" data-reply="${e(reply.id)}">Use reply</button>`):''}${view.metadata&&reply.usage?`<span class="usage" title="Main model requests only; delegated usage is shown separately">${reply.usage.input.toLocaleString()} in · ${reply.usage.output.toLocaleString()} out</span>`:''}</div>`;
+    <div class="reply-footer" data-key="footer"><div class="reply-actions" data-key="actions">${reply.status==='complete'?`<button data-action="edit-reply" data-turn="${e(turn.id)}" data-reply="${e(reply.id)}" title="Edit answer or thinking text">${icon('write')}<span>Edit</span></button>`:''}<button data-action="copy-reply" data-reply="${e(reply.id)}" title="Copy answer">${icon('copy')}<span>Copy</span></button><button data-action="source" data-reply="${e(reply.id)}" aria-pressed="${raw}">${icon('code')}<span>${raw?'Rendered':'Source'}</span></button>${reply.status==='complete'?`<button data-action="branch" data-turn="${e(turn.id)}" data-reply="${e(reply.id)}" title="Continue in a new branch">${icon('branch')}<span>Branch</span></button>`:!streaming?`<button data-action="retry" data-turn="${e(turn.id)}">Retry in new branch</button>`:''}${reply.status==='complete'&&turn.replies.length>1?(selected?'<span class="chosen-label">Selected</span>':`<button class="choose-reply" data-action="choose" data-turn="${e(turn.id)}" data-reply="${e(reply.id)}">Use reply</button>`):''}</div>${replySignature(reply)}</div>`;
+}
+/** Quiet provenance after the answer: model, the instructions it was sent with, edits and opt-in metadata. */
+function replySignature(reply:Reply):string {
+  const parts=[`<span class="signature-model">${e(reply.model)}</span>`];
+  if(reply.systemPromptName!==undefined){const name=reply.systemPromptName||'Custom instructions';parts.push(`<span class="signature-instructions" title="System instructions sent with this request: ${e(name)}">${icon('instructions')}<span class="sr-only">System instructions: </span>${e(name)}</span>`);}
+  if(reply.edit)parts.push('<span class="edited-label" title="Manually revised; the original text is preserved">Edited</span>');
+  if(view.metadata)parts.push(`<span class="meta">${e(reply.status)} · ${(reply.elapsedMs/1000).toFixed(1)}s</span>`);
+  if(view.metadata&&reply.usage)parts.push(`<span class="usage" title="Main model requests only; delegated usage is shown separately">${reply.usage.input.toLocaleString()} in · ${reply.usage.output.toLocaleString()} out</span>`);
+  // Items are separated by spacing, not glyphs, so a wrapped line never starts with a stray separator.
+  return `<p class="reply-signature" data-key="signature">${parts.join('')}</p>`;
 }
 function renderTranscript():void {
   const thread=current(), viewport=$('transcript'), container=$('transcript-inner');
@@ -255,7 +259,7 @@ function renderTranscript():void {
   }
   for(const turn of thread.turns) {
     for(const reply of turn.replies) {
-      const signature=[reply.content,reply.reasoning,reply.edit?.editedAt,reply.phase,reply.finalContentOffset,reply.status,reply.error,view.metadata?reply.elapsedMs:0,reply.usage?.input,reply.usage?.output,...(reply.tools??[]).flatMap(t=>[t.id,t.contentOffset,t.name,t.status,t.arguments,t.stdout,t.stderr,t.exitCode,t.truncated,t.origin,t.batchId,t.batchIndex,t.batchSize,t.provider?.family,t.provider?.sources.map(s=>s.url+'|'+s.title).join('\n'),t.delegate?.model,t.delegate?.task,t.delegate?.content,t.delegate?.reasoning,t.delegate?.phase,t.delegate?.usage?.input,t.delegate?.usage?.output,view.metadata?t.elapsedMs:0,...t.artifacts.flatMap(a=>[a.id,a.version])]),!!state.busyThreadId,turn.selectedReplyId,...Object.values(view),rawReplies.has(reply.id)];
+      const signature=[reply.content,reply.reasoning,reply.systemPromptName,turn.replies.length,reply.edit?.editedAt,reply.phase,reply.finalContentOffset,reply.status,reply.error,view.metadata?reply.elapsedMs:0,reply.usage?.input,reply.usage?.output,...(reply.tools??[]).flatMap(t=>[t.id,t.contentOffset,t.name,t.status,t.arguments,t.stdout,t.stderr,t.exitCode,t.truncated,t.origin,t.batchId,t.batchIndex,t.batchSize,t.provider?.family,t.provider?.sources.map(s=>s.url+'|'+s.title).join('\n'),t.delegate?.model,t.delegate?.task,t.delegate?.content,t.delegate?.reasoning,t.delegate?.phase,t.delegate?.usage?.input,t.delegate?.usage?.output,view.metadata?t.elapsedMs:0,...t.artifacts.flatMap(a=>[a.id,a.version])]),!!state.busyThreadId,turn.selectedReplyId,...Object.values(view),rawReplies.has(reply.id)];
       const previous=replyCache.get(reply.id),node=$(`reply-${reply.id}`);
       if(previous?.length===signature.length&&previous.every((value,i)=>value===signature[i])) {syncRichText(node,reply);continue;}
       const selection=window.getSelection();
@@ -282,7 +286,7 @@ function renderConfiguration(force = false):void {
   $<HTMLSelectElement>('tools-mode').value=s.toolsMode ?? 'off';
   $<HTMLInputElement>('model').value=s.model; $<HTMLInputElement>('compare-model').value=s.compareModel;
   $('compare-field').classList.toggle('hidden',!s.compare);
-  $<HTMLTextAreaElement>('instructions').value=s.systemPrompt;
+  $<HTMLTextAreaElement>('instructions').value=s.systemPrompt;renderInstructionsApplied();
   $<HTMLInputElement>('temperature').value=s.temperature===null?'':String(s.temperature);
   $<HTMLInputElement>('max-tokens').value=String(s.maxTokens);
   $<HTMLInputElement>('visual-tools').checked=s.visualTools;
@@ -335,6 +339,85 @@ function renderConnection():void {
   $('connection-card').classList.toggle('verified',v.state==='verified'&&!preview);
   $('connection-card').innerHTML=`<strong>${icon('shield')}${label}</strong><p>${preview?'Sample conversations only. No API requests or attestation are performed.':v.state==='verified'?`SDK verification completed ${new Date(v.checkedAt!).toLocaleTimeString()}. Requests use encrypted EHBP transport.`:'The official SDK checks attestation before an inference request is sent.'}</p><button type="button" data-action="${ready?'connect':'account'}" ${connecting||state.busyThreadId?'disabled':''}>${ready?'Verify & refresh models':chat?'Sign in to Tinfoil Chat':'Set up connection'}</button>${v.steps.length?`<div class="verification-steps">${v.steps.map(s=>`<div><span>${e(s.name)}</span><span>${e(s.status)}</span></div>`).join('')}</div>`:''}`;
   $('status-connection').innerHTML=`<i class="status-indicator ${v.state==='verified'&&!preview?'verified':''}"></i>${label}`;
+}
+let instructionsEdit:{mode:'new'|'saved'|'current';id?:string;name:string;text:string}|null=null,instructionsLeave:'back'|'close'='back';
+const presets=():InstructionPreset[]=>state.workspace.instructionPresets??[];
+function findPreset(key:string):InstructionPreset|undefined {
+  const split=key.indexOf(':'),kind=key.slice(0,split),id=key.slice(split+1);
+  return kind==='saved'?presets().find(p=>p.id===id):kind==='starter'?STARTER_INSTRUCTIONS.find(p=>p.id===id):undefined;
+}
+// Both summaries run on every snapshot, including streamed ones; write the DOM only on change.
+function renderInstructionsChip():void {
+  const summary=instructionsSummary(current().settings,presets()),chip=$<HTMLButtonElement>('composer-instructions');
+  if(chip.dataset.summary===summary.label)return;chip.dataset.summary=summary.label;
+  $('composer-instructions-name').textContent=summary.name;
+  chip.classList.toggle('is-set',summary.set);chip.title=summary.label;chip.setAttribute('aria-label',summary.label);
+}
+function renderInstructionsApplied():void {
+  if(!state)return;
+  const s=current().settings,a=activeInstructions(s,presets()),value=$<HTMLTextAreaElement>('instructions').value,line=$('instructions-applied');
+  const text=value!==s.systemPrompt?(value.trim()?'Edited text applies as unnamed custom instructions.':'Clearing the text turns custom instructions off.')
+    :a.kind==='saved'?`Using saved instructions “${a.preset.name}”.`:a.kind==='starter'?`Using the “${a.preset.name}” starter.`:a.kind==='custom'&&a.name?`Using “${a.name}”.`:'';
+  if(line.textContent!==text){line.textContent=text;line.hidden=!text;}
+}
+function renderInstructionsLock():void {
+  const locked=state.busyThreadId===current().id;
+  $('instructions-locked').hidden=!locked;$<HTMLButtonElement>('instructions-use').disabled=locked;
+  $('instructions-use').title=locked?'Stop the active response to change this conversation’s instructions.':'';
+  if(!instructionsEdit)setMarkup($('instructions-options'),instructionsListMarkup(current().settings,presets(),locked));
+}
+function showInstructionsList():void {
+  instructionsEdit=null;
+  $('instructions-form').hidden=true;$('instructions-list-view').hidden=false;$('instructions-title').textContent='System instructions';
+  renderInstructionsLock();
+}
+function showInstructionsForm(mode:'new'|'saved'|'current',name:string,text:string,id?:string):void {
+  instructionsEdit={mode,id,name,text};
+  $('instructions-list-view').hidden=true;$('instructions-form').hidden=false;
+  $('instructions-title').textContent=mode==='saved'?'Edit saved instructions':mode==='current'?'This conversation’s instructions':'New instructions';
+  $<HTMLInputElement>('instructions-name').value=name;$<HTMLTextAreaElement>('instructions-text').value=text;
+  $('instructions-delete').hidden=mode!=='saved';$('instructions-save').textContent=mode==='saved'?'Save changes':'Save for reuse';
+  $('instructions-discard').hidden=true;$('instructions-delete-confirm').hidden=true;
+  refreshInstructionsForm();renderInstructionsLock();$('instructions-text').focus();
+}
+function refreshInstructionsForm():void {
+  const name=$<HTMLInputElement>('instructions-name').value.trim(),text=$<HTMLTextAreaElement>('instructions-text').value;
+  $('instructions-count').textContent=`${text.length.toLocaleString()} / 40,000 characters${text.trim()?'':' · leave empty to turn custom instructions off'}`;
+  $<HTMLButtonElement>('instructions-save').disabled=!name||!text.trim();
+}
+function instructionsDirty():boolean {
+  const edit=instructionsEdit;
+  return !!edit&&$<HTMLDialogElement>('instructions-dialog').open&&($<HTMLInputElement>('instructions-name').value!==edit.name||$<HTMLTextAreaElement>('instructions-text').value!==edit.text);
+}
+function leaveInstructions(target:'back'|'close'):void {
+  if(instructionsDirty()){instructionsLeave=target;$('instructions-discard').hidden=false;document.querySelector<HTMLButtonElement>('[data-action=instructions-keep]')!.focus();return;}
+  if(target==='close'||!instructionsEdit)$<HTMLDialogElement>('instructions-dialog').close();else showInstructionsList();
+}
+/** Copies text and name into this conversation's settings. It affects only later requests. */
+async function applyInstructions(text:string,name:string):Promise<boolean> {
+  if(configDirty){toast('Apply or discard pending Advanced changes first.',true);return false;}
+  if(state.busyThreadId===current().id){toast('Stop the active response to change this conversation’s instructions.',true);return false;}
+  const thread=current(),named=text.trim()?name.trim():'';
+  const ok=await dispatch({type:'thread.settings',id:thread.id,settings:{...thread.settings,systemPrompt:text,systemPromptName:named}});
+  if(ok)toast(text.trim()?`From your next message this conversation uses ${named?`“${named}”`:'custom instructions'}.`:'From your next message this conversation uses no custom instructions.');
+  return ok;
+}
+async function chooseInstructions(target:HTMLElement):Promise<void> {
+  const key=target.dataset.instructions!;
+  if(target.getAttribute('aria-current')==='true'){$<HTMLDialogElement>('instructions-dialog').close();return;}
+  const preset=key==='none'?{text:'',name:''}:findPreset(key);
+  if(!preset){toast('These instructions are no longer available.',true);renderInstructionsLock();return;}
+  if(await applyInstructions(preset.text,preset.name))$<HTMLDialogElement>('instructions-dialog').close();
+}
+async function saveInstructionsForm():Promise<void> {
+  const edit=instructionsEdit;if(!edit)return;
+  const name=$<HTMLInputElement>('instructions-name').value.trim(),text=$<HTMLTextAreaElement>('instructions-text').value,thread=current();
+  if(!await dispatch({type:'instructions.save',...(edit.mode==='saved'&&edit.id?{id:edit.id}:{}),name,text}))return;
+  // Naming the text this conversation already uses relabels it here; what is sent stays the same.
+  const s=current().settings;
+  if(edit.mode==='current'&&current().id===thread.id&&text===s.systemPrompt&&name!==s.systemPromptName&&!configDirty&&state.busyThreadId!==thread.id)
+    await dispatch({type:'thread.settings',id:thread.id,settings:{...s,systemPromptName:name}});
+  toast(`Saved “${name}”.`);showInstructionsList();
 }
 function renderAttachments():void {
   const files=pendingFiles.get(current().id)??[];
@@ -406,6 +489,7 @@ bridge?.onCloseRequested?.(id=>{void(async()=>{
   if(sending||editor.isSaving){await answerClose(false);toast('Finish the pending save or send before closing.',true);return;}
   const reasons:string[]=[];
   if(editor.hasUnsavedChanges)reasons.push('The open editor has unsaved changes.');
+  if(instructionsDirty())reasons.push('The instructions editor has unsaved changes.');
   if(configDrafts.size)reasons.push('Unapplied Advanced settings will be discarded.');
   if(state.busyThreadId)reasons.push('The active response and tool work will be stopped; received text is retained.');
   if(reasons.length){$('close-detail').textContent=reasons.join(' ');showDialog('close-dialog');}
@@ -430,8 +514,8 @@ document.querySelectorAll('dialog').forEach(dialog=>dialog.addEventListener('clo
   if(dialog.id==='settings-dialog')$<HTMLInputElement>('api-key').value='';
   dialog.querySelector('.dialog-feedback')?.remove();scheduleTranscript(true);
 }));
-function dismiss():void { document.querySelectorAll<HTMLDialogElement>('dialog[open]').forEach(d=>{if(d===editor.dialog)editor.requestClose();else d.close();}); }
-const commands=[['account','Account & connection','lock',''],['artifacts','Toggle artifact workspace','panel','Ctrl Shift A'],['focus','Toggle focus mode','eye','Ctrl Shift F'],['view','Reading & visibility','eye',''],['find','Find in conversation','search','Ctrl F'],['new','New conversation','plus','Ctrl N'],['settings','Settings & connection','settings','Ctrl ,'],['show-inspector','Model configuration','panel',''],['connect','Verify enclave & refresh models','shield',''],['import','Import conversation','upload',''],['export-md','Export conversation as Markdown','download','']];
+function dismiss():void { document.querySelectorAll<HTMLDialogElement>('dialog[open]').forEach(d=>{if(d===editor.dialog)editor.requestClose();else if(d.id==='instructions-dialog'&&instructionsDirty())leaveInstructions('close');else d.close();}); }
+const commands=[['account','Account & connection','lock',''],['artifacts','Toggle artifact workspace','panel','Ctrl Shift A'],['focus','Toggle focus mode','eye','Ctrl Shift F'],['view','Reading & visibility','eye',''],['find','Find in conversation','search','Ctrl F'],['new','New conversation','plus','Ctrl N'],['settings','Settings & connection','settings','Ctrl ,'],['show-inspector','Model configuration','panel',''],['instructions-picker','System instructions','instructions',''],['connect','Verify enclave & refresh models','shield',''],['import','Import conversation','upload',''],['export-md','Export conversation as Markdown','download','']];
 function palette():void { $<HTMLInputElement>('palette-search').value=''; renderPalette(); showDialog('palette-dialog'); $('palette-search').focus(); }
 function renderPalette():void {
   const filter=$<HTMLInputElement>('palette-search').value.toLowerCase();
@@ -486,6 +570,23 @@ async function action(name:string, target?:HTMLElement):Promise<void> {
     case 'find-next': moveFind(1);break;
     case 'find-prev': moveFind(-1);break;
     case 'model-picker': $<HTMLInputElement>('quick-model').value=thread.settings.model; renderModels();showDialog('model-dialog');$('quick-model').focus();break;
+    case 'instructions-picker':showInstructionsList();showDialog('instructions-dialog');$('instructions-options').querySelector<HTMLButtonElement>('[aria-current=true]')?.focus();break;
+    case 'instructions-new':showInstructionsForm('new','','');break;
+    case 'instructions-edit':{
+      const key=target?.dataset.edit??'',preset=findPreset(key);
+      if(key==='current')showInstructionsForm('current',thread.settings.systemPromptName,thread.settings.systemPrompt);
+      else if(preset&&key.startsWith('saved:'))showInstructionsForm('saved',preset.name,preset.text,preset.id);
+      else if(preset)showInstructionsForm('new','',preset.text); // Starters are read-only; edit a copy.
+      break;
+    }
+    case 'instructions-back':leaveInstructions('back');break;
+    case 'instructions-close':leaveInstructions('close');break;
+    case 'instructions-keep':$('instructions-discard').hidden=true;$('instructions-text').focus();break;
+    case 'instructions-discard':instructionsEdit=null;$('instructions-discard').hidden=true;if(instructionsLeave==='close')$<HTMLDialogElement>('instructions-dialog').close();else showInstructionsList();break;
+    case 'instructions-save':await saveInstructionsForm();break;
+    case 'instructions-delete':{const preset=presets().find(p=>p.id===instructionsEdit?.id);if(!preset)break;$('instructions-delete-text').textContent=`Delete “${preset.name}” from saved instructions? Conversations that already use it keep their copy.`;$('instructions-delete-confirm').hidden=false;document.querySelector<HTMLButtonElement>('[data-action=instructions-keep-saved]')!.focus();break;}
+    case 'instructions-keep-saved':$('instructions-delete-confirm').hidden=true;$('instructions-delete').focus();break;
+    case 'instructions-confirm-delete':if(instructionsEdit?.id&&await dispatch({type:'instructions.delete',id:instructionsEdit.id})){instructionsEdit=null;toast('Saved instructions deleted. Conversations that used them are unchanged.');showInstructionsList();}break;
     case 'python-pick': await dispatch({type:'python.pick'});break;
     case 'source': if(target?.dataset.reply){rawReplies.has(target.dataset.reply)?rawReplies.delete(target.dataset.reply):rawReplies.add(target.dataset.reply);renderTranscript();}break;
     case 'cancel-delegate': if(target?.dataset.tool)await dispatch({type:'tool.cancel',id:thread.id,toolId:target.dataset.tool});break;
@@ -549,6 +650,7 @@ document.addEventListener('click',event=>{
   if(target.dataset.url){void dispatch({type:'open.url',url:target.dataset.url});return;}
   if(target.classList.contains('wrap-code')){target.closest('.code-block')?.classList.toggle('wrap');return;}
   if(target.classList.contains('run-code')||target.classList.contains('preview-code')){void codeAction(target);return;}
+  if(target.dataset.instructions){void chooseInstructions(target);return;}
   if(target.dataset.quickModel){$<HTMLInputElement>('quick-model').value=target.dataset.quickModel; $<HTMLFormElement>('model-form').requestSubmit();return;}
   if(target.dataset.action) { void action(target.dataset.action,target); return; }
   if(target.dataset.thread) { void (async()=>{if(!await flushDraft())return; await dispatch({type:'thread.select',id:target.dataset.thread!});if(responsive.compact)responsive.close();})(); return; }
@@ -645,11 +747,21 @@ $('transcript').addEventListener('scroll',()=>{$('jump').classList.toggle('hidde
 $('config-form').addEventListener('input',rememberConfiguration);
 $('config-form').addEventListener('submit',event=>{
   event.preventDefault();
-  const values:GenerationSettings={...current().settings,model:$<HTMLInputElement>('model').value.trim(),compareModel:$<HTMLInputElement>('compare-model').value.trim(),systemPrompt:$<HTMLTextAreaElement>('instructions').value,
+  const applied=current().settings,systemPrompt=$<HTMLTextAreaElement>('instructions').value;
+  // Editing the text in Advanced makes it unnamed custom instructions; unchanged text keeps its name.
+  const values:GenerationSettings={...applied,model:$<HTMLInputElement>('model').value.trim(),compareModel:$<HTMLInputElement>('compare-model').value.trim(),systemPrompt,systemPromptName:systemPrompt===applied.systemPrompt?applied.systemPromptName:'',
     temperature:$<HTMLInputElement>('temperature').value===''?null:Number($<HTMLInputElement>('temperature').value),maxTokens:Number($<HTMLInputElement>('max-tokens').value),toolsMode:$<HTMLSelectElement>('tools-mode').value as GenerationSettings['toolsMode'],reasoningEffort:$<HTMLSelectElement>('reasoning').value,thinkingMode:$<HTMLSelectElement>('thinking-mode').value as GenerationSettings['thinkingMode'],compareReasoningEffort:$<HTMLSelectElement>('compare-reasoning').value,compareThinkingMode:$<HTMLSelectElement>('compare-thinking-mode').value as GenerationSettings['thinkingMode'],visualTools:$<HTMLInputElement>('visual-tools').checked,webSearch:$<HTMLInputElement>('web-search').checked,delegateMode:$<HTMLSelectElement>('delegate-mode').value as GenerationSettings['delegateMode']};
   const id=current().id,originalDraft=configDrafts.get(id);
   void dispatch({type:'thread.settings',id,settings:values}).then(ok=>{if(ok){if(configDrafts.get(id)===originalDraft)configDrafts.delete(id);configDirty=configDrafts.has(current().id);if(current().id===id&&!configDirty){$('apply-settings').textContent='Apply settings';renderConfiguration(true);}pendingSettings();toast('Conversation settings saved.');}});
 });
+$('instructions-form').addEventListener('submit',event=>{event.preventDefault();void(async()=>{if(await applyInstructions($<HTMLTextAreaElement>('instructions-text').value,$<HTMLInputElement>('instructions-name').value)){instructionsEdit=null;$<HTMLDialogElement>('instructions-dialog').close();}})();});
+$('instructions-form').addEventListener('input',refreshInstructionsForm);
+// Enter in the name field must not apply instructions; Ctrl+Enter applies from anywhere in the form.
+$('instructions-name').addEventListener('keydown',event=>{if(event.key==='Enter'&&!event.isComposing){event.preventDefault();$('instructions-text').focus();}});
+$('instructions-form').addEventListener('keydown',event=>{if((event.ctrlKey||event.metaKey)&&event.key==='Enter'&&!event.isComposing){event.preventDefault();$<HTMLFormElement>('instructions-form').requestSubmit();}});
+$<HTMLDialogElement>('instructions-dialog').addEventListener('cancel',event=>{if(instructionsDirty()){event.preventDefault();leaveInstructions('close');}});
+$<HTMLDialogElement>('instructions-dialog').addEventListener('close',()=>{instructionsEdit=null;});
+$('instructions').addEventListener('input',renderInstructionsApplied);
 $('key-form').addEventListener('submit',event=>{
   event.preventDefault(); if(connecting)return;
   void (async()=>{

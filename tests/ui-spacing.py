@@ -20,10 +20,10 @@ fixture = r'''window.__spacingSeed=()=>{
  const middle='\n\nThe largest gap is in run 6. Use Data to inspect the values. This preview is not a measured performance claim.\n\n';
  const spec=chartSpec({title:'Response time',description:'Synthetic example values.',type:'line',labels:['Run 1','Run 2','Run 3','Run 4','Run 5','Run 6'],y_label:'Milliseconds',series:[{name:'Baseline',values:[48,62,56,79,70,94]},{name:'Revised',values:[36,43,39,51,48,61]}]});
  const table=tableSpec({title:'Measurement details',columns:['Measurement','Baseline','Revised','Description'],rows:[['Long measurement label for a narrow table',48,36,'Synthetic local fixture'],['Measurement two',62,43,'Synthetic local fixture']]});
- t.turns=[{id:'spacing-turn',prompt:'Compare the measurements, then show the underlying data.',attachments:[],createdAt:1,selectedReplyId:'spacing-reply',replies:[{id:'spacing-reply',model:'demo/writer',content:intro+middle+'\n\nKeep figures close to the explanation, with transparent surfaces.\n\n```python\nvalues = [48, 62, 56, 79, 70, 94]\nprint(sum(values) / len(values))\n```',reasoning:'Synthetic returned reasoning. Keep observations separate from assumptions.',status:'complete',finishReason:'stop',error:null,usage:null,elapsedMs:1200,tools:[previewTool('chart',JSON.stringify(spec),chartSVG(spec),'Response time',intro.length),previewTool('table',JSON.stringify(table),tableHTML(table),'Measurement details',intro.length+middle.length,'text/html')],toolMessages:[]}]}];emit();
+ t.turns=[{id:'spacing-turn',prompt:'Compare the measurements, then show the underlying data.',attachments:[],createdAt:1,selectedReplyId:'spacing-reply',replies:[{id:'spacing-reply',model:'demo/writer',content:intro+middle+'\n\nKeep figures close to the explanation, with transparent surfaces.\n\n```python\nvalues = [48, 62, 56, 79, 70, 94]\nprint(sum(values) / len(values))\n```',reasoning:'Synthetic returned reasoning. Keep observations separate from assumptions.',systemPromptName:'Release notes reviewer',status:'complete',finishReason:'stop',error:null,usage:null,elapsedMs:1200,tools:[previewTool('chart',JSON.stringify(spec),chartSVG(spec),'Response time',intro.length),previewTool('table',JSON.stringify(table),tableHTML(table),'Measurement details',intro.length+middle.length,'text/html')],toolMessages:[]}]}];emit();
 };
 window.__spacingResetControls=()=>{const t=workspace.threads.find(t=>t.id===workspace.activeId);t.settings.model='demo/writer';t.settings.toolsMode='off';emit();};
-window.__spacingBusy=value=>{const t=workspace.threads.find(t=>t.id===workspace.activeId);t.settings.model='deepseek-v4-pro';t.settings.toolsMode='ask';busy=value?t.id:null;t.turns[0].replies[0].status=value?'streaming':'complete';t.turns[0].replies[0].phase=value?'thinking':'answering';emit();};
+window.__spacingBusy=value=>{const t=workspace.threads.find(t=>t.id===workspace.activeId);t.settings.model='deepseek-v4-pro';t.settings.toolsMode='ask';t.settings.systemPrompt=value?'Keep release notes brief.':'';t.settings.systemPromptName=value?'Release notes reviewer':'';busy=value?t.id:null;t.turns[0].replies[0].status=value?'streaming':'complete';t.turns[0].replies[0].phase=value?'thinking':'answering';emit();};
 '''
 html = (root/'preview/index.html').read_text(encoding='utf-8')
 assert marker in html
@@ -70,11 +70,19 @@ with sync_playwright() as p:
         assert rect(page,'#prompt')['height']<=50
         assert composer['height']<=110
         checks.append(f'{name}: empty composer remains compact without introducing page overflow')
-        user,reply=rect(page,'.user-row'),rect(page,'.reply > .message-label')
-        assert 12<=reply['y']-(user['y']+user['height'])<=24
+        # A single answer has no header row; it starts with its reasoning and answer.
+        assert page.locator('.reply > .message-label').count()==0
+        user,start=rect(page,'.user-row'),rect(page,'.reply-context')
+        assert 12<=start['y']-(user['y']+user['height'])<=24,(name,user,start)
         context_box,body=rect(page,'.reply-context'),rect(page,'.reply-content')
         assert 8<=body['y']-(context_box['y']+context_box['height'])<=16
-        checks.append(f'{name}: message header, reasoning and answer use bounded vertical group spacing')
+        checks.append(f'{name}: answer start, reasoning and answer use bounded vertical group spacing')
+        content,footer=rect(page,'.reply-content'),rect(page,'.reply-footer')
+        assert 8<=footer['y']-(content['y']+content['height'])<=16,(name,content,footer)
+        expect(page.locator('.reply-signature')).to_contain_text('demo/writer');expect(page.locator('.signature-instructions')).to_contain_text('Release notes reviewer')
+        assert inside(rect(page,'.reply-signature'),rect(page,'.transcript-inner'))
+        assert not no_overlap(page,'.reply-footer .reply-actions > button,.reply-signature')
+        checks.append(f'{name}: reply footer keeps actions and the model/instructions signature apart inside the reading column')
         fig=page.locator('.inline-artifact').first
         assert fig.evaluate('e=>getComputedStyle(e).backgroundColor')=='rgba(0, 0, 0, 0)'
         assert fig.evaluate('e=>getComputedStyle(e).borderTopWidth')=='0px'
@@ -90,10 +98,11 @@ with sync_playwright() as p:
         checks.append(f'{name}: multiline draft grows and Latest stays above the measured composer height')
         page.evaluate('window.__spacingBusy(true)');expect(page.locator('#quick-effort')).to_be_visible();expect(page.locator('#stop')).to_be_visible();page.wait_for_timeout(180)
         bounds=rect(page,'.composer')
-        for control in ['#composer-model','#quick-effort','#stop','#send']:
+        expect(page.locator('#composer-instructions')).to_have_class('instructions-chip is-set')
+        for control in ['#composer-model','#quick-effort','#composer-instructions','#stop','#send']:
             assert inside(rect(page,control),bounds),(name,control,rect(page,control),bounds)
         assert not no_overlap(page,'.composer-tools > button,.composer-tools > select')
-        checks.append(f'{name}: effort, model, Stop and Send remain inside the composer without collisions')
+        checks.append(f'{name}: effort, model, instructions, Stop and Send remain inside the composer without collisions')
         page.evaluate('window.__spacingBusy(false)');page.locator('#prompt').fill('');page.wait_for_timeout(180)
         page.locator('[data-action=edit-reply]').click();expect(page.locator('#edit-dialog')).to_be_visible()
         box=rect(page,'#edit-dialog');save=rect(page,'#editor-save');field=rect(page,'#editor-content')

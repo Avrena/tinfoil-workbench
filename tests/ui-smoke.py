@@ -15,7 +15,8 @@ args=parser.parse_args();root=Path(__file__).resolve().parents[1];checks=[]
 html=(root/'preview/index.html').read_text(encoding='utf-8')
 marker='const pause = ms => new Promise(r => setTimeout(r, ms));'
 assert marker in html
-fixture="""window.__fixture = patch => { const t=workspace.threads.find(t=>t.id===workspace.activeId); Object.assign(t.turns[0].replies[0],patch); emit(); };"""
+fixture="""window.__fixture = patch => { const t=workspace.threads.find(t=>t.id===workspace.activeId); Object.assign(t.turns[0].replies[0],patch); emit(); };
+window.__active = () => structuredClone(workspace.threads.find(t=>t.id===workspace.activeId));"""
 html=html.replace(marker,marker+fixture,1)
 with sync_playwright() as p:
  options={'headless':True}
@@ -121,7 +122,49 @@ with sync_playwright() as p:
  expect(second.locator('#thread-list button')).to_have_count(2)
  expect(second.locator('#thread-title')).to_contain_text('branch')
  checks.append('branching from a comparison preserves the original conversation')
+ expect(second.locator('.reply > .message-label')).to_have_count(2);expect(second.locator('.reply-signature')).to_have_count(2)
+ checks.append('comparison lanes keep a model label above each answer and the same signature below it')
  second.close()
+ # A clean third page checks optional system instruction selection and reply signatures.
+ third=b.new_page(viewport={'width':1440,'height':1000})
+ third.on('pageerror',lambda e:errors.append(str(e)))
+ third.set_content(html)
+ chip,name=third.locator('#composer-instructions'),third.locator('#composer-instructions-name')
+ assert 'none' in chip.get_attribute('aria-label');expect(name).to_have_text('')
+ third.locator('#prompt').fill('Plain question.');third.locator('#send').click();expect(third.locator('#stop')).to_be_hidden()
+ expect(third.locator('.reply > .message-label')).to_have_count(0);expect(third.locator('.reply-signature')).to_have_text('demo/writer');expect(third.locator('.signature-instructions')).to_have_count(0)
+ checks.append('an answer without custom instructions starts with its content and ends with only the model name')
+ chip.click();expect(third.locator('#instructions-dialog')).to_be_visible();expect(third.locator('.instructions-intro')).to_contain_text('not required')
+ expect(third.locator('[data-instructions=none]')).to_have_attribute('aria-current','true')
+ third.locator('[data-instructions="starter:starter-concise"]').click();expect(third.locator('#instructions-dialog')).to_be_hidden();expect(name).to_have_text('Concise')
+ applied=third.evaluate('window.__active().settings');assert applied['systemPromptName']=='Concise' and applied['systemPrompt'].startswith('Be concise.')
+ third.locator('#prompt').fill('A short answer, please.');third.locator('#send').click();expect(third.locator('#stop')).to_be_hidden()
+ expect(third.locator('.reply-signature').last).to_contain_text('Concise');expect(third.locator('.reply-signature').first).not_to_contain_text('Concise')
+ expect(third.locator('.reply > .message-label')).to_have_count(0)
+ checks.append('a selected starter applies from the next message; each reply footer names the instructions it was sent with, never above the answer')
+ chip.click();third.locator('[data-action=instructions-new]').click();expect(third.locator('#instructions-save')).to_be_disabled()
+ third.locator('#instructions-name').fill('Translator');third.locator('#instructions-text').fill('Answer in French.');third.locator('#instructions-save').click()
+ expect(third.locator('[data-instructions^="saved:"]')).to_contain_text('Translator');expect(third.locator('[data-instructions="starter:starter-concise"]')).to_have_attribute('aria-current','true')
+ third.locator('[data-instructions^="saved:"]').click();expect(name).to_have_text('Translator')
+ checks.append('saving creates a reusable entry without applying it; selecting it copies the text into the conversation')
+ chip.click();third.locator('.instruction-edit[data-edit^="saved:"]').click();third.locator('#instructions-delete').click();third.locator('[data-action=instructions-confirm-delete]').click()
+ expect(third.locator('.instruction-empty')).to_be_visible();expect(third.locator('[data-instructions=current]')).to_contain_text('Translator')
+ assert third.evaluate('window.__active().settings.systemPrompt')=='Answer in French.'
+ checks.append('deleting saved instructions keeps the copy the conversation already uses')
+ third.locator('.instruction-edit[data-edit=current]').click();third.locator('#instructions-text').fill('Changed but not applied');third.keyboard.press('Escape')
+ expect(third.locator('#instructions-discard')).to_be_visible();expect(third.locator('#instructions-dialog')).to_be_visible()
+ third.locator('[data-action=instructions-discard]').click();expect(third.locator('#instructions-dialog')).to_be_hidden()
+ assert third.evaluate('window.__active().settings.systemPrompt')=='Answer in French.'
+ checks.append('closing with unsaved instruction edits asks first and discarding changes nothing')
+ third.locator('.toolbar [data-action=inspector]').click();expect(third.locator('#instructions-applied')).to_contain_text('Translator')
+ third.locator('#instructions').fill('Use British spelling.');expect(third.locator('#instructions-applied')).to_contain_text('unnamed custom')
+ chip.click();third.locator('[data-instructions=none]').click();expect(third.locator('#instructions-dialog .dialog-feedback')).to_contain_text('pending Advanced');third.keyboard.press('Escape')
+ third.locator('#apply-settings').click();expect(name).to_have_text('Custom');assert third.evaluate('window.__active().settings.systemPromptName')==''
+ checks.append('pending Advanced edits block the picker; edited Advanced text applies as unnamed custom instructions')
+ chip.click();third.locator('[data-instructions=none]').click();expect(name).to_have_text('')
+ assert third.evaluate('window.__active().settings')['systemPrompt']=='';expect(third.locator('.reply-signature').last).to_contain_text('Concise')
+ checks.append('None turns custom instructions off for new requests without relabelling earlier replies')
+ third.close()
  assert not errors,errors;assert len(blocked_styles)<=1,blocked_styles;assert not [r for r in requests if r.startswith(('http:','https:'))],requests
  checks.append('no JavaScript errors or external requests; CSP remains enforced during inert parsing')
  b.close()

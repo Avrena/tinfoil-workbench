@@ -423,3 +423,38 @@ dialog:not(.message-editor) .modal-body { padding: 8px 20px 20px; }
 .notice button{margin-left:8px;color:inherit;background:transparent;border:1px solid currentColor;border-radius:4px;padding:4px 8px}
 #close-dialog .modal-actions{flex-wrap:wrap;gap:8px}#close-dialog p{line-height:1.6}
 @media(pointer:coarse){.pending-settings button{min-height:44px}}
+
+/* System instructions: one footer row for actions and the reply signature, and a
+   composer chip sized like the model control. No per-message measurement. */
+.reply-footer { display: flex; align-items: center; flex-wrap: wrap; gap: 4px 16px; margin-top: var(--space-3); min-height: 32px; container-type: inline-size; }
+.reply-footer > .reply-actions { margin: 0; min-height: 32px; flex: 0 1 auto; }
+.reply-actions .choose-reply, .reply-actions .chosen-label { margin-left: var(--space-2); }
+.reply-signature { margin: 0 0 0 auto; padding: 4px 0; gap: 2px 10px; }
+.signature-instructions { gap: 4px; }
+/* Narrow answers (phones, comparison lanes, split views) give the signature its own last line,
+   so action labels revealed on hover never push it onto a new row. */
+@container (max-width: 640px) {
+  .reply-signature { flex-basis: 100%; margin-left: 0; justify-content: flex-start; padding: 0 0 4px; }
+}
+.instructions-chip { height: 32px; padding: 4px 8px; gap: 6px; flex: 0 1 auto; min-width: 32px; }
+.field-heading { gap: var(--space-2); margin: 16px 0 8px; }
+.field-action { padding: 2px 4px; min-height: 24px; }
+.inspector-body .instructions-applied { margin-top: 6px; }
+.instructions-intro { margin: 4px 0 12px; }
+.instruction-options { gap: 2px; margin: 0 -8px; padding: 0 8px 4px; }
+.instruction-heading { margin: 16px 8px 6px; }
+.instruction-row { gap: 2px; }
+.instruction-option { padding: 10px 12px; gap: 12px; min-height: 44px; }
+.instruction-copy { gap: 2px; }
+.modal-body .instruction-empty { margin: 4px 12px 8px; }
+.modal-body .instructions-count { margin: 6px 0 0; }
+.modal-body .instructions-note { margin: 8px 0 0; }
+.instructions-form textarea { min-height: 176px; }
+.instructions-confirm { gap: 8px; padding: 10px 12px; margin-top: 12px; }
+@media(pointer:coarse),(hover:none) {
+  .instructions-chip { height: 44px; min-width: 44px; }
+}
+@media(max-width:600px) {
+  .instructions-chip { width: 36px; min-width: 36px; height: 44px; padding: 10px; }
+  .instructions-chip > span { display: none; }
+}
