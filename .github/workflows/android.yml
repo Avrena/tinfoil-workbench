@@ -1,0 +1,42 @@
+name: Android client
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: android-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - name: Require reviewed dependency lockfile
+        run: test -f package-lock.json
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: npm
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+      # The Android build does not need the Electron binary that npm run bootstrap downloads.
+      - run: npm ci
+      - run: npm test
+      # The runner image provides ANDROID_HOME with accepted licenses; Gradle installs any missing
+      # platform or build-tools package declared by the project.
+      - name: Android debug build
+        run: node scripts/android-build.mjs --debug
+      - name: Android release build (unsigned; release signing happens on the maintainer machine)
+        run: node scripts/android-build.mjs
+      - uses: actions/upload-artifact@v4
+        with:
+          name: Tinfoil-Workbench-Android-debug
+          path: release/*-android-debug.apk
+          if-no-files-found: error
+          retention-days: 14
