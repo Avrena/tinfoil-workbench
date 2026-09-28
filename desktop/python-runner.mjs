@@ -18,6 +18,9 @@ export async function runPython({ code, interpreter, signal, timeoutMs = 30000, 
   const root = await mkdtemp(join(tmpdir(), 'tinfoil-python-'));
   const output = join(root, 'artifacts'), script = join(root, 'input.py');
   await mkdir(output); await writeFile(script, code, { mode: 0o600 });
+  // Compare resolved paths: TEMP can be an 8.3 short path (C:\Users\RUNNER~1\...) whose files
+  // realpath() reports under the long name, which would otherwise fail the containment check.
+  const outputReal = await realpath(output);
   const started = Date.now();
   let stdout = '', stderr = '', truncated = false, timedOut = false, child;
   const env = { PYTHONIOENCODING: 'utf-8', WORKBENCH_OUTPUT_DIR: output };
@@ -57,7 +60,7 @@ export async function runPython({ code, interpreter, signal, timeoutMs = 30000, 
       if (artifacts.length >= 8 || !entry.isFile() || entry.name.length > 200 || /[\\/\x00-\x1f]/.test(entry.name)) continue;
       const mime = TYPES[extname(entry.name).toLowerCase()]; if (!mime) continue;
       const path = join(output, entry.name), info = await lstat(path);
-      if (!info.isFile() || info.isSymbolicLink() || info.size + bytes > 2 * 1024 * 1024 || !(await realpath(path)).startsWith(output + sep)) continue;
+      if (!info.isFile() || info.isSymbolicLink() || info.size + bytes > 2 * 1024 * 1024 || !(await realpath(path)).startsWith(outputReal + sep)) continue;
       const handle = await open(path, 'r'); let data;
       try {
         const maximum = 2 * 1024 * 1024 - bytes;
