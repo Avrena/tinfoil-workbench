@@ -25,6 +25,11 @@ export function accountDate(v: unknown): number | null {
   if (typeof v !== 'string' || v.length > 100 || !v.trim()) return null;
   const t=Date.parse(v); return Number.isFinite(t) && t > 0 ? t : null;
 }
+/** Token-response times: RFC 3339 with Z or an explicit offset. JavaScript reads a zone-less date-time as local time, so it is refused. */
+export function utcTimestamp(v: unknown): number | null {
+  if (typeof v !== 'string' || v.length > 40 || !/^\d{4}-\d{2}-\d{2}[T ]\d{2}:\d{2}:\d{2}(?:\.\d{1,9})?(?:Z|[+-]\d{2}:\d{2})$/.test(v)) return null;
+  const t=Date.parse(v); return Number.isFinite(t) && t > 0 ? t : null;
+}
 export function normalizeProfile(value: unknown): AccountProfile | null {
   const v=obj(value), id=v.id;
   if(typeof id!=='string'||id.length>200||!/^user_[A-Za-z0-9_-]+$/.test(id))return null;
@@ -38,7 +43,7 @@ function budget(v:unknown):TokenBudget|null {const b=obj(v);const max=count(b.ma
 export function normalizeUsage(value: unknown): AccountUsage | null {
   if(!value||typeof value!=='object'||Array.isArray(value))return null;
   const v=obj(value);
-  return {maxRequests:count(v.max_requests),remaining:count(v.remaining),resetsAt:accountDate(v.resets_at),
+  return {maxRequests:count(v.max_requests),remaining:count(v.remaining),resetsAt:utcTimestamp(v.resets_at),
     inputTokens:budget({max:v.max_input_tokens,used:v.input_tokens_used,remaining:v.input_tokens_remaining}),outputTokens:budget({max:v.max_output_tokens,used:v.output_tokens_used,remaining:v.output_tokens_remaining})};
 }
 export function authOrigin(url: string): boolean {

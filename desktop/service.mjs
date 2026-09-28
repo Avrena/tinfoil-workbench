@@ -30,7 +30,7 @@ export class WorkbenchService {
   constructor(vault, providerFactory, onChange = () => {}, toolExecutor = null, options = {}) {
     this.vault = vault; this.providerFactory = providerFactory; this.onChange = onChange;
     this.options = options; this.capabilities = []; this.toolExecutor = toolExecutor; this.approvals = new Map(); this.delegateControllers = new Map(); this.delegationCount = 0;
-    this.sequence = 0; this.workspace = null; this.client = null; this.connection = null; this.epoch = 0;
+    this.sequence = 0; this.workspace = null; this.client = null; this.connection = null; this.epoch = 0; this.clients = new WeakMap();
     this.models = []; this.verification = idleVerification(); this.busyThreadId = null;
     this.controllers = new Map(); this.tasks = new Set(); this.notice = null; this.storageFailed = false; this.emitter = null;
   }
@@ -89,12 +89,22 @@ export class WorkbenchService {
     return t.turns.length>0&&t.connectionOwner!==owner&&(owner!=='api-key'||!!t.connectionOwner);
   }
   async authorizeThread(id) { this.editable(id);if(this.needsAuthorization(id)){findThread(this.workspace,id).connectionOwner=this.activeOwner();await this.save();this.emit();} }
-  connectionError(error) {
+  /** Every Chat request, tool round and delegated request stays with the account its send was bound to. */
+  bound(client, owner) {
+    if(this.workspace.connectionMode==='chat-account'&&this.clients.get(client)?.owner!==owner)
+      throw new InputError('The signed-in Tinfoil account changed during this response. Nothing further was sent.');
+    return client;
+  }
+  connectionError(error, client = null) {
     if(error instanceof InputError)return error;
     if(this.workspace.connectionMode==='chat-account') {
       if(error?.status===401||error?.status===403) {
-        const message='Tinfoil rejected the signed-in account session. Reconnect in Account. No generation retry or API-key fallback was used.';
-        this.options.account?.invalidate(message);this.resetConnection();return new InputError(message);
+        // Stop using this key and its client. The website session stays signed in, so the next
+        // explicit request exchanges a new key; the rejected request itself is never retried.
+        const message=`Tinfoil rejected this request's Chat access token (HTTP ${error.status}). Partial output was preserved. Send again to request a new token; nothing was retried and no API key was used.`;
+        this.options.account?.reject?.(this.clients.get(client)?.key??null,message);
+        if(!client||client===this.client){this.client=null;this.clientCredential=null;this.verification=idleVerification();}
+        return new InputError(message);
       }
       if(error?.status===402)return new InputError('Tinfoil reports that Chat subscription access is required. Check Account; developer API billing is separate.');
       if(error?.status===429)return new InputError('Tinfoil reports a Chat usage limit. Check Account for the latest reported budget. No generation retry or API-key fallback was used.');
@@ -115,8 +125,9 @@ export class WorkbenchService {
         const credential=mode==='chat-account'?await this.options.account?.getCredential(force):{key:this.workspace.apiKey};
         if(!credential?.key)throw new InputError('Tinfoil Chat sign-in is not available.');
         if(epoch!==this.epoch)throw new InputError('Connection changed while signing in.');
+        // A renewed Chat key gets a new SDK client, which is verified below before any content is sent.
         const client=this.client&&this.clientCredential===credential.key&&!force?this.client:await this.providerFactory(credential.key,this.workspace.cacheSecret,mode);
-        this.clientCredential=credential.key;
+        this.clientCredential=credential.key;this.clients.set(client,{key:credential.key,owner:mode==='chat-account'?'chat:'+credential.owner:'api-key'});
         const document = await Promise.race([
           (async () => { await client.ready(); return client.getVerificationDocument(); })(),
           new Promise((_, reject) => { timer = setTimeout(() => reject(new Error('Verification timed out')), 45000); }),
@@ -161,7 +172,7 @@ export class WorkbenchService {
       this.notice = this.models.length ? null : 'No models were returned. Enter a chat model ID manually.';
       await this.save(); this.emit();
     } catch (error) {
-      error=this.connectionError(error);this.notice = publicError(error); this.emit(); throw error;
+      error=this.connectionError(error,client);this.notice = publicError(error); this.emit(); throw error;
     }
   }
   async execute(input) {
@@ -250,7 +261,7 @@ export class WorkbenchService {
     const thread = findThread(this.workspace, threadId);
     if (thread.settings.toolsMode === 'ask' && (!this.toolExecutor || !this.workspace.pythonPath)) throw new InputError('Choose an installed Python interpreter in Settings → Execution before enabling model-requested Python.');
     const jobs = beginTurn(thread, prompt, files);
-    thread.connectionOwner=owner;
+    thread.connectionOwner=owner;for(const job of jobs)job.owner=owner;
     this.busyThreadId = threadId; this.delegationCount = 0;
     // Install controllers before the first await, so even a stop during disk IO is effective.
     for (const job of jobs) this.controllers.set(job.replyId, new AbortController());
@@ -277,10 +288,11 @@ export class WorkbenchService {
     const messages = structuredClone(job.messages);
     let previousInput = 0, previousOutput = 0, executed = 0;
     reply.tools ??= []; reply.toolMessages ??= [];
+    let client = null;
     try {
-      let client = await abortable(this.connect(), ctrl.signal);
+      client = this.bound(await abortable(this.connect(), ctrl.signal), job.owner);
       for (let round = 0; round < 5; round++) {
-        if(round>0&&this.workspace.connectionMode==='chat-account')client=await abortable(this.connect(),ctrl.signal);
+        if(round>0&&this.workspace.connectionMode==='chat-account')client=this.bound(await abortable(this.connect(),ctrl.signal),job.owner);
         if (ctrl.signal.aborted) throw new Error('Stopped');
         if (JSON.stringify(messages).length > LIMITS.context) throw new InputError('Tool context exceeded the local size limit. Start a shorter conversation.');
         const body = { model: job.model, messages: structuredClone(messages), stream: true,
@@ -378,7 +390,7 @@ export class WorkbenchService {
       }
     } catch (error) {
       const accountRejected=this.workspace.connectionMode==='chat-account'&&[401,403].includes(error?.status);
-      error=this.connectionError(error);
+      error=this.connectionError(error,client);
       reply.status = accountRejected ? 'error' : ctrl.signal.aborted ? 'stopped' : 'error';
       reply.error = error instanceof InputError ? error.message : timeout ? 'The request timed out. Partial output was preserved.' : ctrl.signal.aborted ? 'Stopped. Partial output was preserved.' : publicError(error);
     } finally {
@@ -436,7 +448,7 @@ export class WorkbenchService {
       Object.assign(body,reasoningParameters(capabilityFor(job.model,this.capabilities),primary?job.settings.reasoningEffort:job.settings.compareReasoningEffort,primary?job.settings.thinkingMode:job.settings.compareThinkingMode));
       if(job.settings.temperature!==null)body.temperature=job.settings.temperature;
       // Same verified client, no hidden browser/SDK transport, retries, tools or inherited conversation.
-      if(this.workspace.connectionMode==='chat-account')client=await abortable(this.connect(),controller.signal);
+      if(this.workspace.connectionMode==='chat-account')client=this.bound(await abortable(this.connect(),controller.signal),job.owner);
       const stream=await abortable(client.chat.completions.create(body,{signal:controller.signal}),controller.signal);
       const iterator=stream[Symbol.asyncIterator]();let finish=null,lastSave=Date.now(),drained=false;
       try {
@@ -463,7 +475,7 @@ export class WorkbenchService {
       if(finish!=='stop')throw new InputError(finish==='length'?'Delegate reached its output limit; partial text is retained.':'Delegate did not return a normal completion; partial text is retained.');
       tool.stdout=tool.delegate.content;tool.status='complete';
     }catch(error){
-      error=this.connectionError(error);
+      error=this.connectionError(error,client);
       tool.status=!localFailure&&(parent.signal.aborted||controller?.signal.aborted)?'cancelled':'error';
       tool.stderr=tool.status==='cancelled'?'Delegation stopped or timed out. Partial output is retained; there is no automatic retry.':error instanceof InputError?error.message:publicError(error);
       tool.stdout=tool.delegate?.content??'';

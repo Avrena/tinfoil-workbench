@@ -1,4 +1,4 @@
-import { app, BrowserWindow, Menu, protocol, session, ipcMain, safeStorage, dialog, clipboard, shell, nativeTheme } from 'electron';
+import { app, BrowserWindow, Menu, protocol, session, ipcMain, safeStorage, dialog, clipboard, shell, nativeTheme, powerMonitor } from 'electron';
 import { join, dirname, basename, extname, isAbsolute } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { mkdtempSync } from 'node:fs';
@@ -45,6 +45,8 @@ async function launch() {
   const vault = new EncryptedVault(app.getPath('userData'), safeStorage);
   const accountWindow=new AccountWindow({BrowserWindow,session},message=>account?.invalidate(message));
   account=new AccountSession(accountWindow,()=>service?.accountChanged());
+  // Timers do not run during sleep; requests recheck expiry anyway, and resume drops a stale key at once.
+  powerMonitor.on('resume',()=>account?.resume());
   service = new WorkbenchService(vault, createProvider, snapshot => {
     if (window && !window.isDestroyed()) window.webContents.send('workbench:changed', snapshot);
   }, runPython, {pdfRenderer:renderPDF,capabilityLoader:loadModelCapabilities,account});

@@ -4,16 +4,32 @@ import { InputError } from '../dist/core/validation.js';
 
 // These scripts read only Clerk's public identity API on the exact Tinfoil origin.
 // No selectors, password fields, arbitrary scripts, pasted cookies or native preload.
+// `expected` is the {user, session} pair bound at sign-in; the user and the Clerk session must both
+// still match before and after every asynchronous step. null means the page is not ready (another
+// origin, or Clerk still loading); {signedOut:true} means Clerk is loaded without an active session.
 export function sessionScript(force=false,expected=null){return `(async()=>{
   if(location.origin!==${JSON.stringify(CHAT_ORIGIN)})return null;
-  const clerk=window.Clerk;if(!clerk?.loaded||!clerk.user||!clerk.session)return null;
-  const id=clerk.user.id;if(${JSON.stringify(expected)}&&id!==${JSON.stringify(expected)})return {changed:true};
+  const clerk=window.Clerk;if(!clerk?.loaded)return null;if(!clerk.user||!clerk.session)return {signedOut:true};
+  const id=clerk.user.id,sid=clerk.session.id,user=${JSON.stringify(expected?.user??null)},session=${JSON.stringify(expected?.session??null)};
+  if(user&&id!==user)return {changed:'user'};
+  if(session&&sid!==session)return {changed:'session'};
+  if(typeof clerk.session.status==='string'&&clerk.session.status!=='active')return {signedOut:true};
+  const drift=()=>clerk.user?.id!==id?{changed:'user'}:clerk.session?.id!==sid||clerk.session?.user?.id!==id?{changed:'session'}:null;
+  let moved=drift();if(moved)return moved;
   if(${JSON.stringify(force)})await clerk.user.reload();
-  if(clerk.user?.id!==id||clerk.session?.user?.id!==id)return {changed:true};
+  moved=drift();if(moved)return moved;
   const bearer=await clerk.session.getToken({skipCache:${JSON.stringify(force)}});
-  if(clerk.user?.id!==id||clerk.session?.user?.id!==id)return {changed:true};
+  moved=drift();if(moved)return moved;
   const u=clerk.user,p=u.publicMetadata??{},email=u.primaryEmailAddress;
-  return {sessionUserId:id,bearer,profile:{id,name:[u.firstName,u.lastName].filter(Boolean).join(' ')||u.username||'Tinfoil account',email:email?.emailAddress??'',emailVerified:email?.verification?.status==='verified',subscriptionStatus:p.chat_subscription_status??null,subscriptionExpiresAt:p.chat_subscription_expires_at??null}};
+  return {sessionUserId:id,sessionId:sid,bearer,profile:{id,name:[u.firstName,u.lastName].filter(Boolean).join(' ')||u.username||'Tinfoil account',email:email?.emailAddress??'',emailVerified:email?.verification?.status==='verified',subscriptionStatus:p.chat_subscription_status??null,subscriptionExpiresAt:p.chat_subscription_expires_at??null}};
+})()`;}
+/** Reads only the current user and session IDs, to confirm them after a token exchange. */
+export function identityScript(expected){return `(()=>{
+  if(location.origin!==${JSON.stringify(CHAT_ORIGIN)})return null;
+  const clerk=window.Clerk;if(!clerk?.loaded)return null;if(!clerk.user||!clerk.session)return {signedOut:true};
+  if(clerk.user.id!==${JSON.stringify(expected.user)})return {changed:'user'};
+  if(clerk.session.id!==${JSON.stringify(expected.session)}||clerk.session.user?.id!==clerk.user.id)return {changed:'session'};
+  return {sessionUserId:clerk.user.id,sessionId:clerk.session.id};
 })()`;}
 export const signInScript=`(()=>{if(location.origin!==${JSON.stringify(CHAT_ORIGIN)})return false;const c=window.Clerk;if(!c?.loaded)return false;if(!c.user)c.openSignIn({forceRedirectUrl:${JSON.stringify(CHAT_ORIGIN+'/')},signUpForceRedirectUrl:${JSON.stringify(CHAT_ORIGIN+'/')}});return true;})()`;
 /** Electron is injected so boundary behavior can be tested without native binaries. */
@@ -44,33 +60,55 @@ export class AccountWindow {
     win.on('closed',()=>{if(this.window===win)this.window=null;});
     await win.loadURL(CHAT_ORIGIN+'/');return win;
   }
+  /** A reload or provider redirect may be in progress: wait briefly for the page to stop loading. */
+  settle(win){
+    if(!win.webContents.isLoading())return;
+    return new Promise(resolve=>{const wc=win.webContents,timer=setTimeout(done,10000);function done(){clearTimeout(timer);wc.removeListener('did-stop-loading',done);resolve();}wc.once('did-stop-loading',done);});
+  }
   async script(source){
-    const win=this.window;if(!win||win.isDestroyed()||!authOrigin(win.webContents.getURL()))return null;
+    const win=this.window;if(!win||win.isDestroyed())return null;
+    await this.settle(win);
+    if(win!==this.window||win.isDestroyed()||!authOrigin(win.webContents.getURL()))return null;
     let timer,value;try{value=await Promise.race([win.webContents.executeJavaScript(source,true),new Promise((_,reject)=>{timer=setTimeout(()=>reject(new InputError('Tinfoil sign-in did not respond. Reopen it and try again.')),15000);})]);}finally{clearTimeout(timer);}
     if(win!==this.window||win.isDestroyed()||!authOrigin(win.webContents.getURL()))return null;return value;
   }
   async login(){
     const epoch=++this.epoch;
     let timer;const cancel=new Promise((_,reject)=>{this.rejectLogin=reject;});
-    const task=(async()=>{const win=await this.create();win.show();win.focus();let opened=false;const deadline=Date.now()+600000;
+    const task=(async()=>{const win=await this.create();win.show();win.focus();let opened=false,seen=null;const deadline=Date.now()+600000;
       while(epoch===this.epoch&&Date.now()<deadline){
         if(!opened)opened=await this.script(signInScript)===true;
         const value=await this.script(sessionScript());
-        if(value?.bearer&&value?.profile){this.rejectLogin=null;win.hide();return value;}
+        // Two reads a second apart must agree, so the redirect that follows sign-in (a provider
+        // callback, then the chat page) has settled before any token is requested.
+        if(value?.bearer&&value?.profile){
+          if(seen?.sessionUserId===value.sessionUserId&&seen?.sessionId===value.sessionId){this.rejectLogin=null;win.hide();return value;}
+          seen=value;
+        }else seen=null;
         await new Promise(r=>{timer=setTimeout(r,1000);});
       }throw new InputError('Sign-in timed out or was cancelled. Reopen Account to try again.');
     })();
     try{return await Promise.race([task,cancel]);}catch(error){this.epoch++;throw error;}finally{clearTimeout(timer);this.rejectLogin=null;}
   }
-  async readSession(force=false,expected=null){
-    const value=await this.script(sessionScript(force,expected));
-    if(value?.changed){this.onInvalid('The website account changed. Sign out here and reconnect before sending.');throw new InputError('The website account changed. Reconnect it in Account.');}
-    if(!value?.bearer){this.onInvalid('Your Tinfoil sign-in expired. Sign in again.');throw new InputError('Your Tinfoil sign-in expired. Sign in again.');}
+  checked(value){
+    if(value?.changed){
+      const what=value.changed==='user'?'account':'session';
+      this.onInvalid(`The website ${what} changed. Sign out here and reconnect before sending.`);throw new InputError(`The website ${what} changed. Reconnect it in Account.`);
+    }
+    if(value?.signedOut){this.onInvalid('Your Tinfoil sign-in expired. Sign in again.');throw new InputError('Your Tinfoil sign-in expired. Sign in again.');}
+    // Not ready is not a sign-out: nothing is invalidated, and the request is refused for now.
+    if(!value)throw new InputError('The Tinfoil sign-in page is not ready. Try again in a moment.');
     return value;
   }
+  async readSession(force=false,expected=null){
+    const value=this.checked(await this.script(sessionScript(force,expected)));
+    if(!value.bearer){this.onInvalid('Your Tinfoil sign-in expired. Sign in again.');throw new InputError('Your Tinfoil sign-in expired. Sign in again.');}
+    return value;
+  }
+  async identity(expected){return this.checked(await this.script(identityScript(expected)));}
   async manage(expected){
     await this.readSession(false,expected);this.window.show();this.window.focus();
-    await this.script(`(()=>{if(location.origin===${JSON.stringify(CHAT_ORIGIN)}&&window.Clerk?.user?.id===${JSON.stringify(expected)}){window.Clerk.openUserProfile();return true;}return false;})()`);
+    await this.script(`(()=>{if(location.origin===${JSON.stringify(CHAT_ORIGIN)}&&window.Clerk?.user?.id===${JSON.stringify(expected.user)}&&window.Clerk.session?.id===${JSON.stringify(expected.session)}){window.Clerk.openUserProfile();return true;}return false;})()`);
   }
   async clear(){
     this.epoch++;this.closing=true;this.rejectLogin?.(new InputError('Sign-in was cancelled.'));this.rejectLogin=null;
