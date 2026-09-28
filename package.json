@@ -3,7 +3,7 @@
   "productName": "Tinfoil Workbench",
   "version": "0.10.0",
   "private": true,
-  "description": "Windows 11 Tinfoil Workbench \u2014 local-build handoff, durable drafts, inline artifacts and optional custom instructions",
+  "description": "Windows 11 Tinfoil Workbench — local-build handoff, durable drafts, inline artifacts and optional custom instructions",
   "author": "Avrena",
   "license": "UNLICENSED",
   "type": "module",
@@ -70,5 +70,8 @@
     "portable": {
       "artifactName": "Tinfoil-Workbench-${version}-${arch}-Portable.${ext}"
     }
+  },
+  "allowScripts": {
+    "electron-winstaller": false
   }
 }

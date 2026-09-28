@@ -14,4 +14,9 @@ const args = existsSync(join(root, 'package-lock.json')) ? ['ci'] :
 const result = spawnSync(npm, args, { cwd: root, stdio: 'inherit', shell: process.platform === 'win32' });
 if (result.error) throw result.error;
 if (result.status !== 0) process.exit(result.status ?? 1);
+// Electron 44 has no install hook; its binary is fetched here and verified against
+// the checksums shipped in the pinned electron package.
+const electron = spawnSync(process.execPath, [join(root, 'node_modules', 'electron', 'install.js')], { cwd: root, stdio: 'inherit' });
+if (electron.error) throw electron.error;
+if (electron.status !== 0) process.exit(electron.status ?? 1);
 console.log('Dependencies installed. Review and commit package.json and package-lock.json before publishing.');

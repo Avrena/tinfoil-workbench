@@ -21,9 +21,10 @@ jobs:
           if (!(Test-Path package-lock.json)) { throw 'Bootstrap dependencies and commit package-lock.json first.' }
       - uses: actions/setup-node@v4
         with:
-          node-version: '22'
+          node-version: '24'
           cache: npm
-      - run: npm ci
+      - name: Install locked dependencies and the checksum-verified Electron binary
+        run: npm run bootstrap
       - run: npm run doctor
       - run: npm test
       - name: Native Windows, DPAPI and PDF print/view smoke test
