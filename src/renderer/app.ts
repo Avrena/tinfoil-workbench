@@ -1,7 +1,7 @@
 import { accountFooter, accountOverview } from './account-view.js';
 import { activityMarkup, ActivityDetailsRenderer } from './activity-view.js';
 import { toolActive } from '../core/activity.js';
-import { openModal } from './modal.js';
+import { openModal, topModal } from './modal.js';
 import { MessageEditor } from './editor.js';
 import { ResponsiveLayout } from './responsive.js';
 import type { Attachment, Command, DesktopBridge, GenerationSettings, InstructionPreset, Reply, Snapshot, Thread, Turn, ToolRun, Artifact } from '../core/types.js';
@@ -508,12 +508,25 @@ bridge?.onCloseRequested?.(id=>{void(async()=>{
   else await answerClose(true);
 })();});
 $<HTMLDialogElement>('close-dialog').addEventListener('cancel',event=>{event.preventDefault();void answerClose(false);});
+/** Escape and Android Back: the dialog on top gets a cancelable cancel event and closes only
+ * if no handler keeps it open (the editors ask before discarding unsaved text). */
+function cancelTopDialog():boolean {
+  const top=topModal();if(!top)return false;
+  if(top.dispatchEvent(new Event('cancel',{cancelable:true})))top.close();
+  return true;
+}
+// Chromium stops making a dialog's own cancel event cancelable when Escape is pressed again with
+// no other input in between, so a second Escape closed an editor and dropped its unsaved text
+// without asking. Handle Escape here instead; an IME keeps Escape while it is composing.
+document.addEventListener('keydown',event=>{
+  if(event.key!=='Escape'||event.defaultPrevented||event.isComposing)return;
+  if(cancelTopDialog())event.preventDefault();
+});
 // Android: backgrounding persists the draft (the process may later be stopped without a close
 // request); Back closes the topmost layer and reports whether anything was open.
 bridge?.onAppEvent?.(async event=>{
   if(event==='pause')return flushDraft();
-  const top=[...document.querySelectorAll<HTMLDialogElement>('dialog[open]')].at(-1);
-  if(top){if(top===editor.dialog)editor.requestClose();else if(top.dispatchEvent(new Event('cancel',{cancelable:true})))top.close();return true;}
+  if(cancelTopDialog())return true;
   const menu=document.querySelector<HTMLDetailsElement>('details.export-menu[open]');
   if(menu){menu.open=false;return true;}
   if(!$('find-bar').classList.contains('hidden')){void action('find-close');return true;}

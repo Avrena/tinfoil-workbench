@@ -34,6 +34,17 @@ with sync_playwright() as p:
  page.locator('[data-action=project-manage]').click();page.locator('[data-action=project-remove]').click();expect(page.locator('#project-delete-confirm')).to_contain_text('not be deleted');before=len(page.evaluate('window.__inspect().threads'));page.locator('[data-action=project-confirm-remove]').click();expect(page.locator('#project-dialog')).to_be_hidden();assert len(page.evaluate('window.__inspect().threads'))==before;expect(page.locator('#project-breadcrumb')).to_have_text('Unfiled');checks.append('project removal requires confirmation and preserves all threads')
  page.evaluate('window.__seed()');page.evaluate('window.__busy(true)');page.locator('[data-action=edit-reply]').click();expect(page.locator('#toast')).to_contain_text('Stop');expect(page.locator('#edit-dialog')).to_be_hidden();page.evaluate('window.__busy(false)');checks.append('editing an active thread is blocked before opening a stale editor')
  page.locator('#prompt').fill('IME draft');page.locator('#prompt').dispatch_event('keydown',{'key':'Enter','isComposing':True,'keyCode':229});assert len(page.evaluate('window.__inspect().threads.find(t=>t.id===window.__inspect().activeId).turns'))==1;checks.append('IME composition confirmation never submits a message')
+ # Chromium lets a page prevent one close request per user activation, so a second Escape used to close the
+ # editor and drop its text; the renderer now handles Escape itself. Nothing may query the page between the
+ # two presses: Playwright evaluates with a user gesture, which would grant a new activation and hide the
+ # defect. An Escape that ends an IME composition belongs to the IME.
+ fresh=b.new_page(viewport={'width':1280,'height':900});fresh.on('pageerror',lambda e:errors.append(str(e)));fresh.set_content(html)
+ fresh.locator('#prompt').fill('Draft');fresh.locator('[data-action=edit-draft]').click();fresh.locator('#editor-content').fill('Unsaved editor text')
+ fresh.locator('#editor-content').dispatch_event('keydown',{'key':'Escape','isComposing':True,'keyCode':229});expect(fresh.locator('.editor-discard')).to_be_hidden();expect(fresh.locator('#edit-dialog')).to_be_visible()
+ checks.append('an Escape that ends an IME composition is left to the IME')
+ fresh.keyboard.press('Escape');fresh.keyboard.press('Escape');fresh.wait_for_timeout(150)
+ expect(fresh.locator('#edit-dialog')).to_be_visible();expect(fresh.locator('.editor-discard')).to_be_visible();expect(fresh.locator('#editor-content')).to_have_value('Unsaved editor text');fresh.close()
+ checks.append('a second Escape keeps the editor and its unsaved text behind the discard question')
  assert not errors;checks.append('editing and project flows produced no unhandled JavaScript errors')
  b.close()
 result={'checks':len(checks),'passed':checks,'javascript_errors':errors,'scope':'Chromium renderer with synthetic fixtures; not native Windows or live provider'}

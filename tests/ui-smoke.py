@@ -178,6 +178,13 @@ with sync_playwright() as p:
  third.wait_for_timeout(200);assert third.evaluate('window.__stray')==0;assert third.locator('#thread-list .thread').count()==threads;assert third.evaluate('window.__active().turns.length')==2
  checks.append('double-clicks choose at most one entry and never reach the controls the closing picker uncovers')
  third.close()
+ # A second Escape must not discard unsaved instructions. As in ui-editing.py, nothing queries the page
+ # between the presses, because Playwright's evaluations count as user activation.
+ fourth=b.new_page(viewport={'width':1280,'height':900});fourth.on('pageerror',lambda e:errors.append(str(e)));fourth.set_content(html)
+ fourth.locator('#composer-instructions').click();fourth.locator('[data-action=instructions-new]').click();fourth.locator('#instructions-text').fill('Unsaved instructions')
+ fourth.keyboard.press('Escape');fourth.keyboard.press('Escape');fourth.wait_for_timeout(150)
+ expect(fourth.locator('#instructions-dialog')).to_be_visible();expect(fourth.locator('#instructions-discard')).to_be_visible();expect(fourth.locator('#instructions-text')).to_have_value('Unsaved instructions');fourth.close()
+ checks.append('a second Escape keeps unsaved instructions behind the discard question')
  assert not errors,errors;assert len(blocked_styles)<=1,blocked_styles;assert not [r for r in requests if r.startswith(('http:','https:'))],requests
  checks.append('no JavaScript errors or external requests; CSP remains enforced during inert parsing')
  b.close()
