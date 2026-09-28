@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import { APIConnectionError, APIConnectionTimeoutError } from 'tinfoil';
 import { normalizeCapability, capabilityFor } from '../dist/core/capabilities.js';
 import { pickerModels, pickerModel, makerOf, modelMatches, contextLabel } from '../dist/core/model-list.js';
-import { publicError, networkFailure } from '../dist/core/security.js';
+import { publicError, networkFailure, moduleFailure } from '../dist/core/security.js';
 import { makerMark, modelRow, customModelRow } from '../dist/renderer/model-view.js';
 import { WorkbenchService } from '../desktop/service.mjs';
 
@@ -69,8 +69,17 @@ test('connection failures without an HTTP status say what failed', () => {
   assert.match(publicError(new TypeError('fetch failed', { cause: { code: 'ENOTFOUND' } })), /\(ENOTFOUND\)/);
   assert.match(publicError(new TypeError('Failed to fetch')), /^Tinfoil could not be reached\. /);
   assert.match(publicError(Object.assign(new Error('Not found'), { status: 404, code: 'model_not_found' })), /model, context size/);
-  assert.match(publicError(new Error('boom')), /^The secure request failed/);
+  assert.match(publicError(new Error('boom')), /^The secure request failed\. /);
   assert.equal(networkFailure({ code: 'lowercase_code' }), null);
+  // Codes that are not about the network are never reported as one.
+  const missing = Object.assign(new Error("Cannot find package 'zod' imported from sdk"), { code: 'ERR_MODULE_NOT_FOUND' });
+  assert.equal(networkFailure(missing), null);
+  assert.equal(publicError(missing), 'Workbench could not load part of its secure connection code (ERR_MODULE_NOT_FOUND). Reinstall or update Workbench. Nothing was sent.');
+  assert.equal(moduleFailure(missing), publicError(missing)); assert.equal(moduleFailure(new APIConnectionError({ cause: { code: 'ECONNRESET' } })), null);
+  assert.equal(networkFailure(Object.assign(new Error('denied'), { code: 'EACCES' })), null);
+  assert.match(publicError(Object.assign(new Error('denied'), { code: 'EACCES' })), /^The secure request failed \(EACCES\)\. /);
+  assert.match(publicError(new TypeError('fetch failed', { cause: { code: 'UND_ERR_CONNECT_TIMEOUT' } })), /could not be reached \(UND_ERR_CONNECT_TIMEOUT\)/);
+  assert.match(publicError(new TypeError('fetch failed', { cause: { code: 'ERR_TLS_CERT_ALTNAME_INVALID' } })), /could not be reached \(ERR_TLS_CERT_ALTNAME_INVALID\)/);
 });
 
 function vault() { let value = null; return { read: async () => value, write: async v => { value = structuredClone(v); }, flush: async () => {} }; }
@@ -136,6 +145,13 @@ test('a Chat session that ends during verification reports the session, not a co
   const pending = s.connect(); await settle();
   status = 'expired'; s.accountChanged(); release();
   await assert.rejects(pending, { name: 'InputError', message: 'Your Tinfoil session expired. Sign in again.' });
+});
+test('an SDK module that the installed app cannot load is named, not reported as a network failure', async t => {
+  const missing = Object.assign(new Error("Cannot find package 'zod' imported from sdk"), { code: 'ERR_MODULE_NOT_FOUND' });
+  const s = new WorkbenchService(vault(), async () => { throw missing; }, () => {}, null, {}); await s.initialize(); t.after(() => s.shutdown());
+  await s.execute({ type: 'credentials.set', key: 'test-only-not-real' });
+  await assert.rejects(s.execute({ type: 'connect' }), { name: 'InputError', message: /could not load part of its secure connection code \(ERR_MODULE_NOT_FOUND\)/ });
+  assert.equal(s.verification.state, 'failed'); assert.doesNotMatch(s.notice, /could not be reached/);
 });
 test('Verify & refresh names a network failure while listing models', async t => {
   const s = await service(t, client({ models: { list: async () => { throw new APIConnectionError({ cause: { code: 'ECONNRESET' } }); } } }));

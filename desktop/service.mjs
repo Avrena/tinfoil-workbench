@@ -13,7 +13,7 @@ import { DELEGATE_TOOL, delegateArguments, toolActive } from '../dist/core/activ
 import { RouterEventParser, TINFOIL_EVENT_HEADERS } from '../dist/core/provider-events.js';
 import { randomUUID } from 'node:crypto';
 import { signedOutAccount } from '../dist/core/account.js';
-import { publicError, networkFailure } from '../dist/core/security.js';
+import { publicError, networkFailure, moduleFailure } from '../dist/core/security.js';
 const idleVerification = () => ({ state: 'idle', checkedAt: null, steps: [] });
 const bounded = (v, max = 100) => typeof v === 'string' ? v.slice(0, max) : '';
 const stepList = steps => Object.entries(steps ?? {}).slice(0, 20).map(([name, step]) => ({ name: bounded(name), status: bounded(step?.status) }));
@@ -210,7 +210,8 @@ export class WorkbenchService {
     })();
     return this.catalogFlight = flight;
   }
-  /** Names what failed instead of the catch-all message: a timeout, a verification step, a session change or the network. */
+  /** Names what failed instead of the catch-all message: a timeout, a verification step, a session change, a module
+   * of the SDK that could not be loaded, or the network. */
   verificationError(error, client) {
     if (error instanceof InputError) return error;
     const kind = error?.verificationFailure;
@@ -225,8 +226,8 @@ export class WorkbenchService {
       const step = failed ? (Object.hasOwn(STEP_LABELS, failed.name) ? STEP_LABELS[failed.name] : `the ${failed.name} step`) : '';
       return new InputError(`The enclave could not be verified${step ? `: ${step} failed` : ''}. Nothing was sent.`);
     }
-    const network = networkFailure(error);
-    return network ? new InputError(network) : error;
+    const known = moduleFailure(error) ?? networkFailure(error);
+    return known ? new InputError(known) : error;
   }
   async execute(input) {
     const c = record(input), type = text(c.type, 'Command', 80, true);
