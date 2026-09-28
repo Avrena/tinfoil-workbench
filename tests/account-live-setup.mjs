@@ -154,7 +154,8 @@ async function run() {
   await openAccount();
   await until('the verify button', () => js(`!!document.querySelector('[data-action="account-connect"]:not([disabled])')`), 20_000);
   let t0 = Date.now(); await click('[data-action="account-connect"]');
-  await until('verification', () => ['verified', 'failed'].includes(service.verification.state) && !service.connection, 120_000);
+  // Verification finishes before the model list loads; wait for the list, a notice or a failure.
+  await until('verification and the model list', () => service.verification.state === 'failed' || (service.verification.state === 'verified' && !service.connection && (service.models.length > 0 || !!service.notice)), 120_000);
   log('verified', { state: service.verification.state, steps: service.verification.steps, models: service.models.length, seconds: (Date.now() - t0) / 1000, notice: service.notice });
   if (service.verification.state !== 'verified' || !service.models.length) throw new Error('Verification did not complete.');
   await click('#account-dialog [data-action="dismiss"]');
