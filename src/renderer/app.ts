@@ -612,9 +612,9 @@ async function action(name:string, target?:HTMLElement):Promise<void> {
     case 'find-next': moveFind(1);break;
     case 'find-prev': moveFind(-1);break;
     case 'model-picker': {
-      // The search starts empty so the whole list shows; touch devices skip focusing it so no keyboard covers the list.
+      // The search starts empty so the whole list shows; after a touch it is not focused, so no keyboard covers the list.
       $<HTMLInputElement>('quick-model').value=''; renderModels();showDialog('model-dialog');
-      if(!matchMedia('(pointer: coarse)').matches)$('quick-model').focus();
+      if(lastPointer!=='touch'&&lastPointer!=='pen'&&!matchMedia('(pointer: coarse)').matches)$('quick-model').focus();
       $('model-options').querySelector('[aria-current="true"]')?.scrollIntoView({block:'nearest'});
       if(state.modelCatalog!=='ready'&&state.modelCatalog!=='loading')void dispatch({type:'models.catalog'});
       break;
@@ -751,6 +751,11 @@ $('quick-model').addEventListener('input',renderModels);
 $('model-form').addEventListener('submit',event=>{event.preventDefault();
   const typed=$<HTMLInputElement>('quick-model').value.trim();
   chooseModel(pickerModels(state.models,state.capabilities).some(m=>m.id===typed)?typed:$('model-options').querySelector<HTMLElement>('[data-quick-model]')?.dataset.quickModel??typed);});
+// How the last control was pressed. `(pointer: coarse)` alone is not enough: some Android devices and emulators report a
+// fine primary pointer, and focusing a text field there raises the on-screen keyboard.
+let lastPointer='';
+document.addEventListener('pointerdown',event=>{lastPointer=event.pointerType;},true);
+document.addEventListener('keydown',()=>{lastPointer='';},true);
 $('model-dialog').addEventListener('keydown',event=>{
   if(event.key!=='ArrowDown'&&event.key!=='ArrowUp')return;
   const options=[...$('model-options').querySelectorAll<HTMLElement>('[data-quick-model]')], index=options.indexOf(document.activeElement as HTMLElement);
