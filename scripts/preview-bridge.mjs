@@ -10,8 +10,14 @@ import {settings,attachments,InputError} from '/core/validation.js';
 let previewAccount=signedOutAccount(),previewMode='api-key';
 const workspace=newWorkspace(),listeners=new Set();let sequence=0,busy=null,stopped=false;
 Object.assign(workspace.threads[0].settings,{model:'demo/writer',compareModel:'demo/analyst'});
-const snapshot=()=>({sequence:++sequence,account:structuredClone(previewAccount),connectionMode:previewMode,workspace:structuredClone({version:workspace.version,activeId:workspace.activeId,threads:workspace.threads,projects:workspace.projects,instructionPresets:workspace.instructionPresets,view:workspace.view}),pythonConfigured:false,hasKey:false,models:['demo/writer','demo/analyst','deepseek-v4-pro','kimi-k3'],verification:{state:'idle',checkedAt:null,steps:[]},busyThreadId:busy,storage:'preview',notice:'OFFLINE PREVIEW · Synthetic responses · No API connection or local persistence'});
+const snapshot=()=>({sequence:++sequence,account:structuredClone(previewAccount),connectionMode:previewMode,workspace:structuredClone({version:workspace.version,activeId:workspace.activeId,threads:workspace.threads,projects:workspace.projects,instructionPresets:workspace.instructionPresets,view:workspace.view}),pythonConfigured:false,hasKey:false,models:['demo/writer','demo/analyst','deepseek-v4-pro','kimi-k3'],capabilities:structuredClone(previewCatalog),modelCatalog:'ready',verification:{state:'idle',checkedAt:null,steps:[]},busyThreadId:busy,storage:'preview',notice:'OFFLINE PREVIEW · Synthetic responses · No API connection or local persistence'});
 const emit=()=>{const s=snapshot();for(const fn of listeners)fn(s);};
+// Synthetic picker metadata. Display-only (`known: false`), so the bundled reasoning profiles still apply.
+function previewModel(id,display){return {id,label:display.name,known:false,source:'unknown',reasoning:false,effort:[],toggle:false,defaultEnabled:true,enable:{},disable:{},toolCalling:null,
+  display:{short:'',maker:'',type:'chat',contextWindow:null,multimodal:false,reasoning:false,tools:false,experimental:false,description:'Synthetic offline preview entry.',...display}};}
+const previewCatalog=[previewModel('deepseek-v4-pro',{name:'DeepSeek V4 Pro',maker:'deepseek',contextWindow:1048576,reasoning:true,tools:true}),
+  previewModel('kimi-k3',{name:'Kimi K3',maker:'moonshot',contextWindow:262144,multimodal:true,reasoning:true,tools:true}),
+  previewModel('demo/writer',{name:'Demo Writer',contextWindow:131072}),previewModel('demo/analyst',{name:'Demo Analyst',contextWindow:131072,experimental:true})];
 const pause=ms=>new Promise(r=>setTimeout(r,ms));
 function encodeArtifact(value){const bytes=new TextEncoder().encode(value);let str='';for(const b of bytes)str+=String.fromCharCode(b);return btoa(str);}
 function previewTool(kind,source,data,title,offset,mime='image/svg+xml'){
@@ -124,6 +130,7 @@ window.tinfoil=Object.freeze({
       case 'attachments.pick':extra=[{name:'outline.md',content:'A fictional scene outline. Preview-only attachment.'}];break;
       case 'clipboard':await navigator.clipboard.writeText(c.text);break;
       case 'credentials.set':case 'credentials.clear':case 'connect':throw new InputError('Preview mode cannot accept API keys or contact Tinfoil. Use the desktop app.');
+      case 'models.catalog':break;
       case 'export':case 'import':throw new InputError('Native import and export are available in the desktop app, not this browser preview.');
       case 'window':break;
       case 'open.docs':throw new InputError('Preview mode does not open external links.');

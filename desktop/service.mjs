@@ -13,9 +13,15 @@ import { DELEGATE_TOOL, delegateArguments, toolActive } from '../dist/core/activ
 import { RouterEventParser, TINFOIL_EVENT_HEADERS } from '../dist/core/provider-events.js';
 import { randomUUID } from 'node:crypto';
 import { signedOutAccount } from '../dist/core/account.js';
-import { publicError } from '../dist/core/security.js';
+import { publicError, networkFailure } from '../dist/core/security.js';
 const idleVerification = () => ({ state: 'idle', checkedAt: null, steps: [] });
 const bounded = (v, max = 100) => typeof v === 'string' ? v.slice(0, max) : '';
+const stepList = steps => Object.entries(steps ?? {}).slice(0, 20).map(([name, step]) => ({ name: bounded(name), status: bounded(step?.status) }));
+// The SDK records every verification step, including the one that failed, even when ready() rejects.
+function recordedSteps(client) { try { return stepList(client?.secureClient?.getVerificationDocument?.()?.steps); } catch { return []; } }
+const STEP_LABELS = { fetchDigest: 'fetching the published release', verifyCode: 'the code signature check', verifyEnclave: 'the enclave attestation check',
+  compareMeasurements: 'the measurement comparison', verifyCertificate: 'the certificate check' };
+const verificationFailure = kind => Object.assign(new Error(`Verification ${kind}`), { verificationFailure: kind });
 const finite = v => typeof v === 'number' && Number.isFinite(v) && v >= 0 && v <= 1e9 ? v : 0;
 function abortable(promise, signal) {
   return new Promise((resolve, reject) => {
@@ -32,6 +38,8 @@ export class WorkbenchService {
     this.options = options; this.capabilities = []; this.toolExecutor = toolExecutor; this.approvals = new Map(); this.delegateControllers = new Map(); this.delegationCount = 0;
     this.sequence = 0; this.workspace = null; this.client = null; this.connection = null; this.epoch = 0; this.clients = new WeakMap();
     this.models = []; this.verification = idleVerification(); this.busyThreadId = null;
+    // The public catalog outlives connections; `listed` is the verified endpoint's own list.
+    this.catalog = []; this.listed = []; this.catalogState = 'idle'; this.catalogFlight = null; this.catalogFailedAt = 0;
     this.controllers = new Map(); this.tasks = new Set(); this.notice = null; this.storageFailed = false; this.emitter = null;
   }
   async initialize() {
@@ -44,7 +52,7 @@ export class WorkbenchService {
   snapshot() {
     const { version, activeId, threads, projects, instructionPresets, view } = this.workspace;
     return { sequence: ++this.sequence, workspace: structuredClone({ version, activeId, threads, projects, instructionPresets, view }), hasKey: !!this.workspace.apiKey,
-      pythonConfigured: !!this.workspace.pythonPath, models: [...this.models], capabilities: structuredClone(this.capabilities), verification: structuredClone(this.verification),
+      pythonConfigured: !!this.workspace.pythonPath, models: [...this.models], capabilities: structuredClone(this.capabilities), modelCatalog: this.catalogState, verification: structuredClone(this.verification),
       account: this.options.account?.snapshot()??signedOutAccount(), connectionMode:this.workspace.connectionMode??'api-key',
       busyThreadId: this.busyThreadId, storage: 'os-encrypted', notice: this.notice };
   }
@@ -68,7 +76,7 @@ export class WorkbenchService {
     return findThread(this.workspace, id);
   }
   resetConnection() {
-    this.epoch++;this.client=null;this.connection=null;this.clientCredential=null;this.models=[];this.capabilities=[];
+    this.epoch++;this.client=null;this.connection=null;this.clientCredential=null;this.models=[];this.listed=[];this.mergeCapabilities();
     this.verification=idleVerification();this.notice=null;
   }
   accountChanged() {
@@ -121,30 +129,33 @@ export class WorkbenchService {
     this.verification = { state: 'checking', checkedAt: null, steps: [] }; this.notice = null; this.emit();
     let timer;
     const flight = (async () => {
+      let client = null;
       try {
         const credential=mode==='chat-account'?await this.options.account?.getCredential(force):{key:this.workspace.apiKey};
         if(!credential?.key)throw new InputError('Tinfoil Chat sign-in is not available.');
         if(epoch!==this.epoch)throw new InputError('Connection changed while signing in.');
         // A renewed Chat key gets a new SDK client, which is verified below before any content is sent.
-        const client=this.client&&this.clientCredential===credential.key&&!force?this.client:await this.providerFactory(credential.key,this.workspace.cacheSecret,mode);
+        client=this.client&&this.clientCredential===credential.key&&!force?this.client:await this.providerFactory(credential.key,this.workspace.cacheSecret,mode);
         this.clientCredential=credential.key;this.clients.set(client,{key:credential.key,owner:mode==='chat-account'?'chat:'+credential.owner:'api-key'});
         const document = await Promise.race([
           (async () => { await client.ready(); return client.getVerificationDocument(); })(),
-          new Promise((_, reject) => { timer = setTimeout(() => reject(new Error('Verification timed out')), 45000); }),
+          new Promise((_, reject) => { timer = setTimeout(() => reject(verificationFailure('timeout')), 45000); }),
         ]);
-        if (epoch !== this.epoch) throw new Error('Connection superseded');
-        if (document.securityVerified !== true) throw new Error('Attestation was not verified');
-        this.verification = { state: 'verified', checkedAt: Date.now(),
-          steps: Object.entries(document.steps ?? {}).slice(0, 20).map(([name, step]) => ({ name: bounded(name), status: bounded(step?.status) })) };
+        if (epoch !== this.epoch) throw verificationFailure('superseded');
+        if (document.securityVerified !== true) throw verificationFailure('unverified');
+        this.verification = { state: 'verified', checkedAt: Date.now(), steps: stepList(document.steps) };
         this.client = client;
         this.emit();
+        if (!this.models.length) void this.autoList(client, epoch);
+        void this.loadCatalog();
         return client;
       } catch (error) {
+        const reported = this.verificationError(error, client);
         if (epoch === this.epoch) {
-          this.client = null; this.clientCredential=null; this.verification = { state: 'failed', checkedAt: Date.now(), steps: [] };
-          this.notice = publicError(error); this.emit();
+          this.client = null; this.clientCredential=null; this.verification = { state: 'failed', checkedAt: Date.now(), steps: recordedSteps(client) };
+          this.notice = publicError(reported); this.emit();
         }
-        throw error;
+        throw reported;
       } finally { clearTimeout(timer); }
     })();
     this.connection=flight;
@@ -154,19 +165,9 @@ export class WorkbenchService {
     if (this.busyThreadId) throw new InputError('Stop the active response before reconnecting.');
     const client = await this.connect(true);
     try {
-      let page = await client.models.list();
-      const names = []; const fromModels = [];
-      for (let n = 0; n < 10; n++) {
-        for (const model of page.data ?? []) if (typeof model.id === 'string' && model.id.length <= 200) { names.push(model.id); const cap=normalizeCapability(model); if(cap) fromModels.push(cap); }
-        if (names.length >= 2000 || typeof page.hasNextPage !== 'function' || !page.hasNextPage()) break;
-        page = await page.getNextPage();
-      }
-      this.capabilities = fromModels;
-      if(this.options.capabilityLoader) {
-        try { const catalog=await this.options.capabilityLoader(); this.capabilities=[...catalog,...fromModels.filter(m=>!catalog.some(c=>c.id===m.id))]; }
-        catch { /* Missing public metadata never causes guessed parameters or blocks inference. */ }
-      }
-      this.models = [...new Set(names)].sort().slice(0, 2000);
+      const { names, listed } = await this.listModels(client);
+      await this.loadCatalog(true);
+      this.listed = listed; this.models = names; this.mergeCapabilities();
       const current = findThread(this.workspace, this.workspace.activeId);
       if (!current.settings.model && this.models.length === 1) current.settings.model = this.models[0];
       this.notice = this.models.length ? null : 'No models were returned. Enter a chat model ID manually.';
@@ -174,6 +175,58 @@ export class WorkbenchService {
     } catch (error) {
       error=this.connectionError(error,client);this.notice = publicError(error); this.emit(); throw error;
     }
+  }
+  async listModels(client) {
+    let page = await client.models.list();
+    const names = [], listed = [];
+    for (let n = 0; n < 10; n++) {
+      for (const model of page.data ?? []) if (typeof model.id === 'string' && model.id.length <= 200) { names.push(model.id); const cap=normalizeCapability(model); if(cap) listed.push(cap); }
+      if (names.length >= 2000 || typeof page.hasNextPage !== 'function' || !page.hasNextPage()) break;
+      page = await page.getNextPage();
+    }
+    return { names: [...new Set(names)].sort().slice(0, 2000), listed };
+  }
+  /** After a verification succeeds, fills an empty model list from the same client: no second verification or key exchange. */
+  async autoList(client, epoch) {
+    try {
+      const { names, listed } = await this.listModels(client);
+      if (epoch !== this.epoch || this.models.length) return;
+      this.listed = listed; this.models = names; this.mergeCapabilities(); this.emit();
+    } catch { /* Verify & refresh reports list errors; a background list never affects a request. */ }
+  }
+  mergeCapabilities() { this.capabilities = [...this.catalog, ...this.listed.filter(m => !this.catalog.some(c => c.id === m.id))]; }
+  /** Tinfoil's public catalog, fetched without credentials: display and reasoning metadata only. Missing metadata never
+   * causes guessed parameters or blocks inference; after a failure it is fetched again after a minute at the earliest. */
+  loadCatalog(force = false) {
+    const loader = this.options.capabilityLoader;
+    if (!loader) return Promise.resolve();
+    if (this.catalogFlight) return this.catalogFlight;
+    if (!force && (this.catalogState === 'ready' || (this.catalogState === 'failed' && Date.now() - this.catalogFailedAt < 60_000))) return Promise.resolve();
+    this.catalogState = 'loading'; if (this.workspace) this.emit();
+    const flight = (async () => {
+      try { this.catalog = await loader(); this.mergeCapabilities(); this.catalogState = 'ready'; }
+      catch { this.catalogState = 'failed'; this.catalogFailedAt = Date.now(); }
+      finally { this.catalogFlight = null; if (this.workspace) this.emit(); }
+    })();
+    return this.catalogFlight = flight;
+  }
+  /** Names what failed instead of the catch-all message: a timeout, a verification step, a session change or the network. */
+  verificationError(error, client) {
+    if (error instanceof InputError) return error;
+    const kind = error?.verificationFailure;
+    if (kind === 'timeout') return new InputError('Enclave verification timed out after 45 seconds. Check your connection and try again. Nothing was sent.');
+    if (kind === 'superseded') {
+      const account = this.workspace?.connectionMode === 'chat-account' ? this.options.account?.snapshot() : null;
+      if (account && account.status !== 'signed-in') return new InputError(account.message || 'Your Tinfoil session ended during verification. Sign in again. Nothing was sent.');
+      return new InputError('The connection changed during verification. Try again. Nothing was sent.');
+    }
+    const failed = recordedSteps(client).find(step => step.status === 'failed');
+    if (failed || kind === 'unverified') {
+      const step = failed ? (Object.hasOwn(STEP_LABELS, failed.name) ? STEP_LABELS[failed.name] : `the ${failed.name} step`) : '';
+      return new InputError(`The enclave could not be verified${step ? `: ${step} failed` : ''}. Nothing was sent.`);
+    }
+    const network = networkFailure(error);
+    return network ? new InputError(network) : error;
   }
   async execute(input) {
     const c = record(input), type = text(c.type, 'Command', 80, true);
@@ -243,6 +296,7 @@ export class WorkbenchService {
         this.verification = idleVerification(); this.notice = null; break;
       }
       case 'connect': await this.refreshModels(); return this.snapshot();
+      case 'models.catalog': await this.loadCatalog(); return this.snapshot();
       case 'send': return this.send(identifier(c.id), text(c.text, 'Prompt', LIMITS.prompt, true), attachments(c.attachments));
       case 'stop': {
         if (identifier(c.id) === this.busyThreadId) for (const ctrl of this.controllers.values()) ctrl.abort();

@@ -5,6 +5,12 @@ export interface ModelCapability {
   reasoning: boolean; effort: string[]; toggle: boolean;
   defaultEnabled: boolean; enable: Record<string, unknown>; disable: Record<string, unknown>;
   toolCalling: boolean | null;
+  /** Display-only metadata for the model picker; it never selects parameters, endpoints or permissions. */
+  display?: ModelDisplay;
+}
+export interface ModelDisplay {
+  name: string; short: string; maker: string; type: string; contextWindow: number | null;
+  multimodal: boolean; reasoning: boolean; tools: boolean; experimental: boolean; description: string;
 }
 export type ThinkingMode = 'default' | 'enabled' | 'disabled';
 const obj = (v: unknown): Record<string, any> => v && typeof v === 'object' && !Array.isArray(v) ? v as Record<string, any> : {};
@@ -26,6 +32,20 @@ function parameterBlock(value: unknown): Record<string, unknown> {
   }
   return out;
 }
+const plain = (v: unknown, max: number): string => typeof v === 'string' ? v.replace(/[\x00-\x1f\x7f]+/g, ' ').replace(/\s+/g, ' ').trim().slice(0, max) : '';
+/** Accepts Tinfoil's catalog (`contextWindowTokens`, `toolCalling`, `image`) and `/v1/models` (`context_window`, `tool_calling`) fields.
+ * The maker is the catalog image's file name ("deepseek.png"); the image itself is never loaded. */
+function modelDisplay(m: Record<string, any>, id: string, reasoning: boolean): ModelDisplay {
+  const maker = typeof m.image === 'string' ? /^(?:[\w.-]*\/)*([a-z0-9][a-z0-9-]{0,31})\.(?:png|svg|webp|jpe?g)$/i.exec(m.image)?.[1]?.toLowerCase() ?? '' : '';
+  const tokens = Number(m.contextWindowTokens ?? m.context_window);
+  return {
+    name: plain(m.name, 120) || id, short: plain(m.nameShort, 60), maker,
+    type: typeof m.type === 'string' && /^[a-z][a-z0-9-]{0,23}$/.test(m.type) ? m.type : '',
+    contextWindow: Number.isSafeInteger(tokens) && tokens > 0 && tokens <= 1e9 ? tokens : null,
+    multimodal: m.multimodal === true, reasoning: reasoning || m.reasoning === true,
+    tools: m.toolCalling === true || m.tool_calling === true, experimental: m.experimental === true, description: plain(m.description, 240),
+  };
+}
 export function normalizeCapability(value: unknown): ModelCapability | null {
   const m = obj(value), id = m.modelName ?? m.id;
   if (typeof id !== 'string' || !id || id.length > 200 || /[\x00-\x1f]/.test(id)) return null;
@@ -39,7 +59,8 @@ export function normalizeCapability(value: unknown): ModelCapability | null {
   const known = 'chatConfig' in m || 'reasoningConfig' in m;
   return { id, label: typeof m.name === 'string' ? m.name.slice(0,200) : id, known,
     source: known ? 'catalog' : 'unknown', reasoning, effort, toggle: r.supportsToggle === true && Object.keys(disable).length > 0,
-    defaultEnabled: r.defaultEnabled !== false, enable, disable, toolCalling: typeof m.toolCalling === 'boolean' ? m.toolCalling : null };
+    defaultEnabled: r.defaultEnabled !== false, enable, disable, toolCalling: typeof m.toolCalling === 'boolean' ? m.toolCalling : null,
+    display: modelDisplay(m, id, reasoning) };
 }
 export function capabilityFor(id: string, catalog: ModelCapability[] = []): ModelCapability {
   const live = catalog.find(m => m.id === id && m.known); if (live) return live;

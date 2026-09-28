@@ -15,6 +15,7 @@ const paths: Record<string,string> = {
   write:'m4 16 12-12 4 4L8 20H4zM13 7l4 4', spark:'m12 3 2.4 6.6L21 12l-6.6 2.4L12 21l-2.4-6.6L3 12l6.6-2.4z',
   minus:'M5 12h14', square:'M5 5h14v14H5z', check:'m5 12 4 4L19 6', down:'m6 9 6 6 6-6', pin:'m8 3 8 0-1 6 4 4H5l4-4zM12 13v8',
   instructions:'M6 3h8l4 4v14H6zM14 3v4h4M9 12h6M9 16h4',
+  image:'M4 5h16v14H4zM4 16l5-5 4 4 2-2 5 5M15 9h.01', tools:'M9 4H8a2 2 0 0 0-2 2v4l-2 2 2 2v4a2 2 0 0 0 2 2h1M15 4h1a2 2 0 0 1 2 2v4l2 2-2 2v4a2 2 0 0 1-2 2h-1',
 };
 export const icon = (name:string):string => `<svg viewBox="0 0 24 24" aria-hidden="true"><path d="${paths[name] ?? paths.chat}"/></svg>`;
 export const button = (action:string, label:string, glyph:string, extra=''):string => `<button type="button" data-action="${action}" title="${label}" aria-label="${label}" ${extra}>${icon(glyph)}</button>`;

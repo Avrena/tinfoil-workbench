@@ -12,6 +12,8 @@ import { RenderScheduler, streamingInterval } from './render-scheduler.js';
 import { InlineArtifacts } from './inline-artifacts.js';
 import { inlineGroups, replyParts } from '../core/reply-layout.js';
 import { capabilityFor } from '../core/capabilities.js';
+import { pickerModels, pickerModel, modelMatches, type PickerModel } from '../core/model-list.js';
+import { makerMark, modelRow, customModelRow, composerModel } from './model-view.js';
 import { viewPreferences, type ViewPreferences } from '../core/preferences.js';
 import { renderDataPreview, staticPreview } from './artifacts.js';
 import { escapeHtml as e, clearMarkdownCaches, extractCodeBlocks } from '../core/markdown.js';
@@ -34,7 +36,7 @@ app.innerHTML = `<div class="shell no-inspector" id="shell">
 <dialog id="account-dialog" aria-labelledby="account-title"><div class="modal-head"><h2 id="account-title">Account & connection</h2>${button('dismiss','Close account','close','class="icon-button"')} </div><div class="modal-body" id="account-body"></div></dialog>
 <dialog id="settings-dialog"><div class="modal-head"><h2>Settings</h2>${button('dismiss','Close settings','close','class="icon-button"')}</div><div class="modal-body"><form id="key-form"><div class="settings-account-link"><div><strong>Tinfoil Chat account</strong><p>Sign in with your subscription, or use a separate API key below.</p></div><button type="button" data-action="account">Account…</button></div><div class="eyebrow">Developer API key</div><p>This key is separate from a Chat subscription. Saving a key does not switch an active Chat account to API billing.</p><div class="key-status" id="key-status"></div><label for="api-key">Tinfoil API key</label><input id="api-key" type="password" placeholder="Paste a new API key" autocomplete="off" spellcheck="false" maxlength="4096"><div class="modal-actions"><button type="button" data-action="docs">API key guide</button><button type="button" data-action="forget-key" class="danger" id="forget-key">Forget key</button><button type="submit" class="primary" id="save-key">Save & verify</button></div><p class="modal-foot" id="key-feedback" role="status"></p></form><details class="execution-settings"><summary>Execution</summary><p>Python runs locally with your account's permissions. It can access files and the network; this is not a sandbox. Only approve code you trust.</p><div id="python-status" class="key-status"></div><button data-action="python-pick">Choose Python interpreter…</button><p>No Python installation is needed for ordinary chat. Running Python requires an installed interpreter; packages are never installed automatically.</p></details></div></dialog>
 <dialog id="view-dialog"><div class="modal-head"><h2>Reading & visibility</h2>${button('dismiss','Close reading settings','close','class="icon-button"')}</div><div class="modal-body"><label for="view-reasoning">Model reasoning</label><select id="view-reasoning"><option value="collapsed">Collapsed by default</option><option value="expanded">Expanded</option><option value="hidden">Hidden</option></select><p>Only reasoning actually returned by the provider is shown. Hiding it does not disable model reasoning.</p><label class="toggle-row"><span>Render Markdown</span><input id="view-markdown" type="checkbox"></label><label class="toggle-row"><span>Render LaTeX maths</span><input id="view-math" type="checkbox"></label><label class="toggle-row"><span>Show timing, tokens & context size</span><input id="view-metadata" type="checkbox"></label><label class="toggle-row"><span>Wrap long code lines</span><input id="view-wrapCode" type="checkbox"></label><label class="toggle-row"><span>Also open the workspace automatically</span><input id="view-autoArtifacts" type="checkbox"></label><label for="view-motion">Animations</label><select id="view-motion"><option value="system">Follow Windows motion preference</option><option value="reduced">Reduced motion</option></select><label class="toggle-row"><span>Focus mode <kbd>Ctrl Shift F</kbd></span><input id="view-focus" type="checkbox"></label><p>Tool approvals and errors remain visible in every mode.</p></div></dialog>
-<dialog id="model-dialog"><div class="modal-head"><h2>Choose model</h2>${button('dismiss','Close model picker','close','class="icon-button"')}</div><form id="model-form" class="modal-body"><label for="quick-model">Model</label><input id="quick-model" list="models" placeholder="Search or enter a model ID" autocomplete="off"><div id="model-options" class="model-options"></div><div class="modal-actions"><button type="button" data-action="show-inspector">Advanced…</button><button class="primary" type="submit">Use model</button></div></form></dialog>
+<dialog id="model-dialog"><div class="modal-head"><h2>Choose model</h2>${button('dismiss','Close model picker','close','class="icon-button"')}</div><form id="model-form" class="modal-body"><label for="quick-model" class="sr-only">Search models</label><input id="quick-model" type="search" placeholder="Search models or enter a model ID" autocomplete="off" spellcheck="false" enterkeyhint="go"><div id="model-options" class="model-options" role="group" aria-label="Models"></div><div class="modal-actions"><button type="button" data-action="show-inspector">Advanced…</button><button class="primary" type="submit">Use model</button></div></form></dialog>
 <dialog id="instructions-dialog" aria-labelledby="instructions-title"><div class="modal-head"><h2 id="instructions-title">System instructions</h2>${button('instructions-close','Close system instructions','close','class="icon-button"')}</div><div class="modal-body">
 <p id="instructions-locked" class="instructions-note instructions-locked" role="status" hidden>Stop the active response to change this conversation’s instructions. Saved instructions can still be managed.</p>
 <div id="instructions-list-view"><p class="instructions-intro">The selection is sent as the system message of each new request in this conversation. None keeps provider defaults.</p><div id="instructions-options" class="instruction-options" role="group" aria-label="Instructions for this conversation"></div><div class="modal-actions"><button type="button" data-action="instructions-new">${icon('plus')}New instructions</button></div></div>
@@ -141,7 +143,10 @@ function accept(snapshot:Snapshot):void {
   $('thread-count').textContent=`· ${state.workspace.threads.length}`;
   $('preview-label').classList.toggle('hidden',state.storage!=='preview');
   const compare=$<HTMLButtonElement>('compare-toggle'); compare.classList.toggle('on',thread.settings.compare); compare.setAttribute('aria-pressed',String(thread.settings.compare)); compare.disabled=!!state.busyThreadId;
-  $('composer-model').textContent=(thread.settings.model || 'Choose model') + (thread.settings.compare ? ' × 2' : '');
+  const chosen=thread.settings.model?pickerModel(thread.settings.model,state.capabilities):null;
+  setMarkup($('composer-model'),composerModel(chosen,thread.settings.compare));
+  $('composer-model').title=chosen?`${chosen.name}${chosen.name!==chosen.id?` (${chosen.id})`:''}. Choose model`:'Choose model';
+  if($<HTMLDialogElement>('model-dialog').open)renderModels();
   renderInstructionsChip();renderInstructionsApplied();if($<HTMLDialogElement>('instructions-dialog').open)renderInstructionsLock();
   $('tools-badge').classList.toggle('hidden', thread.settings.toolsMode !== 'ask');
   $('send').querySelector('span')!.textContent=thread.settings.compare?'Send to 2':'Send';
@@ -197,8 +202,9 @@ function renderSidebar():void {
   const group=(name:string,list:Thread[])=>list.length?`<section class="thread-group" aria-label="${name}"><h3>${name}</h3>${list.map(item).join('')}</section>`:'';
   setMarkup($('thread-list'),(projects||'<p class="nav-empty">Keep related threads together.</p>')+`<div class="nav-section-heading"><h2>Threads</h2><span>${loose.length}</span></div>`+group('Pinned',pinned)+group('Today',today)+group('Earlier',earlier)+(!loose.length?'<p class="nav-empty">No unfiled threads</p>':''));
 }
+function welcomeModel():PickerModel|null { const id=current().settings.model; return id?pickerModel(id,state.capabilities):null; }
 function welcome():string {
-  return `<div class="empty"><div class="empty-mark">${icon('logo')}</div><h1>What are we working on?</h1><p>A conversation, with room to think.</p><div class="starter-chips"><button data-prompt="Help me refine this draft while preserving my voice:\n\n">Write</button><button data-prompt="Explain this idea with a worked example:\n\n">Explain</button><button data-prompt="Check this calculation and show the maths clearly.">Analyze</button><button data-prompt="Show an inline visualization demo.">Visualize</button><button data-prompt="Show a tool activity demo.">Tool activity</button></div></div>`;
+  return `<div class="empty"><div class="empty-mark">${makerMark(welcomeModel())}</div><h1>What are we working on?</h1><p>A conversation, with room to think.</p><div class="starter-chips"><button data-prompt="Help me refine this draft while preserving my voice:\n\n">Write</button><button data-prompt="Explain this idea with a worked example:\n\n">Explain</button><button data-prompt="Check this calculation and show the maths clearly.">Analyze</button><button data-prompt="Show an inline visualization demo.">Visualize</button><button data-prompt="Show a tool activity demo.">Tool activity</button></div></div>`;
 }
 function turnMarkup(turn:Turn):string {
   return `<article class="turn" data-key="turn-${e(turn.id)}" data-turn="${e(turn.id)}"><div class="user-row"><div class="message-label"><span class="user-dot">Y</span>You<span class="meta">${new Date(turn.createdAt).toLocaleTimeString(undefined,{hour:'2-digit',minute:'2-digit'})}</span></div><div class="user-prompt">${e(turn.prompt)}</div>${turn.attachments.length?`<div class="attached-summary">${turn.attachments.map(f=>`<span>${e(f.name)}</span>`).join('')}</div>`:''}<div class="turn-actions"><button data-action="edit" data-turn="${e(turn.id)}">${icon('write')}Edit</button></div></div><div class="replies ${turn.replies.length>1?'comparison':''}">${turn.replies.map(r=>`<section class="reply" data-reply-host data-key="${e(r.id)}" id="reply-${e(r.id)}" aria-label="Reply from ${e(r.model)}"></section>`).join('')}</div><div id="hint-${e(turn.id)}" class="compare-hint hidden">Choose an answer to continue, or branch from either reply.</div></article>`;
@@ -251,7 +257,8 @@ function replySignature(reply:Reply):string {
 function renderTranscript():void {
   const thread=current(), viewport=$('transcript'), container=$('transcript-inner');
   const nearBottom=viewport.scrollHeight-viewport.scrollTop-viewport.clientHeight<110;
-  const structure=thread.id+':'+thread.turns.map(t=>t.id).join(',');
+  // The welcome page shows the chosen model's maker, so it is redrawn when the model or its metadata changes.
+  const structure=thread.id+':'+thread.turns.map(t=>t.id).join(',')+(thread.turns.length?'':'|'+makerMark(welcomeModel()));
   const changed=structure!==renderId;
   if(changed) {
     const switched=!renderId.startsWith(thread.id+':');
@@ -295,7 +302,7 @@ function renderConfiguration(force = false):void {
   $<HTMLInputElement>('web-search').checked=s.webSearch;
   $<HTMLSelectElement>('delegate-mode').value=s.delegateMode??'off';
   renderReasoningControls();
-  $('models').innerHTML=state.models.map(m=>`<option value="${e(m)}"></option>`).join('');
+  $('models').innerHTML=pickerModels(state.models,state.capabilities).map(m=>`<option value="${e(m.id)}"${m.name!==m.id?` label="${e(m.name)}"`:''}></option>`).join('');
   $<HTMLButtonElement>('apply-settings').disabled=state.busyThreadId===current().id;
 }
 function effortOptions(select:HTMLSelectElement,model:string,value:string):void {
@@ -604,7 +611,14 @@ async function action(name:string, target?:HTMLElement):Promise<void> {
     case 'find-close': $('find-bar').classList.add('hidden');clearFind();break;
     case 'find-next': moveFind(1);break;
     case 'find-prev': moveFind(-1);break;
-    case 'model-picker': $<HTMLInputElement>('quick-model').value=thread.settings.model; renderModels();showDialog('model-dialog');$('quick-model').focus();break;
+    case 'model-picker': {
+      // The search starts empty so the whole list shows; touch devices skip focusing it so no keyboard covers the list.
+      $<HTMLInputElement>('quick-model').value=''; renderModels();showDialog('model-dialog');
+      if(!matchMedia('(pointer: coarse)').matches)$('quick-model').focus();
+      $('model-options').querySelector('[aria-current="true"]')?.scrollIntoView({block:'nearest'});
+      if(state.modelCatalog!=='ready'&&state.modelCatalog!=='loading')void dispatch({type:'models.catalog'});
+      break;
+    }
     case 'instructions-picker':showInstructionsList();showDialog('instructions-dialog');$('instructions-options').querySelector<HTMLButtonElement>('[aria-current=true]')?.focus();break;
     case 'instructions-new':showInstructionsForm('new','','','[data-action=instructions-new]');break;
     case 'instructions-edit':{
@@ -689,7 +703,7 @@ document.addEventListener('click',event=>{
   // would act on whatever replaced the pressed button. No control there uses double-clicks.
   if(event.detail>1&&target.closest('#instructions-dialog')){event.preventDefault();return;}
   if(target.dataset.instructions){void chooseInstructions(target);return;}
-  if(target.dataset.quickModel){$<HTMLInputElement>('quick-model').value=target.dataset.quickModel; $<HTMLFormElement>('model-form').requestSubmit();return;}
+  if(target.dataset.quickModel){chooseModel(target.dataset.quickModel);return;}
   if(target.dataset.action) { void action(target.dataset.action,target); return; }
   if(target.dataset.thread) { void (async()=>{if(!await flushDraft())return; await dispatch({type:'thread.select',id:target.dataset.thread!});if(responsive.compact)responsive.close();})(); return; }
   if(target.dataset.prompt!==undefined) { $<HTMLTextAreaElement>('prompt').value=target.dataset.prompt.replace(/\\n/g,'\n'); sizeComposer(); saveDraft(); $('prompt').focus(); return; }
@@ -719,11 +733,32 @@ $('view-motion').addEventListener('change',()=>{void setView({motion:$<HTMLSelec
 document.addEventListener('selectionchange',()=>{if(state&&window.getSelection()?.isCollapsed)scheduleTranscript();});
 $('view-reasoning').addEventListener('change',()=>{void setView({reasoning:$<HTMLSelectElement>('view-reasoning').value as ViewPreferences['reasoning']});});
 function renderModels():void {
-  const filter=$<HTMLInputElement>('quick-model').value.toLowerCase();
-  $('model-options').innerHTML=state.models.filter(m=>m.toLowerCase().includes(filter)).slice(0,30).map(m=>`<button type="button" data-quick-model="${e(m)}">${e(m)}</button>`).join('');
+  const query=$<HTMLInputElement>('quick-model').value, typed=query.trim(), models=pickerModels(state.models,state.capabilities);
+  const shown=models.filter(m=>modelMatches(m,query)), selected=current().settings.model;
+  const status=!models.length?(state.modelCatalog==='failed'?'Tinfoil’s model list could not be loaded. Enter a model ID, or check the connection in Advanced.'
+    :state.modelCatalog==='ready'?'No models are listed yet. Enter a model ID.':'Loading Tinfoil’s models…'):!shown.length&&typed?`No listed model matches “${e(typed)}”.`:'';
+  // Any other ID can be entered: offered when nothing matches, or when the text looks like an ID rather than a search word.
+  const custom=typed&&!models.some(m=>m.id===typed)&&/^[\w./:@+-]{1,200}$/.test(typed)&&(!shown.length||/[-/.:@\d]/.test(typed));
+  setMarkup($('model-options'),(status?`<p class="model-status" role="status">${status}</p>`:'')+shown.map(m=>modelRow(m,selected)).join('')+(custom?customModelRow(typed):''));
+}
+function chooseModel(model:string):void {
+  if(!model)return;
+  if(configDirty){toast('Apply pending Advanced changes first.',true);return;}
+  void dispatch({type:'thread.settings',id:current().id,settings:{...current().settings,model}}).then(ok=>{if(ok)dismiss();});
 }
 $('quick-model').addEventListener('input',renderModels);
-$('model-form').addEventListener('submit',event=>{event.preventDefault();if(configDirty){toast('Apply pending Advanced changes first.',true);return;}void dispatch({type:'thread.settings',id:current().id,settings:{...current().settings,model:$<HTMLInputElement>('quick-model').value.trim()}}).then(ok=>{if(ok)dismiss();});});
+// Enter takes a listed ID as typed, otherwise the first row: the best match, or the typed ID when nothing matches.
+$('model-form').addEventListener('submit',event=>{event.preventDefault();
+  const typed=$<HTMLInputElement>('quick-model').value.trim();
+  chooseModel(pickerModels(state.models,state.capabilities).some(m=>m.id===typed)?typed:$('model-options').querySelector<HTMLElement>('[data-quick-model]')?.dataset.quickModel??typed);});
+$('model-dialog').addEventListener('keydown',event=>{
+  if(event.key!=='ArrowDown'&&event.key!=='ArrowUp')return;
+  const options=[...$('model-options').querySelectorAll<HTMLElement>('[data-quick-model]')], index=options.indexOf(document.activeElement as HTMLElement);
+  if(!options.length||(index<0&&document.activeElement!==$('quick-model')))return;
+  event.preventDefault();
+  const next=event.key==='ArrowDown'?Math.min(index+1,options.length-1):index-1;
+  (next<0?$('quick-model'):options[next]!).focus();
+});
 function clearFind():void {
   document.querySelectorAll('mark.search-match').forEach(m=>m.replaceWith(document.createTextNode(m.textContent??'')));
   $('transcript-inner').normalize();$('find-count').textContent='';

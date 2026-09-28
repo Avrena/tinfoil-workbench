@@ -1,5 +1,14 @@
 # Changelog
 
+## Unreleased
+
+- *Choose model* lists Tinfoil's chat models instead of asking for a model ID. Each row shows the maker's badge, the model's name, marks for reasoning, image input and tool calling, and the context size. The list opens in full with the current model marked, search matches names, IDs and makers, and any other ID can still be entered. Speech, embedding, document, tool and safety models are left out.
+- The list no longer stays empty until *Verify & refresh models* has run. It comes from Tinfoil's public model catalog, fetched without credentials when the picker opens, and from the verified endpoint after any successful verification. After a failed fetch, the catalog is requested again after a minute at the earliest.
+- The welcome page shows the chosen model's maker as a muted-white SVG monogram instead of the Tinfoil mark, and the composer shows the maker's badge and the model's name instead of its ID.
+- Connection failures say what failed instead of "The secure request failed": a verification timeout, the verification step that failed (the step results are kept), a Chat session that ended during verification, or a network failure with its error code, such as `ECONNRESET`.
+- The system instructions field keeps its Optional tag; the same note is no longer repeated in the account view, the instructions picker and other labels, or in the documentation outside the instructions section.
+- Add `tests/model-picker.test.mjs` (17 tests), model picker checks in `tests/ui-smoke.py`, and Android picker and catalog checks in `tests/android-device.py --live`.
+
 ## 0.13.0 — Tinfoil Chat sign-in on Android
 
 - Android: sign in to Tinfoil Chat with your email and password. Tinfoil's own sign-in page opens on a separate screen, with no bridge to the app and a WebView storage profile of its own, and Chat access renews as on Windows. Google and Apple sign-in are not available in the Android app: Google refuses sign-in in embedded views, and a supported route needs Tinfoil to register the app. While you are signed in, the website session is kept in the app's private storage; it is deleted when the app next starts. Checked with a real account on one phone, including a key renewal after expiry. On a WebView without the needed features, such as Android System WebView 113, the app keeps using a developer API key.

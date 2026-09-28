@@ -214,6 +214,18 @@ if args.debug:
         command(page, {'type': 'connect'})
         s = snap(page)
         record('enclave attestation verifies in the Android worker', s['verification']['state'] == 'verified', json.dumps(s['verification']['steps']))
+        record("Tinfoil's public model catalog loads in the Android worker and names the models' makers",
+               s.get('modelCatalog') == 'ready' and any((c.get('display') or {}).get('maker') for c in s.get('capabilities') or []), f"{s.get('modelCatalog')}, {len(s.get('capabilities') or [])} entries")
+        if not tap('Choose model', exact=False): page.eval("() => document.querySelector('#composer-model').click()")
+        time.sleep(1)
+        first = page.eval("() => { const b = document.querySelector('#model-options [data-quick-model]'); return b && [b.dataset.quickModel, b.getAttribute('aria-label')]; }")
+        record('the model picker opens on a list with maker badges, without raising the keyboard',
+               bool(first) and not keyboard_shown() and page.eval("() => document.querySelectorAll('#model-options .maker-badge').length") > 1, json.dumps(first))
+        if first and not tap(first[1]): page.eval("(id) => document.querySelector(`[data-quick-model=\"${id}\"]`).click()", first[0])
+        time.sleep(1)
+        chosen = page.eval("() => [document.querySelector('#model-dialog').open, document.querySelector('#composer-model .model-label')?.textContent, document.querySelector('.empty-mark .maker-mark')?.getAttribute('class') ?? 'no welcome page']")
+        record("tapping a model chooses it and shows its maker on the composer and the welcome page",
+               bool(first) and chosen[0] is False and first[1].startswith(chosen[1] + ', ') and re.search(r'\bmaker-(?!mark\b)[a-z]', chosen[2]) is not None, json.dumps(chosen))
         thread = s['workspace']['activeId']
         settings = next(t for t in s['workspace']['threads'] if t['id'] == thread)['settings']
         model = next((m for m in s['models'] if not re.search('embed|whisper|tts', m)), s['models'][0])

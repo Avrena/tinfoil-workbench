@@ -400,7 +400,14 @@ dialog:not(.message-editor) .modal-body { padding: 8px 20px 20px; }
 .account-budget strong{font-weight:400}.account-budget span{color:#aaa}.account-budget progress{width:100%;height:5px;accent-color:#aaa;display:block}
 .account-budget progress::-webkit-progress-bar{background:#363636;border-radius:3px}.account-budget progress::-webkit-progress-value{background:#9b9b9b;border-radius:3px}
 .account-details summary{cursor:pointer;color:#b4b4b4;font-size:12px;min-height:32px;display:list-item}
-.account-optional{margin-top:24px!important;color:#999;font-size:12px}
+.model-options{gap:2px}
+.model-options .model-option{gap:12px;padding:9px 10px}
+.option-title{gap:8px}
+.option-tag{padding:0 5px}
+.option-flags{gap:8px;margin-inline-start:8px}
+.model-status{margin:10px 4px}
+.model-name{gap:6px}
+.model-count{margin-inline-start:-2px}
 .account-demo-note,.account-message{background:#2c2c2c;border-left:2px solid #777;padding:10px 12px;margin:0 0 16px;font-size:12px}
 .settings-account-link{display:flex;align-items:center;gap:12px;margin-bottom:24px}.settings-account-link>div{flex:1;min-width:0}.settings-account-link p{margin:6px 0 0!important}
 @media(max-width:600px){

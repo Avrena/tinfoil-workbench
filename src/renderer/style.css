@@ -78,6 +78,9 @@ p{line-height:1.6}
 .empty{min-height:100%;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;padding:50px 0 70px}
 .empty-mark{margin-bottom:24px;color:#adb0b7}
 .empty-mark svg{width:33px;height:33px;stroke-width:1.1}
+/* The welcome page shows the chosen model's maker in muted white. */
+.empty-mark .maker-mark{width:46px;height:46px;color:rgba(236,238,242,.62)}
+.empty-mark .maker-mark circle,.empty-mark .maker-mark path{stroke-width:1.1}
 .empty h1{font-size:27px;font-weight:500;letter-spacing:-.6px;margin:0;color:#e3e4e7}
 .empty p{font-size:13px;color:#90949c;margin:14px 0 23px}
 .starter-chips{display:flex;gap:9px}
@@ -177,6 +180,10 @@ p{line-height:1.6}
 .composer-tools{display:flex;align-items:center;padding:0 10px 10px;gap:3px;min-height:41px}
 .model-name{font-size:11px;color:#b0b5bf;padding:6px 8px;max-width:300px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .model-name:after{content:'⌄';margin-left:4px;color:#8b93a0}
+.model-name{display:inline-flex;align-items:center;min-width:0}
+.model-name .maker-badge{width:20px;height:20px}
+.model-label{min-width:0;overflow:hidden;text-overflow:ellipsis}
+.model-count{flex:none}
 .tools-badge{font-size:10px;color:#8d9cae;margin-left:7px}
 .send{width:31px;height:31px;border-radius:8px;background:#c2ccd9;color:#1f2834;padding:6px}
 .send:hover{background:#e0e7f0;color:#1f2834}
@@ -264,8 +271,32 @@ dialog::backdrop{background:#0008}
 .toggle-row{display:flex;align-items:center;justify-content:space-between;margin:0;padding:15px 0;border-bottom:1px solid #373c44;font-size:12px}
 .toggle-row input{width:16px;height:16px;accent-color:#528fc4}
 .toggle-row kbd{margin-left:7px}
-.model-options{display:flex;flex-direction:column;align-items:stretch;max-height:250px;overflow:auto;margin-top:10px}
-.model-options button{text-align:left;justify-content:flex-start;font-size:12px;padding:11px}
+.model-options{display:flex;flex-direction:column;align-items:stretch;max-height:min(420px,56vh);overflow:auto;margin-top:10px}
+.model-options .model-option{display:flex;align-items:center;justify-content:flex-start;text-align:left;width:100%;font-size:12px;border-radius:8px;color:var(--text)}
+.model-options .model-option:hover,.model-options .model-option:focus-visible{background:var(--hover)}
+.model-options .model-option[aria-current=true]{background:#262b33}
+.option-text{display:flex;flex-direction:column;flex:1;min-width:0}
+.option-title{display:flex;align-items:center;min-width:0}
+.option-name{font-size:13px;color:#e3e4e7;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.option-detail{font-size:11px;color:var(--muted);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.option-tag{flex:none;font-size:10px;color:#d8bd7a;border:1px solid #5b4c27;border-radius:4px}
+.option-flags{display:flex;align-items:center;flex:none;color:var(--muted)}
+.option-flag svg{width:14px;height:14px}
+.option-context{min-width:34px;text-align:right;font-size:11px;font-variant-numeric:tabular-nums;color:var(--muted)}
+.option-check{display:flex;width:16px;flex:none;color:var(--accent)}
+.option-check svg{width:16px;height:16px}
+.model-status{font-size:12px;color:var(--muted)}
+/* Maker monograms (model-view.ts): an outline in currentColor, or a filled badge in the maker's colour in lists. */
+.maker-mark,.maker-badge{overflow:visible}
+.maker-mark circle{fill:none;stroke:currentColor;stroke-width:1.6}
+.maker-mark text,.maker-badge text{fill:currentColor;stroke:none;font-family:inherit;font-weight:650}
+.maker-mark path,.maker-badge path{fill:none;stroke:currentColor;stroke-width:1.6}
+.maker-badge{width:28px;height:28px;color:#fff}
+.maker-badge circle{fill:var(--maker,#4b5058);stroke:none}
+.maker-badge.maker-none{color:var(--muted)}
+.maker-badge.maker-none circle{fill:none;stroke:var(--line);stroke-width:1.6;stroke-dasharray:3 3}
+.maker-deepseek{--maker:#3b54d9}.maker-zai{--maker:#475569}.maker-moonshot{--maker:#b0215f}.maker-gemma,.maker-google{--maker:#8a6500}
+.maker-openai{--maker:#0b7a5f}.maker-llama,.maker-meta{--maker:#0b7285}.maker-mistral{--maker:#b8430a}.maker-qwen{--maker:#6d28d9}.maker-nomic{--maker:#52606d}
 .palette-input{border:0!important;border-radius:0!important;padding:18px!important;font-size:13px;background:transparent!important}
 .palette-items{padding:5px 9px 10px}
 .palette-items button{width:100%;justify-content:flex-start;font-size:12px;padding:12px}

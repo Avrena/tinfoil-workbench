@@ -90,6 +90,8 @@ export interface Snapshot {
   workspace: Omit<Workspace, 'apiKey' | 'cacheSecret' | 'pythonPath'>;
   account?: AccountSnapshot; connectionMode?: ConnectionMode;
   hasKey: boolean; models: string[]; capabilities?: ModelCapability[]; verification: Verification;
+  /** Tinfoil's public model catalog, loaded without credentials when the model picker needs it. */
+  modelCatalog?: 'idle' | 'loading' | 'ready' | 'failed';
   busyThreadId: string | null; storage: 'os-encrypted' | 'preview';
   notice: string | null; pythonConfigured?: boolean;
   /** Set only by the Android host; absent on the Windows desktop. */
@@ -135,6 +137,7 @@ export type Command =
   | { type: 'credentials.set'; key: string }
   | { type: 'credentials.clear' }
   | { type: 'connect' }
+  | { type: 'models.catalog' }
   | { type: 'send'; id: string; text: string; attachments: Attachment[] }
   | { type: 'stop'; id: string }
   | { type: 'attachments.pick' }
