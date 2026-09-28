@@ -18,8 +18,8 @@
     "test": "npm run build && node --test tests/*.test.mjs",
     "start": "npm run doctor && npm run build && electron .",
     "preview": "npm run build && node scripts/preview.mjs",
-    "dist:win": "npm run verify:local && electron-builder --win --x64 --publish never",
-    "dist:arm64": "npm run verify:local && electron-builder --win --arm64 --publish never",
+    "dist:win": "npm run verify:local && electron-builder --win --x64 --publish never && node scripts/check-package.mjs",
+    "dist:arm64": "npm run verify:local && electron-builder --win --arm64 --publish never && node scripts/check-package.mjs release/win-arm64-unpacked/resources/app.asar",
     "smoke:desktop": "npm run build && electron . --smoke-test",
     "preview:build": "npm run build && node scripts/build-preview.mjs",
     "doctor": "node scripts/doctor.mjs",
@@ -31,7 +31,8 @@
   },
   "dependencies": {
     "pdfjs-dist": "5.4.149",
-    "tinfoil": "1.2.1"
+    "tinfoil": "1.2.1",
+    "zod": "4.6.5"
   },
   "devDependencies": {
     "@capacitor/android": "8.5.2",

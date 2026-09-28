@@ -13,7 +13,7 @@ Run from a clean working tree at the commit to be tagged, in this order:
 ```powershell
 npm run bootstrap                        # npm ci + checksum-verified Electron binary
 npm run doctor                           # every entry must pass
-npm run dist:win                         # doctor, 300+ Node tests, native smoke, then NSIS + portable
+npm run dist:win                         # doctor, 300+ Node tests, native smoke, NSIS + portable, then the package check
 python tests/ui-smoke.py                 # …and the other nine ui-*.py suites (after npm run preview:build)
 npm run android:apk                      # signed release APK (TINFOIL_ANDROID_SIGNING set)
 node scripts/android-build.mjs --debug   # debuggable APK for device tests
@@ -21,7 +21,19 @@ python tests/android-device.py --debug --live --apk release/Tinfoil-Workbench-<v
 python tests/android-device.py --release --apk release/Tinfoil-Workbench-<v>-android.apk
 ```
 
-Also run the packaged Windows app's own smoke test (`release\win-unpacked\Tinfoil Workbench.exe --smoke-test` must print `DESKTOP_SMOKE_OK`). For installer changes, run a silent per-user install, smoke and uninstall:
+Then check the packaged Windows app itself. Source runs resolve modules from the repository's `node_modules`, so they cannot show that a module is missing from the package:
+
+- `npm run dist:win` ends with `scripts/check-package.mjs`, which must print `PACKAGE_CHECK_OK`: every packaged module's dependencies and required peer dependencies are in `app.asar`. electron-builder does not pack packages that npm installed only to satisfy a peer dependency; declare such a package as a dependency instead.
+- `release\win-unpacked\Tinfoil Workbench.exe --smoke-test` must print `DESKTOP_SMOKE_OK`. It also loads the attested SDK, without a network request.
+- The SDK loads some modules only while it verifies an enclave. Run the live check with the packaged executable in Node mode; it verifies the enclave with a placeholder key and lists the models, without a prompt, an account or billing, and must print `PACKAGED_PROVIDER_OK`:
+
+  ```powershell
+  $env:ELECTRON_RUN_AS_NODE = '1'
+  & 'release\win-unpacked\Tinfoil Workbench.exe' scripts\check-packaged-provider.mjs
+  Remove-Item Env:ELECTRON_RUN_AS_NODE
+  ```
+
+For installer changes, run a silent per-user install, smoke and uninstall:
 
 ```powershell
 Tinfoil-Workbench-<v>-x64-Setup.exe /S /D=C:\path\to\scratch
@@ -54,7 +66,7 @@ Record any failure, skip or retry in the validation record; do not describe a re
 
 | Workflow | Runner | What it does |
 |---|---|---|
-| `windows.yml` | windows-latest | bootstrap, doctor, Node tests, native Electron/DPAPI/PDF smoke, x64 packaging; uploads the installers as a 14-day artifact |
+| `windows.yml` | windows-latest | bootstrap, doctor, Node tests, native Electron/DPAPI/PDF smoke, x64 packaging, the package check and the packaged app's smoke test; uploads the installers as a 14-day artifact |
 | `android.yml` | ubuntu-latest | bootstrap, Node tests, Android debug and unsigned release builds; uploads the debug APK as a 14-day artifact |
 | `renderer.yml` | ubuntu-latest | rebuilds the preview and runs the ten browser UI suites |
 

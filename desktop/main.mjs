@@ -32,8 +32,8 @@ let window, service, account, accountFlow, closeCoordinator, quitting = false;
 if (!app.requestSingleInstanceLock()) app.quit();
 else {
   app.on('second-instance', () => { if (window) { if (window.isMinimized()) window.restore(); window.focus(); } });
-  app.whenReady().then(launch).catch(() => {
-    if (smoke) { console.error('DESKTOP_SMOKE_FAILED'); quitting = true; app.exit(1); return; }
+  app.whenReady().then(launch).catch(error => {
+    if (smoke) { console.error(`DESKTOP_SMOKE_FAILED: ${error?.code ?? error?.name ?? 'Error'}: ${String(error?.message ?? error).slice(0, 300)}`); quitting = true; app.exit(1); return; }
     dialog.showErrorBox('Tinfoil Workbench could not open', 'The encrypted workspace could not be opened. It has not been reset or overwritten. Check Windows account access, disk space, or restore your own backup of workspace.vault.');
     quitting = true; app.quit();
   });
@@ -129,7 +129,11 @@ async function launch() {
       cleanup(); stage.remove(); return passed;
     })()`);
     if (!pdfOK) throw new Error('Native PDF print/view smoke test failed');
-    console.log('DESKTOP_SMOKE_OK: encrypted storage, bridge, native PDF print and PDF.js canvas');
+    // The attested SDK is imported only when a connection starts, so a package that lacks one of its modules
+    // would otherwise fail every connection and nothing else. Building the client makes no request.
+    const provider = await createProvider('smoke-test-placeholder', randomUUID() + randomUUID());
+    if (typeof provider?.ready !== 'function') throw new Error('Attested SDK smoke test failed');
+    console.log('DESKTOP_SMOKE_OK: encrypted storage, bridge, attested SDK import, native PDF print and PDF.js canvas');
     await service.shutdown(); quitting = true; app.quit();
   }
 }

@@ -31,6 +31,14 @@ jobs:
         run: npm run smoke:desktop
       - name: Package Windows x64
         run: npx --no-install electron-builder --win --x64 --publish never
+      - name: Check that every packaged module's dependencies and required peers are packaged
+        run: node scripts/check-package.mjs
+      - name: Packaged app smoke test (attested SDK import, DPAPI, PDF print/view)
+        shell: pwsh
+        run: |
+          $out = & "release\win-unpacked\Tinfoil Workbench.exe" --smoke-test 2>&1 | Out-String
+          Write-Output $out
+          if ($LASTEXITCODE -ne 0 -or $out -notmatch 'DESKTOP_SMOKE_OK') { throw 'The packaged app smoke test failed.' }
       - uses: actions/upload-artifact@v4
         with:
           name: Tinfoil-Workbench-Windows-x64
