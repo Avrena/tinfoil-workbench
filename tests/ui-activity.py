@@ -2,8 +2,8 @@
 import argparse,json
 from pathlib import Path
 from playwright.sync_api import sync_playwright,expect
-parser=argparse.ArgumentParser();parser.add_argument('--chromium',default='/usr/bin/chromium');args=parser.parse_args()
-root=Path(__file__).resolve().parents[1];html=(root/'preview/index.html').read_text();checks=[];errors=[];requests=[]
+parser=argparse.ArgumentParser();parser.add_argument('--chromium',default=None);args=parser.parse_args()
+root=Path(__file__).resolve().parents[1];html=(root/'preview/index.html').read_text(encoding='utf-8');checks=[];errors=[];requests=[]
 marker='const pause = ms => new Promise(r => setTimeout(r, ms));'
 fixture=r'''
 window.__activitySeed=(mode='approval')=>{
@@ -44,7 +44,7 @@ with sync_playwright() as p:
  history=page.locator('[data-key=tool-history]');history.locator('> summary').click();expect(page.locator('[data-tool-id=search] .tool-run-header')).to_contain_text('Tinfoil-managed MCP');expect(page.locator('.activity-origin')).to_contain_text('did not execute it locally');assert page.locator('[data-tool-id=search] [data-action=approve-tool]').count()==0;checks.append('provider MCP activity is labelled as an observation and cannot invoke local approval or execution')
  page.locator('.activity-sources button').click();expect(page.locator('#toast')).to_contain_text('does not open external links');checks.append('provider sources use the guarded URL path, and the preview blocks external navigation')
  page.evaluate("window.__activityPatch('third',{status:'error',stderr:'A failed action fixture.'})");expect(group.locator('> summary')).to_contain_text('1 failed');checks.append('failure updates preserve the batch disclosure and replace stale outcome counts')
- page.evaluate("window.__activityView({reasoning:'hidden'})");assert page.locator('.delegate-thinking').count()==0;checks.append('global reasoning visibility also covers child reasoning without discarding the saved text')
+ page.evaluate("window.__activityView({reasoning:'hidden'})");expect(page.locator('.delegate-thinking')).to_have_count(0);checks.append('global reasoning visibility also covers child reasoning without discarding the saved text')
  page.keyboard.press('Control+n');page.locator('[data-action=inspector]').first.click();expect(page.locator('#web-search')).not_to_be_checked();expect(page.locator('#delegate-mode')).to_have_value('off');checks.append('new threads start with hosted search and delegated inference disabled')
  page.locator('#web-search').check();page.locator('#delegate-mode').select_option('ask');stored=page.evaluate('window.__activityWorkspace().threads.find(t=>t.id===window.__activityWorkspace().activeId).settings');assert stored['webSearch'] is False and stored['delegateMode']=='off';page.locator('#apply-settings').click();stored=page.evaluate('window.__activityWorkspace().threads.find(t=>t.id===window.__activityWorkspace().activeId).settings');assert stored['webSearch'] is True and stored['delegateMode']=='ask';checks.append('tool permissions are saved only by an explicit Apply settings action')
  page.close()

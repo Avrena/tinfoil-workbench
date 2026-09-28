@@ -2,8 +2,8 @@
 import argparse,json
 from pathlib import Path
 from playwright.sync_api import sync_playwright,expect
-parser=argparse.ArgumentParser();parser.add_argument('--chromium',default='/usr/bin/chromium');args=parser.parse_args()
-root=Path(__file__).resolve().parents[1];html=(root/'preview/index.html').read_text();checks=[];errors=[]
+parser=argparse.ArgumentParser();parser.add_argument('--chromium',default=None);args=parser.parse_args()
+root=Path(__file__).resolve().parents[1];html=(root/'preview/index.html').read_text(encoding='utf-8');checks=[];errors=[]
 marker='const pause = ms => new Promise(r => setTimeout(r, ms));'
 fixture=r'''window.__inspect=()=>structuredClone(workspace);
 window.__seed=()=>{const t=workspace.threads.find(t=>t.id===workspace.activeId);t.title='Repair analysis';t.turns=[{id:'test-turn',prompt:'Explain the repair measurements. 中文输入。',attachments:[{name:'observations.csv',content:'142,180,218'}],createdAt:Date.now(),selectedReplyId:'test-reply',replies:[{id:'test-reply',model:'demo/writer',content:'The sample mean is **180 seconds**.\n\n$$x = 180$$\n\nThis is synthetic demonstration text.',reasoning:'Synthetic returned thinking: separate the arithmetic from the scheduling assumption.',status:'complete',finishReason:'stop',error:null,usage:null,elapsedMs:1234,tools:[],toolMessages:[]}]}];emit();};

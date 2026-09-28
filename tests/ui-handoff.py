@@ -4,8 +4,8 @@ The close transport is a mock; this does not exercise a native Windows window.
 import argparse,json
 from pathlib import Path
 from playwright.sync_api import sync_playwright,expect
-p=argparse.ArgumentParser();p.add_argument('--chromium',default='/usr/bin/chromium');args=p.parse_args()
-root=Path(__file__).resolve().parents[1];html=(root/'preview/index.html').read_text();checks=[];errors=[]
+p=argparse.ArgumentParser();p.add_argument('--chromium',default=None);args=p.parse_args()
+root=Path(__file__).resolve().parents[1];html=(root/'preview/index.html').read_text(encoding='utf-8');checks=[];errors=[]
 marker='const pause = ms => new Promise(r => setTimeout(r, ms));'
 assert marker in html
 html=html.replace(marker,marker+'''window.__handoffState=()=>snapshot();window.__closeReplies=[];window.__failDraft=false;''',1)

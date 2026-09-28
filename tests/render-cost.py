@@ -6,9 +6,9 @@ CPU time, and template characters supplied to updateMarkup (not total heap/GPU).
 import argparse, json, statistics
 from pathlib import Path
 from playwright.sync_api import sync_playwright
-parser=argparse.ArgumentParser();parser.add_argument('--baseline');parser.add_argument('--runs',type=int,default=3);parser.add_argument('--chromium',default='/usr/bin/chromium');args=parser.parse_args()
+parser=argparse.ArgumentParser();parser.add_argument('--baseline');parser.add_argument('--runs',type=int,default=3);parser.add_argument('--chromium',default=None);args=parser.parse_args()
 root=Path(__file__).resolve().parents[1]
-version='v'+json.loads((root/'package.json').read_text())['version']
+version='v'+json.loads((root/'package.json').read_text(encoding='utf-8'))['version']
 fixture=r'''window.__benchSeed=()=>{
  const {chartSpec,chartSVG}=require('/core/visual-tools.js');
  const t=workspace.threads.find(t=>t.id===workspace.activeId); t.settings.visualTools=true;
@@ -28,7 +28,7 @@ window.__resetCost=()=>Object.keys(window.__cost).forEach(k=>window.__cost[k]=0)
 load('/renderer/app.js');'''
 marker='const pause = ms => new Promise(r => setTimeout(r, ms));'
 def instrumented(path):
- html=Path(path).read_text();assert marker in html;assert "load('/renderer/app.js');" in html
+ html=Path(path).read_text(encoding='utf-8');assert marker in html;assert "load('/renderer/app.js');" in html
  return html.replace(marker,marker+fixture,1).replace("load('/renderer/app.js');",instrument,1)
 results={}
 with sync_playwright() as p:

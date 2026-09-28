@@ -5,8 +5,8 @@ import argparse, json, io
 from PIL import Image
 from pathlib import Path
 from playwright.sync_api import sync_playwright, expect
-parser=argparse.ArgumentParser();parser.add_argument('--chromium',default='/usr/bin/chromium');parser.add_argument('--no-sandbox',action='store_true');args=parser.parse_args()
-root=Path(__file__).resolve().parents[1];html=(root/'preview/index.html').read_text();checks=[];errors=[];requests=[]
+parser=argparse.ArgumentParser();parser.add_argument('--chromium',default=None);parser.add_argument('--no-sandbox',action='store_true');args=parser.parse_args()
+root=Path(__file__).resolve().parents[1];html=(root/'preview/index.html').read_text(encoding='utf-8');checks=[];errors=[];requests=[]
 marker='const pause = ms => new Promise(r => setTimeout(r, ms));'
 fixture=r'''window.__seed=(count=1)=>{
  const {chartSpec,chartSVG}=require('/core/visual-tools.js');const t=workspace.threads.find(t=>t.id===workspace.activeId);

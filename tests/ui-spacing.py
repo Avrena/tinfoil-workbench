@@ -6,7 +6,7 @@ from pathlib import Path
 from playwright.sync_api import sync_playwright, expect
 
 parser = argparse.ArgumentParser()
-parser.add_argument('--chromium', default='/usr/bin/chromium')
+parser.add_argument('--chromium', default=None)
 parser.add_argument('--no-sandbox', action='store_true')
 args = parser.parse_args()
 root = Path(__file__).resolve().parents[1]
@@ -25,7 +25,7 @@ fixture = r'''window.__spacingSeed=()=>{
 window.__spacingResetControls=()=>{const t=workspace.threads.find(t=>t.id===workspace.activeId);t.settings.model='demo/writer';t.settings.toolsMode='off';emit();};
 window.__spacingBusy=value=>{const t=workspace.threads.find(t=>t.id===workspace.activeId);t.settings.model='deepseek-v4-pro';t.settings.toolsMode='ask';busy=value?t.id:null;t.turns[0].replies[0].status=value?'streaming':'complete';t.turns[0].replies[0].phase=value?'thinking':'answering';emit();};
 '''
-html = (root/'preview/index.html').read_text()
+html = (root/'preview/index.html').read_text(encoding='utf-8')
 assert marker in html
 html = html.replace(marker, marker + fixture, 1)
 

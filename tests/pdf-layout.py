@@ -13,7 +13,7 @@ const chart=chartSVG(chartSpec({title:'Synthetic repair observations',type:'bar'
 const table=tableHTML(tableSpec({title:'Underlying synthetic data',columns:['Round','Seconds'],rows:[[1,142],[2,180],[3,218]]}));
 console.log(printableDocument('<h1>Artifact print-layout check</h1><p>Workbench __VERSION__ - synthetic fixture, not a live model response.</p>'+chart+table+'<p>This file checks the shared print stylesheet through headless Chromium. It does not establish that Electron printing or PDF.js works on Windows.</p><script>document.body.textContent=\"SCRIPT RAN\"</script>'));
 """
-js=js.replace('__VERSION__',json.loads((root/'package.json').read_text())['version'])
+js=js.replace('__VERSION__',json.loads((root/'package.json').read_text(encoding='utf-8'))['version'])
 html=subprocess.check_output(['node','--input-type=module','-e',js],cwd=root,text=True)
 with sync_playwright() as p:
  options={'headless':True}
