@@ -840,5 +840,6 @@ dialog[open]{transform:translateZ(0);isolation:isolate}
 .modal-body .instruction-empty,.modal-body .instructions-count,.modal-body .instructions-note{font-size:11px;color:#9aa0a8;line-height:1.6}
 .instructions-form textarea{line-height:1.6;resize:vertical}
 .instructions-confirm{display:flex;align-items:center;flex-wrap:wrap;background:#34302a;border:1px solid #575042;border-radius:6px;font-size:12px}
-.instructions-confirm span{flex:1 1 180px}
+.instructions-confirm span{flex:1 1 220px}
+.instructions-confirm-actions{display:flex;flex-wrap:wrap}
 @media(forced-colors:active){.instruction-option[aria-current=true]{outline:1px solid Highlight}}

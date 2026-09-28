@@ -39,8 +39,8 @@ app.innerHTML = `<div class="shell no-inspector" id="shell">
 <p id="instructions-locked" class="instructions-note instructions-locked" role="status" hidden>Stop the active response to change this conversation’s instructions. Saved instructions can still be managed.</p>
 <div id="instructions-list-view"><p class="instructions-intro">Optional — not required. The selection is sent as the system message of each new request in this conversation. None keeps provider defaults.</p><div id="instructions-options" class="instruction-options" role="group" aria-label="Instructions for this conversation"></div><div class="modal-actions"><button type="button" data-action="instructions-new">${icon('plus')}New instructions</button></div></div>
 <form id="instructions-form" class="instructions-form" hidden><label for="instructions-name">Name <span class="field-optional">Needed to save for reuse</span></label><input id="instructions-name" maxlength="80" autocomplete="off" placeholder="For example, Code reviewer"><label for="instructions-text">Instructions</label><textarea id="instructions-text" maxlength="40000" rows="8" placeholder="How should the model respond in this conversation?" aria-describedby="instructions-count instructions-storage"></textarea><p class="instructions-count" id="instructions-count"></p><p class="instructions-note" id="instructions-storage">Saved instructions stay in this device’s encrypted workspace. A conversation keeps the text it was given, even if the saved copy later changes or is deleted.</p>
-<div class="instructions-confirm" id="instructions-discard" role="alert" hidden><span>Discard these changes?</span><button type="button" data-action="instructions-keep">Keep editing</button><button type="button" class="danger" data-action="instructions-discard">Discard</button></div>
-<div class="instructions-confirm" id="instructions-delete-confirm" role="alert" hidden><span id="instructions-delete-text"></span><button type="button" data-action="instructions-keep-saved">Cancel</button><button type="button" class="danger" data-action="instructions-confirm-delete">Delete</button></div>
+<div class="instructions-confirm" id="instructions-discard" role="alert" hidden><span>Discard these changes?</span><div class="instructions-confirm-actions"><button type="button" data-action="instructions-keep">Keep editing</button><button type="button" class="danger" data-action="instructions-discard">Discard</button></div></div>
+<div class="instructions-confirm" id="instructions-delete-confirm" role="alert" hidden><span id="instructions-delete-text"></span><div class="instructions-confirm-actions"><button type="button" data-action="instructions-keep-saved">Cancel</button><button type="button" class="danger" data-action="instructions-confirm-delete">Delete</button></div></div>
 <div class="modal-actions"><button type="button" id="instructions-delete" data-action="instructions-delete" class="danger" hidden>Delete…</button><span class="spacer"></span><button type="button" data-action="instructions-back">Back</button><button type="button" id="instructions-save" data-action="instructions-save">Save for reuse</button><button type="submit" class="primary" id="instructions-use">Use in this conversation</button></div></form>
 </div></dialog>
 <dialog id="rename-dialog"><div class="modal-head"><h2>Rename conversation</h2>${button('dismiss','Close rename dialog','close','class="icon-button"')}</div><form id="rename-form" class="modal-body"><label for="rename-input">Conversation name</label><input id="rename-input" maxlength="120" required><div class="modal-actions"><button type="button" data-action="dismiss">Cancel</button><button type="submit" class="primary">Save name</button></div></form></dialog>
@@ -522,12 +522,18 @@ bridge?.onAppEvent?.(async event=>{
   return false;
 });
 function showDialog(id:string):void { $(id).querySelector('.dialog-feedback')?.remove();transcriptScheduler.cancel();openModal($<HTMLDialogElement>(id)); }
-// Pickers close on the first click of a double-click; its second click must not reach the page below.
-let dialogClosedAt=-Infinity;
-window.addEventListener('click',event=>{if(event.detail>1&&performance.now()-dialogClosedAt<600){event.stopImmediatePropagation();event.preventDefault();}},true);
+// Pickers close on the first click of a double-click. Drop the second click only when the first
+// was inside an open dialog and this one, at the same point, lands outside every dialog; that is
+// decided from the DOM at click time, before the asynchronous close event. Separate quick taps
+// elsewhere, such as a drawer's own close button, still work.
+let lastClick:{t:number;x:number;y:number;inDialog:boolean}|null=null;
+window.addEventListener('click',event=>{
+  const inDialog=event.target instanceof Element&&!!event.target.closest('dialog[open]'),prev=lastClick;
+  lastClick={t:event.timeStamp,x:event.clientX,y:event.clientY,inDialog};
+  if(prev?.inDialog&&!inDialog&&event.detail>1&&event.timeStamp-prev.t<600&&Math.abs(event.clientX-prev.x)<=16&&Math.abs(event.clientY-prev.y)<=16){event.stopImmediatePropagation();event.preventDefault();}
+},true);
 document.querySelectorAll('dialog').forEach(dialog=>dialog.addEventListener('close',()=>{
   if(dialog.id==='settings-dialog')$<HTMLInputElement>('api-key').value='';
-  dialogClosedAt=performance.now();
   dialog.querySelector('.dialog-feedback')?.remove();scheduleTranscript(true);
 }));
 function dismiss():void { document.querySelectorAll<HTMLDialogElement>('dialog[open]').forEach(d=>{if(d===editor.dialog)editor.requestClose();else if(d.id==='instructions-dialog'&&instructionsDirty())leaveInstructions('close');else d.close();}); }

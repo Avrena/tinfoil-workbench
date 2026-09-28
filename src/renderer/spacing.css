@@ -455,6 +455,8 @@ dialog:not(.message-editor) .modal-body { padding: 8px 20px 20px; }
 .modal-body .instructions-note { margin: 8px 0 0; }
 .instructions-form textarea { min-height: 176px; }
 .instructions-confirm { gap: 8px; padding: 10px 12px; margin-top: 12px; }
+/* The two answers stay together and right-aligned when the question takes the whole line. */
+.instructions-confirm-actions { gap: 8px; margin-left: auto; }
 @media(pointer:coarse),(hover:none) {
   .instructions-chip { height: 44px; min-width: 44px; }
 }
