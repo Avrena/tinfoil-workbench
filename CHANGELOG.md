@@ -1,5 +1,14 @@
 # Changelog
 
+## Unreleased — system instructions selection and reading type
+
+- Choose optional system instructions per conversation from a composer button, the conversation menu, the command palette or Advanced. The choices are None (the default), saved instructions, or read-only starters (Concise, Explainer, Editor, Code assistant) that can be customized as a copy. The custom system prompt remains optional and not required; None sends no custom system message.
+- Save, edit and delete reusable instructions in the encrypted workspace (up to 50 entries of up to 40,000 characters). Selecting an entry copies its text and name into the conversation, so later library edits or deletion never change an existing conversation. The editor asks before discarding unsaved changes, and close review reports them.
+- Answers no longer have a header row. The model name, the instructions each request was sent with, the Edited label and opt-in timing/usage form a quiet line below the answer, beside its actions. Comparison lanes keep a model label above each lane. The name is recorded on each reply at send time, is display-only and is never sent to a model; Markdown exports include it.
+- Reading type: answers, prompts, the composer and editor previews use 15px text. Headings have a clearer scale and balanced wrapping, paragraphs avoid single-word last lines, and tables and code blocks are larger.
+- Fonts: Windows 11 installs its variable UI font as optical-size families (`Segoe UI Variable Text`, `… Small`, `… Display`), so the stylesheet now requests `Segoe UI Variable Text` instead of `Segoe UI Variable`; Segoe UI remains the fallback. This has not been checked on Windows yet. One shared monospace stack replaces the per-rule lists and no longer names Courier New, which Android's font configuration maps to its serif typewriter face.
+- Add `tests/instructions.test.mjs`, and extend `ui-smoke.py` and `ui-spacing.py` with instruction selection, reply signature and footer/composer geometry checks.
+
 ## 0.11.0 — Android app and first verified release build
 
 - Add an Android app (Capacitor 8, Android 7.0+ with a current System WebView):

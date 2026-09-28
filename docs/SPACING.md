@@ -12,6 +12,10 @@ Visualization surfaces remain transparent/neutral and borderless. At narrow cont
 
 The chart host removes empty heading/axis-title bands but preserves the data plotting height and actual values. An x-axis title retains its line. Headed and print chart outputs remain identical with or without the new tight flag in unit fixtures. Unheaded diagrams no longer reserve a blank title region and an unnecessary trailing row. User-authored HTML, PDFs and images are not restyled.
 
+### Reply footer (unreleased)
+
+Single answers have no header row, so the answer starts 20px below the prompt row. A 12px gap separates the answer from one footer row that holds the actions and a signature (model, instructions, edit state and opt-in metadata). The footer is an inline-size container: below 640px the signature takes its own last line, so action labels revealed on hover cannot reflow it. The composer instructions control matches the model control's 32px height (44px on touch) and is icon-only on phones. `ui-spacing.py` checks the answer start, the footer gap and footer and composer collisions at all nine sizes.
+
 ## Composer, editing and focus
 
 An empty composer uses a 48px text field and grows with multiline content. The measured empty composer shell was 94px in mouse-mode desktop contexts and 102–106px in the tested touch contexts. These are component heights, not the whole bottom region. The latter also holds margins and shortcut text. Narrow control groups wrap within their container; a compact “Default” effort label maps to the unchanged `default` wire value.
