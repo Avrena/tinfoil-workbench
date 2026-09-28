@@ -2,9 +2,9 @@
   "checks": 36,
   "passed": [
     "default layout hides advanced controls and labels offline data",
-    "the model picker opens on the whole list with maker badges, capabilities and the current model marked",
+    "the model picker opens on the whole list with maker logos, descriptions, capability columns and the current model marked",
     "model search matches makers, offers any other model ID and arrow keys move into the list",
-    "choosing a model shows its maker on the composer and as the muted-white welcome mark",
+    "choosing a model shows its maker logo, centred with its name, on the composer and alone in muted white on the welcome page",
     "model choice is available without opening the inspector",
     "streamed answer renders Markdown tables, highlighted code and native MathML",
     "reasoning is folded by default and user expansion survives snapshots",
