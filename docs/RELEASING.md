@@ -29,6 +29,8 @@ Tinfoil-Workbench-<v>-x64-Setup.exe /S /D=C:\path\to\scratch
 "C:\path\to\scratch\Uninstall Tinfoil Workbench.exe" /S
 ```
 
+Check that the new signed APK upgrades the previous release in place: install the previous release's APK on an emulator, create a draft, `adb install -r` the new APK, and confirm the draft is still there.
+
 Record any failure, skip or retry in the validation record; do not describe a release as verified beyond what ran.
 
 ## Publish

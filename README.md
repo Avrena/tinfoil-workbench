@@ -1,8 +1,8 @@
-# Tinfoil Workbench 0.11
+# Tinfoil Workbench 0.12
 
 An unofficial, private client for [Tinfoil](https://tinfoil.sh) confidential AI on **Windows 11** and **Android**. Every connection verifies the Tinfoil enclave before a request is sent. The conversation-first interface has inline charts, tables, diagrams and versioned documents, model-aware thinking controls, branching and editing, and an encrypted local workspace.
 
-**The custom system prompt is optional and not required.** Leave Advanced instructions blank for ordinary chat. Blank instructions do not inject a custom system message; they do not remove the provider's own defaults.
+**The custom system prompt is optional and not required.** Leave system instructions at None, the default, for ordinary chat. None sends no custom system message; it does not remove the provider's own defaults.
 
 ![Windows renderer with synthetic demonstration data](docs/preview.png)
 
@@ -26,6 +26,7 @@ On first launch choose **Set up connection**. On Windows you can use a developer
 |---|---|---|
 | Attested chat, reasoning, comparison, branching, editing, projects | ✓ | ✓ |
 | Inline visual artifacts, HTML previews, local PDF viewing | ✓ | ✓ |
+| Optional system instructions: picker, saved library, starters | ✓ | ✓ |
 | Tinfoil web search, text-only delegation | ✓ | ✓ |
 | Developer API key | ✓ | ✓ |
 | Tinfoil Chat website sign-in (experimental) | ✓ | — |

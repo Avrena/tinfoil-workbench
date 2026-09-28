@@ -1,4 +1,4 @@
-# Security boundaries — 0.11
+# Security boundaries — 0.12
 
 This is an unofficial source implementation, not an independently audited security product. Keep the repository and real conversation data private. Do not report vulnerabilities with credentials or private transcripts attached.
 
@@ -76,3 +76,7 @@ The Android app keeps the renderer, service and invariants above, with these pla
 - The native bridge accepts messages only from the app origin's main frame. WebViews without that capability are refused rather than falling back to a bridge every frame could reach. Web file choosers, permission prompts, geolocation, file URLs and pop-ups are disabled. Capacitor logging is off in every build, because debug logging writes plugin arguments (including key material) to logcat.
 - **Weaker than desktop:** the SDK and credentials are in a separate JavaScript realm of the same WebView process, not a separate OS process. Script executing in the app page could invoke the Workbench plugin, including key unwrapping; the strict page CSP, inert rendering and opaque, bridge-free preview frames are the controls against that. Python execution, Tinfoil Chat sign-in and HTML-to-PDF rendering are not present on Android.
 - The Android release key is kept outside the repository and CI (see [docs/RELEASING.md](docs/RELEASING.md)). Windows builds are not code-signed.
+
+## System instructions (0.12)
+
+Saved instructions and instruction names are stored in the encrypted workspace with the conversations. Only a thread's `systemPrompt` text is sent, as the first system message and only when it is not blank. Names are display-only: they never enter request bodies, tool history or delegated tasks, which `tests/instructions.test.mjs` asserts against captured request bodies. The four starters are fixed strings in the client and are applied only when chosen. Markdown and JSON exports include the instruction text and names in plaintext.

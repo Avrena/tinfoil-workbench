@@ -12,9 +12,13 @@ Visualization surfaces remain transparent/neutral and borderless. At narrow cont
 
 The chart host removes empty heading/axis-title bands but preserves the data plotting height and actual values. An x-axis title retains its line. Headed and print chart outputs remain identical with or without the new tight flag in unit fixtures. Unheaded diagrams no longer reserve a blank title region and an unnecessary trailing row. User-authored HTML, PDFs and images are not restyled.
 
-### Reply footer (unreleased)
+### Reply footer (0.12)
 
 Single answers have no header row, so the answer starts 20px below the prompt row. A 12px gap separates the answer from one footer row that holds the actions and a signature (model, instructions, edit state and opt-in metadata). Beside the actions the signature takes the remaining width and truncates, rather than wraps, when action labels appear on hover. The footer is an inline-size container: below 640px the signature takes its own last line and may wrap there. The composer instructions control matches the model control's 32px height (44px on touch) and is icon-only on phones. `ui-spacing.py` checks the answer start, the footer gap and footer and composer collisions at all nine sizes.
+
+### Instructions editor with an on-screen keyboard (0.12)
+
+The editor's action row (Back, Save for reuse, Use in this conversation) is sticky at the bottom of the scrolling dialog. It is painted with the dialog background over the body's bottom padding, so the editor looks the same at rest. When an on-screen keyboard limits the dialog to the visible viewport, the actions stay visible above it, and `scroll-padding-bottom` keeps a focused field clear of the row. Before this, the name field, the 176px text field and the notes pushed the actions below the visible part of the dialog on a phone. `ui-responsive.py` checks at 390×420 and 844×390 that Save and Use are inside the viewport and topmost at their centre; `tests/android-device.py` taps Save with the real keyboard open.
 
 ## Composer, editing and focus
 
