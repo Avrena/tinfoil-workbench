@@ -43,7 +43,9 @@ test('token times need an explicit UTC designator or offset; zone-less times wou
 });
 test('account origins reject credential URLs, lookalikes, non-HTTPS and nonstandard ports',()=>{
  for(const u of ['http://chat.tinfoil.sh','https://chat.tinfoil.sh.evil.test','https://evil.test/chat.tinfoil.sh','https://user@chat.tinfoil.sh','https://chat.tinfoil.sh:8443','file:///index.html','app://workbench/index.html','javascript:alert(1)']){assert.equal(authOrigin(u),false);assert.equal(allowedAccountNavigation(u),false);}
- assert.equal(authOrigin('https://chat.tinfoil.sh/'),true);assert.equal(allowedAccountNavigation('https://accounts.google.com/o/oauth2'),true);assert.equal(authOrigin('https://accounts.google.com'),false);
+ assert.equal(authOrigin('https://chat.tinfoil.sh/'),true);assert.equal(allowedAccountNavigation('https://accounts.google.com/o/oauth2'),true);
+ assert.equal(allowedAccountNavigation('https://accounts.youtube.com/accounts/SetSID'),true);assert.equal(authOrigin('https://accounts.youtube.com/'),false);
+ for(const u of ['https://www.youtube.com/','https://youtube.com/','https://accounts.youtube.com.evil.test/','http://accounts.youtube.com/'])assert.equal(allowedAccountNavigation(u),false);assert.equal(authOrigin('https://accounts.google.com'),false);
 });
 test('blank optional system prompts are omitted; supplied instructions remain user-controlled',()=>{
  const w=newWorkspace(),t=w.threads[0];assert.equal(t.settings.systemPrompt,'');assert.deepEqual(buildHistory(t),[]);
@@ -253,12 +255,12 @@ test('native account navigation and popups keep the same unprivileged boundaries
 test('the host list governs the page, while a frame redirect cannot stall a provider sign-in',async()=>{
  const e=fakeElectron(),refused=[],w=new AccountWindow(e,()=>{},host=>refused.push(host));await w.create();const wc=e.windows[0].webContents;
  const redirect=(url,isMainFrame)=>{let blocked=false;wc.emit('will-redirect',{isMainFrame,url,preventDefault:()=>{blocked=true;}},url,false,isMainFrame);return blocked;};
- assert.equal(redirect('https://accounts.youtube.com/accounts/SetSID',false),false);assert.equal(redirect('https://clerk.tinfoil.sh/v1/oauth_callback',true),false);
- assert.equal(redirect('https://accounts.youtube.com/accounts/SetSID',true),true);assert.equal(redirect('https://attacker.invalid',undefined),true);
- assert.deepEqual(refused,['accounts.youtube.com','attacker.invalid']);await w.clear();
+ assert.equal(redirect('https://ogs.google.com/widget',false),false);assert.equal(redirect('https://clerk.tinfoil.sh/v1/oauth_callback',true),false);assert.equal(redirect('https://accounts.youtube.com/accounts/SetSID',true),false);
+ assert.equal(redirect('https://www.youtube.com/',true),true);assert.equal(redirect('https://attacker.invalid',undefined),true);
+ assert.deepEqual(refused,['www.youtube.com','attacker.invalid']);await w.clear();
 });
 test('a refused sign-in host is shown as a message, with only a plain host name',async()=>{
- const f=fixture();f.account.blocked('accounts.youtube.com');assert.match(f.account.snapshot().message,/tried to open accounts\.youtube\.com/);
+ const f=fixture();f.account.blocked('www.youtube.com');assert.match(f.account.snapshot().message,/tried to open www\.youtube\.com/);
  f.account.blocked('<img src=x onerror=alert(1)>');assert.match(f.account.snapshot().message,/tried to open another site/);f.account.blocked('');assert.match(f.account.snapshot().message,/another site/);
 });
 test('native session scripts are not evaluated outside the exact Tinfoil origin',async()=>{

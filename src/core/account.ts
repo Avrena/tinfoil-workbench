@@ -49,10 +49,11 @@ export function normalizeUsage(value: unknown): AccountUsage | null {
 export function authOrigin(url: string): boolean {
   try {const u=new URL(url);return u.origin===CHAT_ORIGIN && !u.username && !u.password; }catch{return false;}
 }
-/** Top-level login navigation only; remote pages never receive a native bridge. */
+/** Top-level login navigation only; remote pages never receive a native bridge. At the end of its sign-in,
+ * Google's sign-in moves the page through accounts.youtube.com to set its account cookies, then returns. */
 export function allowedAccountNavigation(url: string): boolean {
   try {const u=new URL(url);return u.protocol==='https:'&&!u.username&&!u.password&&!u.port&&
-    ['chat.tinfoil.sh','clerk.tinfoil.sh','accounts.tinfoil.sh','accounts.google.com','appleid.apple.com','github.com','login.microsoftonline.com','login.live.com'].includes(u.hostname);
+    ['chat.tinfoil.sh','clerk.tinfoil.sh','accounts.tinfoil.sh','accounts.google.com','accounts.youtube.com','appleid.apple.com','github.com','login.microsoftonline.com','login.live.com'].includes(u.hostname);
   }catch{return false;}
 }
 export function initials(name:string):string {return name.trim().split(/\s+/).slice(0,2).map(x=>Array.from(x)[0]??'').join('').toLocaleUpperCase()||'TF';}
