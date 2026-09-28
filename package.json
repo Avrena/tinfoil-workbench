@@ -24,15 +24,23 @@
     "preview:build": "npm run build && node scripts/build-preview.mjs",
     "doctor": "node scripts/doctor.mjs",
     "check:source": "node scripts/doctor.mjs --source",
-    "verify:local": "npm run doctor && npm test && npm run smoke:desktop"
+    "verify:local": "npm run doctor && npm test && npm run smoke:desktop",
+    "build:mobile": "npm run build && node scripts/build-mobile.mjs",
+    "android:sync": "npm run build:mobile && cap sync android",
+    "android:apk": "node scripts/android-build.mjs"
   },
   "dependencies": {
-    "tinfoil": "1.2.1",
-    "pdfjs-dist": "5.4.149"
+    "pdfjs-dist": "5.4.149",
+    "tinfoil": "1.2.1"
   },
   "devDependencies": {
+    "@capacitor/android": "8.5.2",
+    "@capacitor/cli": "8.5.2",
+    "@capacitor/core": "8.5.2",
+    "buffer": "6.0.3",
     "electron": "44.4.3",
     "electron-builder": "26.17.0",
+    "esbuild": "0.28.2",
     "typescript": "5.8.3"
   },
   "build": {
@@ -72,6 +80,7 @@
     }
   },
   "allowScripts": {
-    "electron-winstaller": false
+    "electron-winstaller": false,
+    "esbuild": false
   }
 }

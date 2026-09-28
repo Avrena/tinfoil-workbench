@@ -1,0 +1,20 @@
+{
+  "appId": "org.avrena.tinfoil.workbench",
+  "appName": "Tinfoil Workbench",
+  "webDir": "mobile-dist",
+  "backgroundColor": "#1e1e1e",
+  "loggingBehavior": "none",
+  "server": {
+    "androidScheme": "https",
+    "hostname": "localhost"
+  },
+  "android": {
+    "allowMixedContent": false,
+    "useLegacyBridge": false
+  },
+  "plugins": {
+    "CapacitorHttp": { "enabled": false },
+    "CapacitorCookies": { "enabled": false },
+    "SystemBars": { "insetsHandling": "css", "style": "DARK" }
+  }
+}

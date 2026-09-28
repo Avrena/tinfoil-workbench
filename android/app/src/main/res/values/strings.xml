@@ -1,0 +1,9 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">Tinfoil Workbench</string>
+    <string name="title_activity_main">Tinfoil Workbench</string>
+    <string name="package_name">org.avrena.tinfoil.workbench</string>
+    <string name="custom_url_scheme">org.avrena.tinfoil.workbench</string>
+    <string name="webview_update_title">Update Android System WebView</string>
+    <string name="webview_update_message">Tinfoil Workbench needs a newer Android System WebView to keep its secure bridge restricted to the app. Update Android System WebView (or Chrome) from Google Play, then open the app again.</string>
+</resources>
