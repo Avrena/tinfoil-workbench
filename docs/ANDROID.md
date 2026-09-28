@@ -107,6 +107,8 @@ Installing replaces the app and its local data on that device. The two modes cov
 - **`--live`**: adds a real enclave verification with a deliberately invalid key. Verification must pass and the key must then be rejected by the attested endpoint.
 - **`--release`**: uses UI Automator on the signed build. It covers start-up, the non-debuggable package, a draft typed through the on-screen keyboard surviving a force-stop, the account view, the instructions picker with Back, and system document picker round trips (export, attach, import).
 
+The emulator images have Android System WebView 133 (Android 16) and 113 (Android 14). Below WebView 140, Capacitor pads the view clear of the system bars itself. From WebView 140, which current phones have, it draws the page under the bars and reports them through the `--safe-area-inset-*` variables, so edge layout needs a device or image with a current WebView as well. `tests/ui-responsive.py` simulates those insets for every dialog.
+
 Results for this release are in [VALIDATION.md](VALIDATION.md).
 
 ## Tinfoil Chat sign-in

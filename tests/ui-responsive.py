@@ -74,6 +74,25 @@ with sync_playwright() as p:
  page.locator('[data-action=edit-reply]').tap();page.locator('[data-editor-field=reasoning]').tap();page.locator('#editor-reasoning').fill('My note: distinguish measured samples from an assumed deadline. Keep the comparison on a shared scale.');page.wait_for_timeout(180);page.screenshot(path=str(root/'docs/editor-tablet.png'));page.keyboard.press('Escape');page.locator('[data-editor=discard]').tap()
  page.set_viewport_size({'width':1440,'height':1000});page.locator('#transcript').evaluate('(e)=>e.scrollTop=0');page.wait_for_timeout(180);page.screenshot(path=str(root/'docs/preview-desktop.png'))
  page.locator('[data-action=edit-reply]').tap();page.locator('#editor-content').fill('The sample supports a lower response time, not a universal performance guarantee.\n\n$$\\Delta t = 94 - 61 = 33\\;\\text{ms}$$');page.locator('[data-editor-mode=preview]').tap();page.wait_for_timeout(180);page.screenshot(path=str(root/'docs/editor-desktop.png'))
+ # Android WebView 140 and later draw the page under the system bars and report them through Capacitor's
+ # inset variables; older WebViews are padded natively and report 0. body's padding insets the shell, but
+ # modal dialogs, the phone message editor and toasts are laid out against the whole screen, where a control
+ # under the status bar cannot be tapped. The insets model a phone's status and navigation bars, a landscape
+ # layout with a side navigation bar and a display cutout, and an open keyboard (no bottom inset reported).
+ inside="([s,i])=>{const r=document.querySelector(s).getBoundingClientRect();return r.width>0&&r.top>=i.top-.5&&r.left>=i.left-.5&&r.bottom<=innerHeight-i.bottom+.5&&r.right<=innerWidth-i.right+.5?null:[s,Math.round(r.left),Math.round(r.top),Math.round(r.right),Math.round(r.bottom)];}"
+ for name,w,h,inset in [('android-phone',360,800,{'top':40,'right':0,'bottom':48,'left':0}),('android-landscape',800,360,{'top':24,'right':48,'bottom':0,'left':32}),('android-keyboard',360,420,{'top':40,'right':0,'bottom':0,'left':0})]:
+  bars=b.new_context(viewport={'width':w,'height':h},is_mobile=True,has_touch=True,device_scale_factor=1);bp=bars.new_page();bp.on('pageerror',lambda e:errors.append(str(e)));bp.set_content(html);bp.evaluate('window.__seed()')
+  bp.evaluate("i=>{const r=document.documentElement;r.dataset.platform='android';for(const [k,v] of Object.entries(i))r.style.setProperty('--safe-area-inset-'+k,v+'px');}",inset);bp.wait_for_timeout(150)
+  outside=[bp.evaluate(inside,['#app',inset])]
+  for opener,dialog in [('account','#account-dialog'),('settings','#settings-dialog'),('view','#view-dialog'),('palette','#palette-dialog'),('model-picker','#model-dialog'),('instructions-picker','#instructions-dialog'),('project-create','#project-dialog'),('rename','#rename-dialog'),('move-project','#move-dialog'),('edit-draft','#edit-dialog'),(None,'#close-dialog')]:
+   if opener:bp.evaluate("a=>{const b=document.createElement('button');b.dataset.action=a;document.body.append(b);b.click();b.remove();}",opener)
+   else:bp.evaluate("s=>document.querySelector(s).showModal()",dialog)
+   expect(bp.locator(dialog)).to_be_visible();bp.wait_for_timeout(100);outside.append(bp.evaluate(inside,[dialog,inset]))
+   bp.evaluate("s=>document.querySelector(s).close()",dialog);expect(bp.locator(dialog)).to_be_hidden()
+  bp.evaluate("()=>{const t=document.createElement('div');t.className='toast';t.id='inset-toast';t.textContent='Saved.';document.body.append(t);}");outside.append(bp.evaluate(inside,['#inset-toast',inset]))
+  assert not [o for o in outside if o],(name,inset,[o for o in outside if o])
+  checks.append(f'{name}: with system-bar insets {inset}, the shell, all eleven dialogs including the message editor, and a toast stay clear of the bars and cutout')
+  bars.close()
  assert not errors;checks.append('responsive matrix produced no unhandled JavaScript errors')
  context.close();b.close()
 result={'checks':len(checks),'passed':checks,'matrix':matrix,'javascript_errors':errors,'scope':'Chromium Linux touch/viewport emulation only; keyboard height simulated; no physical phones, tablets, iOS Safari, Android Chrome, native mobile shell or live provider'}

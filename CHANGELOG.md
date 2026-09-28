@@ -1,5 +1,9 @@
 # Changelog
 
+## Unreleased
+
+- Android: dialogs no longer sit under the status bar with a current Android System WebView. From WebView 140, the app is drawn under the system bars and has to keep its own content clear of them. The main screen did, but full-screen dialogs (Account & connection, the message editor) and tall ones (System instructions) started under the status bar, where their close buttons could not be tapped, and could reach under a navigation bar. Dialogs, the message editor and short notices now stay clear of the status bar, navigation bar and display cutout. The emulators used for the device tests have WebView 133 and 113, where Capacitor pads the view itself, so the problem first showed on a phone with WebView 153. `tests/ui-responsive.py` now checks every dialog with simulated system-bar insets.
+
 ## 0.12.1 — Tinfoil Chat sign-in and token renewal on Windows
 
 - Sign in on Tinfoil's own sign-in page (`chat.tinfoil.sh/signin`) instead of Clerk's generic modal. The page continues pending authentication steps by itself; the generic modal required another action.

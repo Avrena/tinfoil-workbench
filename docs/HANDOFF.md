@@ -86,6 +86,7 @@ Record Windows build, architecture, display scale, Node/npm and installed Electr
 - Open a link from a response. The native confirmation must name the host, and the page itself must never navigate away.
 - Choose, save and edit system instructions while typing on the on-screen keyboard and with TalkBack. The composer control's spoken name must say which instructions are set, and Save must stay reachable while typing.
 - On a device with an outdated Android System WebView, confirm the app shows *Update Android System WebView* instead of loading.
+- On a phone with Android System WebView 140 or later, open Account & connection, the message editor, System instructions and Settings in portrait and landscape. Their headers and close buttons must sit below the status bar and clear of any display cutout, their close buttons must respond to a tap, and their bottom actions must stay above the navigation bar.
 
 Record the device model, Android version, WebView version, the key's billing mode, any failures, and the APK SHA-256.
 

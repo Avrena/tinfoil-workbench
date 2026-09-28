@@ -241,7 +241,12 @@ p{line-height:1.6}
 .artifact-body img{display:block;max-width:100%;max-height:66vh;object-fit:contain;margin:auto}
 .artifact-footer{padding:12px 23px;font-size:11px;color:#939eac;border-top:1px solid #3b424c}
 .artifact-markdown{max-width:790px;margin:auto}
-dialog{color:var(--text);background:#23252a;border:1px solid #4a4e57;border-radius:12px;box-shadow:0 22px 80px #0009;padding:0;width:min(510px,92vw);max-height:88vh;overflow:auto}
+/* The area the system bars leave free: the whole window on desktop and on older Android WebViews. The
+   Android block below sets it on WebView 140 and later, which draw the page under the bars. */
+:root{--safe-top:0px;--safe-right:0px;--safe-bottom:0px;--safe-left:0px;--safe-width:100%;--safe-height:var(--app-height,100dvh)}
+dialog{color:var(--text);background:#23252a;border:1px solid #4a4e57;border-radius:12px;box-shadow:0 22px 80px #0009;padding:0;width:min(510px,92vw);max-height:min(88vh,calc(var(--safe-height) - 32px));overflow:auto}
+/* Modal dialogs are laid out against the whole screen rather than the shell, so they are centred in the safe area. */
+dialog:modal{inset:var(--safe-top) var(--safe-right) var(--safe-bottom) var(--safe-left);max-width:calc(var(--safe-width) - 6px - 2em)}
 dialog::backdrop{background:#0008}
 .modal-head{display:flex;align-items:center;gap:15px;padding:15px 19px;border-bottom:1px solid #393c43;position:sticky;top:0;background:#23252a;z-index:1}
 .modal-head h2{font-size:14px;font-weight:500;margin:0}
@@ -265,7 +270,7 @@ dialog::backdrop{background:#0008}
 .palette-items{padding:5px 9px 10px}
 .palette-items button{width:100%;justify-content:flex-start;font-size:12px;padding:12px}
 .palette-items kbd{margin-left:auto}
-.toast{position:fixed;bottom:39px;left:50%;transform:translateX(-50%);z-index:99;max-width:620px;background:#303945;color:#dce6f4;border:1px solid #56687f;padding:11px 17px;border-radius:8px;font-size:12px;box-shadow:0 8px 25px #0005}
+.toast{position:fixed;bottom:calc(39px + var(--safe-bottom));left:calc(var(--safe-left) + var(--safe-width) / 2);transform:translateX(-50%);z-index:99;max-width:620px;background:#303945;color:#dce6f4;border:1px solid #56687f;padding:11px 17px;border-radius:8px;font-size:12px;box-shadow:0 8px 25px #0005}
 .toast.error{background:#493230;color:#f0d1cd;border-color:#755550}
 .render-limit{color:#d0b18b;font-size:12px}
 ::-webkit-scrollbar{width:8px;height:8px}
@@ -562,7 +567,7 @@ html,body,#app{height:var(--app-height,100dvh);min-height:0;overflow:hidden}
 .thread-heading h1 button:hover{background:#ffffff08}
 #composer-model{min-width:0;max-width:230px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;display:block}
 #drawer-backdrop{position:absolute;inset:42px 0 27px;z-index:24;background:#0008;border-radius:0;padding:0;cursor:default}
-.message-editor{width:min(900px,94vw);height:min(760px,calc(var(--app-height,100dvh) - 52px));max-height:calc(var(--app-height,100dvh) - 32px);overflow:hidden;background:#202020;border-color:#454545}
+.message-editor{width:min(900px,94vw);height:min(760px,calc(var(--safe-height) - 52px));max-height:calc(var(--safe-height) - 32px);overflow:hidden;background:#202020;border-color:#454545}
 .message-editor[open]{display:flex;flex-direction:column}
 .message-editor .modal-head{flex-shrink:0;padding:18px 22px 12px;align-items:flex-start;border-bottom:0}
 .message-editor h2{margin:3px 0 0;font-size:18px;font-weight:500}
@@ -650,7 +655,7 @@ html,body,#app{height:var(--app-height,100dvh);min-height:0;overflow:hidden}
   .toolbar>[data-action=find],.toolbar>[data-action=view]{display:none}
   .toolbar .export-menu summary{min-width:38px;min-height:44px;align-items:center;justify-content:center;padding:10px}
   .mobile-menu-item{display:flex}
-  .export-popover{top:44px;width:220px;max-height:calc(var(--app-height,100dvh) - 132px);overflow:auto}
+  .export-popover{top:44px;width:220px;max-height:calc(var(--safe-height) - 132px);overflow:auto}
   .export-popover button{min-height:44px}
   .thread-heading{padding:3px 2px;gap:1px}
   .thread-heading h1{width:100%}
@@ -716,12 +721,12 @@ html,body,#app{height:var(--app-height,100dvh);min-height:0;overflow:hidden}
   .statusbar{font-size:9px;padding:0 10px;gap:8px;overflow:hidden}
   .statusbar button{min-height:20px;padding:0;line-height:20px;font-size:9px}
   .statusbar #status-storage{display:none}
-  dialog{max-height:calc(var(--app-height,100dvh) - 32px);width:calc(100vw - 20px)}
+  dialog{max-height:calc(var(--safe-height) - 32px);width:calc(var(--safe-width) - 20px)}
   dialog .modal-head{padding:14px}
   dialog .modal-body{padding:0 16px 18px}
   dialog .modal-actions{flex-wrap:wrap}
   dialog input,dialog select,dialog textarea{font-size:16px}
-  .message-editor{position:fixed;inset:var(--app-top,0px) 0 auto;margin:0;width:100%;max-width:100%;height:var(--app-height,100dvh);max-height:var(--app-height,100dvh);border:0;border-radius:0}
+  dialog.message-editor{position:fixed;inset:calc(var(--app-top,0px) + var(--safe-top)) var(--safe-right) auto var(--safe-left);margin:0;width:var(--safe-width);max-width:var(--safe-width);height:var(--safe-height);max-height:var(--safe-height);border:0;border-radius:0}
   .message-editor .modal-head{padding:12px 16px 6px}
   .message-editor h2{font-size:17px}
   .editor-eyebrow{font-size:8px}
@@ -741,7 +746,7 @@ html,body,#app{height:var(--app-height,100dvh);min-height:0;overflow:hidden}
   .editor-reset{min-height:24px!important;padding:0;font-size:9px}
   .editor-discard{padding:8px 12px;gap:4px;font-size:11px}
   .editor-discard button{min-height:40px;padding:7px;font-size:11px}
-  .toast{max-width:calc(100vw - 24px);font-size:12px;bottom:30px}
+  .toast{max-width:calc(var(--safe-width) - 24px);font-size:12px;bottom:calc(30px + var(--safe-bottom))}
   .find-bar{padding:6px;gap:3px}
   .find-bar button{min-width:36px}
   #find-count{font-size:10px}
@@ -784,12 +789,17 @@ dialog[data-entering]{pointer-events:none}
 dialog[open]{transform:translateZ(0);isolation:isolate}
 
 /* Android app (html[data-platform=android], set from the Android host snapshot). Desktop-only
-   controls are hidden; the Android host also rejects their commands. The shell is inset from the
-   edge-to-edge system bars using the variables supplied by Capacitor's SystemBars plugin. */
+   controls are hidden; the Android host also rejects their commands. WebView 140 and later draw the
+   page under the system bars, and Capacitor's SystemBars plugin reports them as inset variables
+   (older WebViews are padded natively and report 0). body's padding insets the shell; dialogs, the
+   message editor and toasts are laid out against the whole screen and use the same --safe-* area,
+   because a control under the status bar cannot be tapped. */
 [data-platform=android] .window-controls,[data-platform=android] .execution-settings,[data-platform=android] .tools-badge,
 [data-platform=android] .run-code,[data-platform=android] [data-panel="pdf"],[data-platform=android] .settings-account-link,
 [data-platform=android] .shortcut{display:none!important}
-[data-platform=android] body{box-sizing:border-box;padding:var(--safe-area-inset-top,0px) var(--safe-area-inset-right,0px) var(--safe-area-inset-bottom,0px) var(--safe-area-inset-left,0px)}
+:root[data-platform=android]{--safe-top:var(--safe-area-inset-top,0px);--safe-right:var(--safe-area-inset-right,0px);--safe-bottom:var(--safe-area-inset-bottom,0px);--safe-left:var(--safe-area-inset-left,0px);
+  --safe-width:calc(100% - var(--safe-left) - var(--safe-right));--safe-height:calc(var(--app-height,100dvh) - var(--safe-top) - var(--safe-bottom))}
+[data-platform=android] body{box-sizing:border-box;padding:var(--safe-top) var(--safe-right) var(--safe-bottom) var(--safe-left)}
 [data-platform=android] #app{height:100%}
 
 /* Reading type: answers, prompts and editor previews share one size; secondary text stays quieter. */

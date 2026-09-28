@@ -62,6 +62,10 @@ The custom system prompt stays optional: None is the default and starters are ne
 
 Escape and Android Back must go through `cancelTopDialog()` and `topModal()`. Chromium makes a dialog's own cancel event non-cancelable after one prevented close per user activation, and DOM order is not the stacking order. A test of repeated Escape must not query the page between the presses: Playwright evaluates with a user gesture, which grants a new activation and hides the defect. Keep dialog actions reachable with an on-screen keyboard (`ui-responsive.py` keyboard-height checks), and run `tests/android-device.py` for picker or dialog changes.
 
+## Android system-bar insets
+
+From Android System WebView 140, Capacitor draws the page under the system bars and reports them through `--safe-area-inset-*`; older WebViews, including the emulator images, are padded natively and report 0. body's padding insets only the shell. Anything laid out against the screen (modal dialogs, `position:fixed` layers) must use the `--safe-*` variables in style.css, and new dialogs belong in the inset check in ui-responsive.py. A control under the status bar cannot be tapped.
+
 ## Chat account renewal and sign-in
 
 Sign-in starts on `https://chat.tinfoil.sh/signin`, Tinfoil's own page, which resumes a social sign-in's second factor through `/sso-callback`; do not return to Clerk's modal or inject sign-in scripts. Accept a sign-in only after two agreeing session reads, then bind the Clerk user and session ID; every later read, and a read after each token exchange, must match both. A loading page or one on another origin is "not ready", never a sign-out.
