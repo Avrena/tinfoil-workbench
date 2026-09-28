@@ -180,6 +180,15 @@ if args.debug:
         catch (e) { out[p] = e.message || String(e); } }
       return out; }""")
     record("Capacitor's native HTTP, cookie and server-path plugins are disabled", all(v == 'This capability is disabled in Tinfoil Workbench.' for v in plugins.values()), json.dumps(plugins))
+    # Android has no Chat account adapter (docs/ANDROID.md): account commands and Chat mode are refused
+    # with the Android message, and the connection stays on the developer API key.
+    refusals = page.eval("""async () => { const out = [];
+      for (const c of [{ type: 'account.login' }, { type: 'account.refresh' }, { type: 'account.signout' }, { type: 'connection.mode', mode: 'chat-account' }]) {
+        try { await window.tinfoil.command(c); out.push('accepted'); } catch (e) { out.push(e.message); } }
+      return out; }""")
+    s = snap(page)
+    record('Chat sign-in and Chat mode are refused with the Android message, and the API-key connection stays',
+           all(r == 'Tinfoil Chat sign-in is not available in the Android app. Use a developer API key.' for r in refusals) and s.get('connectionMode') == 'api-key' and s['account']['status'] == 'signed-out', json.dumps(refusals))
     if args.live:
         command(page, {'type': 'credentials.set', 'key': 'invalid-test-key-no-account'})
         command(page, {'type': 'connect'})
@@ -213,6 +222,10 @@ if args.debug:
     adb('shell', 'input', 'keyevent', 'KEYCODE_BACK'); time.sleep(1.2)
     record('Back at the root backgrounds the app without finishing it', PKG not in resumed() and adb('shell', 'pidof', PKG, check=False) == pid)
     adb('shell', 'am', 'start', '-W', '-n', f'{PKG}/.MainActivity'); time.sleep(1)
+    record('returning from the background resumes the same process, page and draft',
+           PKG in resumed() and adb('shell', 'pidof', PKG, check=False) == pid and page.eval("() => document.querySelector('#prompt').value") == draft and snap(page).get('platform') == 'android')
+    if args.live:
+        record('after resuming, the host worker still reaches Tinfoil', worker.eval(probe, 'https://atc.tinfoil.sh/routers?platform=snp') == 'status 200')
     command(page, {'type': 'thread.new'})
     target = snap(page)['workspace']['activeId']
     page.eval("(id) => { window.__result = null; window.tinfoil.command({ type: 'thread.delete', id }).then(() => window.__result = 'done'); }", target)
