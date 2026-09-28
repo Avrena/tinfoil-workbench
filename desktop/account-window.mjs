@@ -31,7 +31,9 @@ export function identityScript(expected){return `(()=>{
   if(clerk.session.id!==${JSON.stringify(expected.session)}||clerk.session.user?.id!==clerk.user.id)return {changed:'session'};
   return {sessionUserId:clerk.user.id,sessionId:clerk.session.id};
 })()`;}
-export const signInScript=`(()=>{if(location.origin!==${JSON.stringify(CHAT_ORIGIN)})return false;const c=window.Clerk;if(!c?.loaded)return false;if(!c.user)c.openSignIn({forceRedirectUrl:${JSON.stringify(CHAT_ORIGIN+'/')},signUpForceRedirectUrl:${JSON.stringify(CHAT_ORIGIN+'/')}});return true;})()`;
+/** Tinfoil's own sign-in page. It offers Google, Apple and email codes, and after a provider redirect its
+ * /sso-callback page resumes the account's second factor (/signin?resume=1). Clerk's generic modal did not. */
+export const SIGN_IN_URL=CHAT_ORIGIN+'/signin';
 /** Electron is injected so boundary behavior can be tested without native binaries. */
 export class AccountWindow {
   constructor({BrowserWindow,session},onInvalid=()=>{},onBlocked=()=>{}){this.BrowserWindow=BrowserWindow;this.sessions=session;this.onInvalid=onInvalid;this.onBlocked=onBlocked;this.window=null;this.ses=null;this.children=new Set();this.rejectLogin=null;this.closing=false;this.epoch=0;}
@@ -51,7 +53,7 @@ export class AccountWindow {
     wc.on('render-process-gone',()=>{if(!this.closing)this.onInvalid('The Tinfoil sign-in page stopped. Sign in again.');});
     wc.on('will-prevent-unload',event=>event.preventDefault());
   }
-  async create(){
+  async create(url=CHAT_ORIGIN+'/'){
     if(this.window&&!this.window.isDestroyed())return this.window;
     this.closing=false;
     this.ses=this.sessions.fromPartition('tinfoil-account-'+randomUUID(),{cache:false});
@@ -63,7 +65,7 @@ export class AccountWindow {
     // Keep an active session page available for on-demand token refresh, not polling.
     win.on('close',event=>{if(!this.closing){event.preventDefault();win.hide();if(this.rejectLogin){const reject=this.rejectLogin;this.rejectLogin=null;reject(new InputError('Sign-in was cancelled.'));}}});
     win.on('closed',()=>{if(this.window===win)this.window=null;});
-    await win.loadURL(CHAT_ORIGIN+'/');return win;
+    await win.loadURL(url);return win;
   }
   /** A reload or provider redirect may be in progress: wait briefly for the page to stop loading. */
   settle(win){
@@ -80,9 +82,8 @@ export class AccountWindow {
   async login(){
     const epoch=++this.epoch;
     let timer;const cancel=new Promise((_,reject)=>{this.rejectLogin=reject;});
-    const task=(async()=>{const win=await this.create();win.show();win.focus();let opened=false,seen=null;const deadline=Date.now()+600000;
+    const task=(async()=>{const win=await this.create(SIGN_IN_URL);win.show();win.focus();let seen=null;const deadline=Date.now()+600000;
       while(epoch===this.epoch&&Date.now()<deadline){
-        if(!opened)opened=await this.script(signInScript)===true;
         const value=await this.script(sessionScript());
         // Two reads a second apart must agree, so the redirect that follows sign-in (a provider
         // callback, then the chat page) has settled before any token is requested.

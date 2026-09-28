@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import vm from 'node:vm';
 import { EventEmitter } from 'node:events';
 import { AccountSession, TIMING } from '../desktop/account-session.mjs';
-import { AccountWindow,sessionScript,identityScript,signInScript } from '../desktop/account-window.mjs';
+import { AccountWindow,sessionScript,identityScript,SIGN_IN_URL } from '../desktop/account-window.mjs';
 import { normalizeProfile,normalizeUsage,authOrigin,allowedAccountNavigation,utcTimestamp,CHAT_TOKEN_URL,signedOutAccount } from '../dist/core/account.js';
 import { InputError,validateWorkspace } from '../dist/core/validation.js';
 import { newWorkspace,buildHistory,beginTurn,forkThread,exportThread,importThread } from '../dist/core/workspace.js';
@@ -83,9 +83,12 @@ test('identity script reports the current user and session only on the exact ori
  ctx.window.Clerk.user={id:'user_new'};assert.equal(vm.runInNewContext(identityScript(expected),ctx).changed,'user');
  ctx.location.origin='https://attacker.invalid';assert.equal(vm.runInNewContext(identityScript(expected),ctx),null);
 });
-test('sign-in script uses provider UI without password or token input fields',()=>{
- let calls=0;const ctx={location:{origin:'https://chat.tinfoil.sh'},window:{Clerk:{loaded:true,user:null,openSignIn:()=>{calls++;}}}};
- assert.equal(vm.runInNewContext(signInScript,ctx),true);assert.equal(calls,1);ctx.location.origin='https://attacker.invalid';assert.equal(vm.runInNewContext(signInScript,ctx),false);assert.equal(calls,1);
+test('sign-in opens the Tinfoil sign-in page on the exact origin, without injecting a sign-in script',async()=>{
+ const e=fakeElectron(),w=new AccountWindow(e);const sources=[];
+ const login=w.login();await until(()=>e.windows[0]?.url,'the sign-in page');e.windows[0].webContents.executeJavaScript=async source=>{sources.push(source);return {signedOut:true};};
+ assert.equal(SIGN_IN_URL,'https://chat.tinfoil.sh/signin');assert.equal(e.windows[0].url,SIGN_IN_URL);assert.equal(authOrigin(e.windows[0].url),true);
+ await until(()=>sources.length>=1,'a session read');assert.equal(sources.some(x=>/openSignIn|password|querySelector/.test(x)),false);
+ e.windows[0].emit('close',{preventDefault(){}});await assert.rejects(login,/cancelled/);await w.clear();
 });
 test('login exchanges at the fixed endpoint and never puts credentials in snapshots',async()=>{
  const f=fixture();await f.account.login();assert.equal(f.account.snapshot().status,'signed-in');assert.equal(f.account.snapshot().entitlement,'active');
@@ -287,7 +290,7 @@ test('a page that is loading or not ready is waited for or refused, never treate
 test('sign-in is accepted only when two session reads a second apart agree',async()=>{
  const e=fakeElectron(),w=new AccountWindow(e);let reads=0;const sessions=[raw('user_test','sess_first'),raw('user_test','sess_final'),raw('user_test','sess_final')];
  const login=w.login();await until(()=>e.windows[0],'the sign-in window');
- e.windows[0].webContents.executeJavaScript=async source=>source.includes('openSignIn')?true:sessions[Math.min(reads++,2)];
+ e.windows[0].webContents.executeJavaScript=async()=>sessions[Math.min(reads++,2)];
  const value=await login;assert.equal(value.sessionId,'sess_final');assert.equal(reads,3);await w.clear();
 });
 test('closing sign-in rejects it and cannot report a synthetic successful identity',async()=>{

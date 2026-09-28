@@ -4,7 +4,7 @@
  * The real app runs from source with a temporary profile. The tester completes sign-in in the Tinfoil
  * window; everything after that is driven through the real renderer: verify, one send, a wait past the
  * first key's expiry, a two-model send, a refresh interrupted by sign-out, and a refused send afterwards.
- * `--dry` stops at the sign-in window and cancels it.
+ * `--dry` stops at the sign-in window and cancels it; `--quick` skips the wait for the first key's expiry.
  *
  * The production objects are observed, not changed, except for two test controls: sign-out's native
  * confirmation is answered, and one token response is held for two seconds so that sign-out lands while
@@ -27,7 +27,7 @@ const root = dirname(dirname(fileURLToPath(import.meta.url)));
 const profile = mkdtempSync(join(tmpdir(), 'tinfoil-account-live-'));
 app.setPath('userData', profile);
 const option = name => { const i = process.argv.indexOf(name); return i > 0 ? process.argv[i + 1] : null; };
-const dry = process.argv.includes('--dry'), logFile = option('--log'), shotFile = option('--shot');
+const dry = process.argv.includes('--dry'), quick = process.argv.includes('--quick'), logFile = option('--log'), shotFile = option('--shot');
 const secrets = new Set(), leaks = new Set();
 const stats = { exchanges: [], starts: 0, holding: false, held: [], pageHosts: [], frameRedirectHosts: new Set(), refusedHosts: [], logins: 0, loginsDone: 0, identityChecks: 0, identityMatched: null, clients: [], snapshots: 0, vaultWrites: 0, dateHeader: null };
 let service = null, holdNext = 0;
@@ -68,12 +68,16 @@ wrap(AccountWindow.prototype, 'identity', async function (original, [expected]) 
   const value = await original.call(this, expected); stats.identityChecks++;
   stats.identityMatched = value?.sessionUserId === expected.user && value?.sessionId === expected.session; return value;
 });
-// Sign-in navigation, by host name only (OAuth URLs carry codes and state).
+// Sign-in navigation by host name, plus the path on Tinfoil's own origin. Queries and fragments are never
+// logged: OAuth URLs carry codes and state.
 const hostOf = url => { try { return new URL(url).hostname; } catch { return ''; } };
+const placeOf = url => { try { const u = new URL(url); return u.hostname === 'chat.tinfoil.sh' ? u.hostname + u.pathname : u.hostname; } catch { return ''; } };
 wrap(AccountWindow.prototype, 'secure', function (original, [win]) {
   original.call(this, win);
   const wc = win.webContents;
-  wc.on('did-navigate', (_event, url) => { const host = hostOf(url); if (stats.pageHosts.at(-1) !== host) { stats.pageHosts.push(host); log('sign-in-page', { host }); } });
+  const visit = url => { const place = placeOf(url); if (stats.pageHosts.at(-1) !== place) { stats.pageHosts.push(place); log('sign-in-page', { page: place }); } };
+  wc.on('did-navigate', (_event, url) => visit(url));
+  wc.on('did-navigate-in-page', (_event, url, isMainFrame) => { if (isMainFrame) visit(url); });
   wc.on('did-redirect-navigation', (event, url, _inPlace, isMainFrame) => { const target = url ?? event.url; if ((event.isMainFrame ?? isMainFrame) === false && !allowedAccountNavigation(target)) stats.frameRedirectHosts.add(hostOf(target)); });
   wc.on('did-fail-load', (_event, code, _description, url, isMainFrame) => { if (isMainFrame && code !== -3) log('sign-in-load-failed', { host: hostOf(url), code }); });
 });
@@ -181,6 +185,11 @@ async function run() {
   log('first-send', { replies: first, seconds: (Date.now() - t0) / 1000, exchangesSoFar: stats.exchanges.length, newClients: stats.clients.length - clientsBefore, keyReused: account().key === keyAtFirstSend });
 
   // 4. Wait past the first key's expiry with no activity, then send to two models at once.
+  if (!quick) await renewal(second);
+  await finish();
+}
+async function renewal(second) {
+  let t0, s;
   const firstExpiry = account().state.tokenExpiresAt, firstKey = account().key, reuseUntil = account().keyDeadline - 60_000;
   const resumeAt = Math.max(firstExpiry, account().keyDeadline) + 20_000;
   log('waiting-for-expiry', { tokenExpiresAt: iso(firstExpiry), renewalDueAt: iso(reuseUntil), sendAt: iso(resumeAt) });
@@ -194,6 +203,8 @@ async function run() {
     exchangesDuringSend: stats.exchanges.slice(exchangesBefore), newVerifiedClients: stats.clients.length - clientsBeforeRenewal, interactiveLoginsDuringSend: stats.logins - loginsBefore,
     accountWindowVisible: accountWindow()?.isVisible() ?? null, verification: service.verification.state, replies: renewed, seconds: (Date.now() - t0) / 1000 });
 
+}
+async function finish() {
   // 5. Credentials must not reach renderer content or storage, snapshots or vault writes.
   const rendererText = await js(`document.documentElement.outerHTML+JSON.stringify(Object.entries(localStorage))+JSON.stringify(Object.entries(sessionStorage))`);
   log('exposure', { credentialsTracked: secrets.size, inRendererContent: leaked(rendererText), inSnapshots: leaks.has('snapshot'), inVaultWrites: leaks.has('vault'), snapshotsChecked: stats.snapshots, vaultWrites: stats.vaultWrites });
