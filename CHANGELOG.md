@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- Android: sign in to Tinfoil Chat with your email and password. Tinfoil's own sign-in page opens on a separate screen, with no bridge to the app and a WebView storage profile of its own, and Chat access renews as on Windows. Google and Apple sign-in are not available in the Android app: Google refuses sign-in in embedded views, and a supported route needs Tinfoil to register the app. While you are signed in, the website session is kept in the app's private storage; it is deleted when the app next starts. It has not yet been tested with a real account. On a WebView without the needed features, the app keeps using a developer API key.
 - Android: dialogs no longer sit under the status bar with a current Android System WebView. From WebView 140, the app is drawn under the system bars and has to keep its own content clear of them. The main screen did, but full-screen dialogs (Account & connection, the message editor) and tall ones (System instructions) started under the status bar, where their close buttons could not be tapped, and could reach under a navigation bar. Dialogs, the message editor and short notices now stay clear of the status bar, navigation bar and display cutout. The emulators used for the device tests have WebView 133 and 113, where Capacitor pads the view itself, so the problem first showed on a phone with WebView 153. `tests/ui-responsive.py` now checks every dialog with simulated system-bar insets.
 
 ## 0.12.1 — Tinfoil Chat sign-in and token renewal on Windows

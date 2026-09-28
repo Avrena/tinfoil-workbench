@@ -153,7 +153,7 @@ function accept(snapshot:Snapshot):void {
   const notice = state.storage === 'preview' ? null : state.notice;
   const unconfigured=state.storage!=='preview'&&!state.hasKey&&state.account?.status!=='signed-in';
   if(notice)setMarkup($('notice'),e(notice));
-  else if(unconfigured)setMarkup($('notice'),`${state.platform==='android'?'Add a Tinfoil API key to start.':'Connect an account or API key to start.'} <button type="button" data-action="account">Set up connection</button>`);
+  else if(unconfigured)setMarkup($('notice'),`${state.platform==='android'&&!state.chatAvailable?'Add a Tinfoil API key to start.':'Connect an account or API key to start.'} <button type="button" data-action="account">Set up connection</button>`);
   else setMarkup($('notice'),'');
   $('notice').classList.toggle('hidden',!notice&&!unconfigured);
   if (switched || document.activeElement!==$('prompt')) {

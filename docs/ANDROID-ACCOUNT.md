@@ -1,6 +1,6 @@
 # Android Chat account access: investigation and design
 
-**Status: not implemented.** The Android app connects with a developer API key. This document records what is known about signing in to a Tinfoil Chat account on Android, the candidate routes, and the boundaries an implementation must meet before it ships. Nothing here has been built or tested on a device unless it says so. The custom system prompt is optional and not required on every route.
+**Status: implemented, not released.** Route A below is implemented, with email-and-password sign-in on Tinfoil's own page ([Implementation](#implementation)). It has been checked on an emulator without credentials; the check with a real account is pending. Released builds connect with a developer API key. This document also records the investigation behind that choice. The custom system prompt is optional and not required on every route.
 
 Google OAuth requires a supported native/browser integration and cannot use an embedded website adapter. Tinfoil's direct account methods are a separate candidate. Whether a given account can use them, how to isolate the authentication view, how to store its session and how to deliver credentials from native code to the host worker have not been validated.
 
@@ -10,13 +10,13 @@ Google OAuth requires a supported native/browser integration and cannot use an e
 |---|---|---|
 | Google sign-in (OAuth) | Not available in any embedded view. It needs a supported native/browser integration, such as a Custom Tab or the system browser with a callback registered for Workbench, which Tinfoil does not publish ([ANDROID.md](ANDROID.md#tinfoil-chat-sign-in)). | Google forbids its OAuth authorization in "an embedded user-agent under the developer's control" and has blocked Android WebViews since 30 September 2021 with `disallowed_useragent`. |
 | Apple sign-in (OAuth) | Not proposed for the embedded view, which would refuse its hosts. No Apple policy on embedded views was checked; it would need its own investigation. | — |
-| Email and password | Candidate, untested. The instance has password sign-in enabled. Whether a particular account has a password is account-specific: an account created with Google may have none. | Tinfoil's page calls `signIn.password({ identifier, password })`; its password field is always shown on the email step. |
-| Email code | Candidate, untested. The instance lists `email_code` as a first factor and Tinfoil's page has an email-code path. When the page offers it for a given account must be seen in the page. | `signIn.emailCode.sendCode()` / `verifyCode()`. |
-| Second factor | Candidate, untested, handled entirely by Tinfoil's page. The instance offers TOTP and backup codes as second factors. The page's second step, which handles both `needs_second_factor` and `needs_client_trust`, also has an emailed-code path. | `signIn.mfa.verifyTOTP`, `verifyBackupCode`, `sendEmailCode` / `verifyEmailCode`. |
+| Email and password | Implemented; the check with a real account is pending. The instance has password sign-in enabled. Whether an account has a password is account-specific: one created with Google has none until the user sets one in Tinfoil's profile page. | Tinfoil's page calls `signIn.password({ identifier, password })`; its password field is always shown on the email step. |
+| Email code | Not offered for an existing account. The instance lists `email_code` as a first factor, but Tinfoil's email form always asks for a password; its first-step emailed code appears only when resuming a Google or Apple sign-in. | `signIn.emailCode.sendCode()` only in the social-sign-in resume path. |
+| Second factor | Handled entirely by Tinfoil's page; the check with a real account is pending. The instance offers TOTP and backup codes as second factors. The page's second step, which handles both `needs_second_factor` and `needs_client_trust`, also has an emailed-code path. | `signIn.mfa.verifyTOTP`, `verifyBackupCode`, `sendEmailCode` / `verifyEmailCode`. |
 | Passkeys, phone | Not enabled on Tinfoil's instance. | Instance configuration. |
-| Key renewal | Design only: reuse `AccountSession` unchanged (below). | Windows implementation and tests. |
-| Session storage | Design only; weaker than Windows (below). | AndroidX WebKit sources. |
-| Credential delivery | Design only; needs a device experiment (below). | `mobile/bridge.mjs`, AndroidX WebKit sources. |
+| Key renewal | Implemented: `AccountSession` runs unchanged in the host worker. | Windows implementation; `tests/android-account.test.mjs`. |
+| Session storage | Implemented as proposed below: a fresh profile per sign-in, deleted at the next launch (checked on the emulator). Weaker than Windows. | AndroidX WebKit sources; `tests/android-device.py`. |
+| Credential delivery | Implemented as proposed below; the port handover works on WebView 133 (Android 16 emulator). | `mobile/bridge.mjs`, `mobile/account.mjs`, `WorkbenchAccount.java`. |
 
 The instance facts come from Tinfoil's public Clerk configuration (`https://clerk.tinfoil.sh/v1/environment`, which every browser loads for the sign-in page), retrieved 28 September 2026: password and `email_code` first factors, `totp` and `backup_code` second factors, Google and Apple enabled, passkeys and phone numbers disabled, no second factor required by the instance, and no CAPTCHA configured.
 
@@ -38,7 +38,7 @@ Facts (AndroidX WebKit 1.14 sources, retrieved 28 September 2026):
 - A separate process with its own data directory (`ProcessGlobalConfig.setDataDirectorySuffix`) is the other isolation mechanism. Its storage is also on disk, and it needs inter-process messaging to reach the main process.
 - The app already disables backup and device transfer (`allowBackup="false"`, `fullBackupContent="false"` and data-extraction rules).
 
-Proposed policy, for a maintainer decision:
+Policy, accepted by the maintainer on 28 September 2026:
 
 - Each sign-in uses a fresh profile name. At app start, before any profile is loaded, every non-default profile is deleted, so a sign-in is not remembered across launches, as on Windows.
 - Sign-out ends the Clerk session (best-effort), clears the profile's cookies and web storage, and destroys the WebView; the profile itself is deleted at the next launch.
@@ -65,6 +65,16 @@ Needs a device experiment, on WebView 133 (emulator) and 153 (phone): that a por
 ### Lifecycle
 
 On resume without process death, the worker would call `AccountSession.resume()` from the app's resume event, which drops an expiring key. After process death the in-memory key is gone and, under the storage policy above, the next launch deletes the profile, so the user signs in again.
+
+## Implementation
+
+- **`WorkbenchAccount.java`** adds Tinfoil's page as a separate WebView over the app, not a `BridgeActivity`: Back and a native Cancel close it, and it stays alive, hidden, after sign-in, so the page's Clerk session keeps issuing identity tokens. It has no JavaScript interface, web-message listener or document-start script, and each sign-in gets a fresh `account-…` profile. `MainActivity` deletes earlier profiles at start-up, before any is loaded, and a reload of the Workbench page closes the channel and clears the website session.
+- **Fixed page scripts.** They are Java text blocks that mirror `desktop/account-window.mjs`. `tests/android-account.test.mjs` checks that they match the desktop scripts and runs them against a stand-in Clerk page. `evaluateJavascript` does not await promises, so the asynchronous scripts leave their result in a one-time page global that a fixed collect script takes; the page already holds that data.
+- **The channel.** `mobile/bridge.mjs` calls `Workbench.accountChannel()` at start. Native code posts one port with `postWebMessage` to `https://localhost`. The bridge accepts only a message with no source window, stops its propagation and transfers the port to the host worker, which waits at most 5 seconds and ignores later account messages. AndroidX wraps a port in a new object for every callback, so the native side identifies the channel by number.
+- **The worker.** `mobile/account.mjs` provides the channel, `NativeAccountWindow` (the `AccountSession` adapter) and `nativeFetcher`, which turns the native exchange result into a `Response`. `mobile/commands.mjs` runs the desktop account commands, and the snapshot's `chatAvailable` tells the renderer whether this WebView supports sign-in.
+- **The exchange** uses `HttpsURLConnection` with no redirects, 15-second timeouts and at most 64 KiB + 1 byte read, and returns the status, `Date`, `Retry-After`, `Content-Length` and body.
+
+Checked so far, on the Android 16 emulator (WebView 133), without credentials: the page opens on its own screen and profile; Google is refused with the reason shown and reported; Cancel ends the sign-in; the Workbench page holds no port or JWT-shaped string; and the profile is gone after a restart. These are the sign-in checks in `tests/android-device.py --debug`.
 
 ## Route B: Clerk's Android SDK
 

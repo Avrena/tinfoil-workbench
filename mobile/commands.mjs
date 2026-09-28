@@ -6,13 +6,14 @@ import { PREVIEW_LIMIT, previewFile, textAttachments, importText, bytesToBase64 
 /** Android counterpart of the command switch in desktop/main.mjs. Keep the two in step:
  * every native confirmation, stale-request recheck and limit here mirrors the desktop case.
  * Features the Android host does not provide fail with an explicit message. */
-export const CHAT_UNAVAILABLE = 'Tinfoil Chat sign-in is not available in the Android app. Use a developer API key.';
+export const CHAT_UNAVAILABLE = 'Tinfoil Chat sign-in needs a newer Android System WebView on this device. Use a developer API key.';
 export const PYTHON_UNAVAILABLE = 'Python execution is not available in the Android app.';
 export const PYTHON_SETTING = 'Python execution is not available in the Android app. Set Model-requested Python to Off for this conversation.';
 export const PDF_UNAVAILABLE = 'PDF export is not available in the Android app yet. Use Save to keep the original file.';
 export const WINDOW_UNAVAILABLE = 'Window controls are not used in the Android app.';
 
-export const withPlatform = snapshot => ({ ...snapshot, platform: 'android' });
+/** `chatAvailable` is false when this WebView cannot isolate Tinfoil's sign-in page (docs/ANDROID-ACCOUNT.md). */
+export const withPlatform = (snapshot, chatAvailable = false) => ({ ...snapshot, platform: 'android', chatAvailable });
 
 const utf8Base64 = value => bytesToBase64(new TextEncoder().encode(value));
 function artifactFor(service, c) {
@@ -26,21 +27,54 @@ async function pick(native, options) {
   return files;
 }
 
-export function createCommandHandler({ service, native, uuid = () => globalThis.crypto.randomUUID() }) {
+export function createCommandHandler({ service, native, account = null, uuid = () => globalThis.crypto.randomUUID() }) {
   const confirm = async options => (await native.confirm(options)).confirmed === true;
+  const snapshot = () => withPlatform(service.snapshot(), !!account);
+  let accountFlow = null;
   return async function command(input) {
     const c = record(input); text(c.type, 'Command', 80, true);
     switch (c.type) {
-      case 'account.login': case 'account.cancel': case 'account.refresh': case 'account.manage': case 'account.signout':
-        throw new InputError(CHAT_UNAVAILABLE);
+      // Tinfoil Chat sign-in mirrors desktop/main.mjs; Tinfoil's page runs in native code (mobile/account.mjs).
+      case 'account.login': {
+        if (!account) throw new InputError(CHAT_UNAVAILABLE);
+        if (service.busyThreadId || service.connection) throw new InputError('Stop the response or wait for verification before signing in.');
+        if (accountFlow) throw new InputError('Sign-in is already open.');
+        if (account.snapshot().status === 'signed-in') throw new InputError('Sign out before connecting another account.');
+        const flow = (async () => {
+          if (['expired', 'error'].includes(account.snapshot().status)) await account.signOut();
+          await service.execute({ type: 'connection.mode', mode: 'chat-account' });
+          await account.login();
+        })().catch(() => account.invalidate('Sign-in could not finish. Reopen Account to try again.'));
+        accountFlow = flow; void flow.finally(() => { if (accountFlow === flow) accountFlow = null; });
+        break;
+      }
+      case 'account.cancel': {
+        if (!account) throw new InputError(CHAT_UNAVAILABLE);
+        if (account.snapshot().status !== 'signing-in' && account.snapshot().status !== 'error') throw new InputError('No sign-in is waiting to be cancelled.');
+        await account.signOut(); break;
+      }
+      case 'account.refresh': case 'account.manage': {
+        if (!account) throw new InputError(CHAT_UNAVAILABLE);
+        if (service.busyThreadId || service.connection) throw new InputError('Finish or stop the response before managing your account.');
+        if (c.type === 'account.manage') await account.manage(); else await account.refresh();
+        break;
+      }
+      case 'account.signout': {
+        if (!account) throw new InputError(CHAT_UNAVAILABLE);
+        if (!await confirm({ title: 'Sign out of Tinfoil Chat?', confirm: 'Sign out on this device', cancel: 'Keep signed in',
+          message: 'This stops active responses and clears Workbench’s website session and account tokens on this device. Your local conversations and separately saved API key remain. No automatic API-key fallback is used.' })) break;
+        for (const ctrl of service.controllers.values()) ctrl.abort();
+        await account.signOut(); service.resetConnection(); service.emit(); break;
+      }
       case 'connection.mode':
-        if (c.mode !== 'api-key') throw new InputError(CHAT_UNAVAILABLE);
+        if (c.mode !== 'api-key' && !account) throw new InputError(CHAT_UNAVAILABLE);
         await service.execute(c); break;
       case 'thread.authorize-account': {
         const id = identifier(c.id); service.editable(id);
         if (!service.needsAuthorization(id)) break;
         const owner = service.activeOwner(), thread = findThread(service.workspace, id);
-        const allowed = await confirm({ title: 'Use this existing thread with the saved developer API key?', confirm: 'Allow this thread', cancel: 'Cancel',
+        const name = owner === 'api-key' ? 'the saved developer API key' : account?.snapshot().profile?.name ?? 'your Tinfoil account';
+        const allowed = await confirm({ title: 'Use this existing thread with ' + name + '?', confirm: 'Allow this thread', cancel: 'Cancel',
           message: 'Thread: ' + thread.title + '\nThe selected conversation history and attached reference text will be sent only when you next press Send. This approval does not send a request, upload a workspace or move cloud chats.' });
         if (allowed) { if (owner !== service.activeOwner()) throw new InputError('The account changed. Review it again.'); await service.authorizeThread(id); }
         break;
@@ -92,7 +126,7 @@ export function createCommandHandler({ service, native, uuid = () => globalThis.
       case 'artifact.open': {
         const files = await pick(native, { multiple: false, maxCount: 1, maxBytes: PREVIEW_LIMIT });
         if (!files.length) break;
-        return { snapshot: withPlatform(service.snapshot()), artifact: { id: uuid(), ...previewFile(files[0]) } };
+        return { snapshot: snapshot(), artifact: { id: uuid(), ...previewFile(files[0]) } };
       }
       case 'artifact.pdf': {
         const a = artifactFor(service, c);
@@ -122,7 +156,7 @@ export function createCommandHandler({ service, native, uuid = () => globalThis.
       case 'attachments.pick': {
         // One more than the limit is requested so an over-selection is reported instead of truncated.
         const files = await pick(native, { multiple: true, maxCount: LIMITS.attachments + 1, maxBytes: LIMITS.attachment * 4 });
-        return { snapshot: withPlatform(service.snapshot()), attachments: files.length ? attachments(textAttachments(files, LIMITS)) : [] };
+        return { snapshot: snapshot(), attachments: files.length ? attachments(textAttachments(files, LIMITS)) : [] };
       }
       case 'export': {
         const thread = structuredClone(findThread(service.workspace, identifier(c.id)));
@@ -144,6 +178,6 @@ export function createCommandHandler({ service, native, uuid = () => globalThis.
       }
       default: await service.execute(c);
     }
-    return { snapshot: withPlatform(service.snapshot()) };
+    return { snapshot: snapshot() };
   };
 }

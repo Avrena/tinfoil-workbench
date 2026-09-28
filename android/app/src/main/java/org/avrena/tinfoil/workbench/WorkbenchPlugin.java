@@ -83,6 +83,28 @@ public class WorkbenchPlugin extends Plugin {
         notifyListeners("pause", new JSObject(), false);
     }
 
+    @Override
+    protected void handleOnResume() {
+        notifyListeners("resume", new JSObject(), false);
+    }
+
+    // ---- Tinfoil Chat sign-in -----------------------------------------------------------------
+
+    /**
+     * Issues the private account channel once per page load (docs/ANDROID-ACCOUNT.md). The port is posted to the
+     * page with postWebMessage and handed to the host worker unread; account data never returns through a
+     * plugin result, which the page would see.
+     */
+    @PluginMethod
+    public void accountChannel(PluginCall call) {
+        getActivity()
+            .runOnUiThread(() -> {
+                WorkbenchAccount account = getActivity() instanceof MainActivity activity ? activity.account() : null;
+                if (account == null) call.reject("Tinfoil Chat sign-in needs a newer Android System WebView.");
+                else account.issueChannel(call);
+            });
+    }
+
     // ---- Encrypted workspace ------------------------------------------------------------------
 
     private AtomicFile vault() {

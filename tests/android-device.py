@@ -180,15 +180,34 @@ if args.debug:
         catch (e) { out[p] = e.message || String(e); } }
       return out; }""")
     record("Capacitor's native HTTP, cookie and server-path plugins are disabled", all(v == 'This capability is disabled in Tinfoil Workbench.' for v in plugins.values()), json.dumps(plugins))
-    # Android has no Chat account adapter (docs/ANDROID.md): account commands and Chat mode are refused
-    # with the Android message, and the connection stays on the developer API key.
-    refusals = page.eval("""async () => { const out = [];
+    # Tinfoil Chat sign-in (docs/ANDROID-ACCOUNT.md): with a WebView that supports profiles and message ports, Tinfoil's
+    # page opens on a separate screen with no bridge; otherwise the account commands are refused with the Android message.
+    s = snap(page)
+    if s.get('chatAvailable'):
+        profiles = lambda: sorted(set(re.findall(r'app_webview/([^/\s]+)', adb('shell', 'run-as ' + PKG + ' find app_webview -maxdepth 2 -type d', check=False))))
+        command(page, {'type': 'account.login'})
+        record("Chat sign-in opens Tinfoil's page on a separate screen, in a profile of its own",
+               find('Sign in to Tinfoil Chat', 20) is not None and find('Continue with Google', 30, exact=False) is not None and len(profiles()) > 1 and snap(page)['account']['status'] == 'signing-in', json.dumps(profiles()))
+        tap('Continue with Google', 10, exact=False); time.sleep(3)
+        record('Google sign-in is refused there, with the reason shown and reported',
+               find('Google and Apple sign-in are not available in the Android app. Sign in with your email and password.', 10) is not None and 'accounts.google.com' in (snap(page)['account'].get('message') or ''))
+        tap('Cancel', 10); time.sleep(1.5)
+        s = snap(page)
+        record('Cancel closes the page and ends the sign-in', find('Sign in to Tinfoil Chat', 3) is None and s['account']['status'] == 'error' and s['account']['message'] == 'Sign-in was cancelled.', s['account']['message'])
+        command(page, {'type': 'account.cancel'})
+        record('the main page holds no account port or credential', page.eval("() => !Object.getOwnPropertyNames(window).some(n => /account|clerk/i.test(n)) && !/eyJ[A-Za-z0-9_-]{10,}\\./.test(document.documentElement.outerHTML)"))
+        adb('shell', 'am', 'force-stop', PKG)
+        page, worker = devtools(start())
+        record('the sign-in profile is deleted at the next launch', profiles() == ['Default'] and snap(page)['account']['status'] == 'signed-out', json.dumps(profiles()))
+        command(page, {'type': 'connection.mode', 'mode': 'api-key'})  # sign-in selected Chat mode; the checks below use a key
+    else:
+        refusals = page.eval("""async () => { const out = [];
       for (const c of [{ type: 'account.login' }, { type: 'account.refresh' }, { type: 'account.signout' }, { type: 'connection.mode', mode: 'chat-account' }]) {
         try { await window.tinfoil.command(c); out.push('accepted'); } catch (e) { out.push(e.message); } }
       return out; }""")
-    s = snap(page)
-    record('Chat sign-in and Chat mode are refused with the Android message, and the API-key connection stays',
-           all(r == 'Tinfoil Chat sign-in is not available in the Android app. Use a developer API key.' for r in refusals) and s.get('connectionMode') == 'api-key' and s['account']['status'] == 'signed-out', json.dumps(refusals))
+        s = snap(page)
+        record('without WebView support, Chat sign-in and Chat mode are refused with the Android message, and the API-key connection stays',
+               all(r == 'Tinfoil Chat sign-in needs a newer Android System WebView on this device. Use a developer API key.' for r in refusals) and s.get('connectionMode') == 'api-key' and s['account']['status'] == 'signed-out', json.dumps(refusals))
     if args.live:
         command(page, {'type': 'credentials.set', 'key': 'invalid-test-key-no-account'})
         command(page, {'type': 'connect'})
@@ -278,7 +297,8 @@ if args.debug:
 else:
     start()
     record('the release build opens the encrypted workspace', find('What are we working on?', 40, exact=False) is not None)
-    record('onboarding asks for an API key', find('Add a Tinfoil API key to start.', 5, exact=False) is not None)
+    onboarding = find('Connect an account or API key to start.', 5, exact=False) is not None
+    record('onboarding offers a connection', onboarding or find('Add a Tinfoil API key to start.', 3, exact=False) is not None)
     run_as = subprocess.run([ADB, 'shell', 'run-as', PKG, 'ls'], capture_output=True, text=True)
     record('the release package is not debuggable', 'DEBUGGABLE' not in adb('shell', 'dumpsys', 'package', PKG) and 'not debuggable' in run_as.stderr + run_as.stdout)
     box = composer_box()
@@ -288,7 +308,8 @@ else:
     adb('shell', 'am', 'force-stop', PKG); start()
     record('a draft typed through the IME survives a force-stop', find('Release draft check', 30, exact=False) is not None)
     tap('Set up connection')
-    record('the account view offers only the API key', find('Tinfoil Chat website sign-in is not available on Android', 10, exact=False) is not None)
+    record('the account view offers Tinfoil Chat sign-in, or says why it is unavailable',
+           find('Sign in to Tinfoil Chat', 10) is not None if onboarding else find('Tinfoil Chat sign-in needs a newer Android System WebView', 10, exact=False) is not None)
     adb('shell', 'input', 'keyevent', 'KEYCODE_BACK'); time.sleep(1)
     none_row = 'Provider defaults. No custom system message is sent.'
     tap('System instructions (optional)', exact=False)

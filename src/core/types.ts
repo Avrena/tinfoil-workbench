@@ -94,6 +94,8 @@ export interface Snapshot {
   notice: string | null; pythonConfigured?: boolean;
   /** Set only by the Android host; absent on the Windows desktop. */
   platform?: 'android';
+  /** Android only: whether this WebView can host Tinfoil's sign-in page (docs/ANDROID-ACCOUNT.md). */
+  chatAvailable?: boolean;
 }
 export interface ApiMessage { role: 'system' | 'user' | 'assistant' | 'tool'; content: string; tool_call_id?: string; tool_calls?: ToolCall[]; reasoning_content?: string }
 export interface GenerationJob {

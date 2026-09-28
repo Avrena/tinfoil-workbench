@@ -55,6 +55,8 @@ No account profile, email or name is automatically used as model context. Existi
 
 Sign-out cancels active work and any token exchange in flight, clears in-memory credentials and closes temporary site windows. Remote session termination is best-effort. An application-wide quit grace may end before network revocation completes. There is no Remember me, cloud-sync client, automatic billing change or locally implemented account deletion. Account, password and security changes are performed by the user in the provider's UI. The flow has been exercised natively on Windows; ACCOUNT.md and VALIDATION.md record the tested scope.
 
+On Android (not yet released), Tinfoil's sign-in page runs in a separate WebView with no JavaScript interface, web-message listener or document-start script, in a WebView profile of its own, limited to Tinfoil's sign-in hosts; Google and Apple are refused there. Only fixed page scripts run in it. Account credentials reach the host worker over a private message port that the page hands over unread at start-up, never through `runNative()` or the Workbench page, and the key exchange runs natively. Unlike Windows, the website session is kept in the app's private storage while signed in; it is deleted at the next launch. See docs/ANDROID-ACCOUNT.md.
+
 Custom system instructions are optional, not required. Omitting them never loosens native execution, auth or approval boundaries.
 
 

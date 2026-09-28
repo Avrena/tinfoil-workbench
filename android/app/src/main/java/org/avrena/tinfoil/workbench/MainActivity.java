@@ -1,6 +1,7 @@
 package org.avrena.tinfoil.workbench;
 
 import android.app.AlertDialog;
+import android.graphics.Bitmap;
 import android.net.Uri;
 import android.os.Bundle;
 import android.webkit.GeolocationPermissions;
@@ -28,6 +29,12 @@ import java.util.Locale;
 public class MainActivity extends BridgeActivity {
 
     private static final String APP_HOST = "localhost";
+    private WorkbenchAccount account;
+
+    /** Tinfoil Chat sign-in (docs/ANDROID-ACCOUNT.md); null when this WebView cannot support it. */
+    WorkbenchAccount account() {
+        return account;
+    }
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -55,6 +62,12 @@ public class MainActivity extends BridgeActivity {
             return;
         }
 
+        // Sign-in profiles of earlier runs are deleted before any profile is loaded in this process.
+        if (WorkbenchAccount.supported()) {
+            WorkbenchAccount.deleteStoredSessions();
+            account = new WorkbenchAccount(this, webView);
+        }
+
         WebSettings settings = webView.getSettings();
         settings.setAllowFileAccess(false);
         settings.setAllowContentAccess(false);
@@ -67,6 +80,13 @@ public class MainActivity extends BridgeActivity {
             public WebResourceResponse shouldInterceptRequest(WebView view, WebResourceRequest request) {
                 if (!allowedRequest(request.getUrl())) return blocked();
                 return super.shouldInterceptRequest(view, request);
+            }
+
+            @Override
+            public void onPageStarted(WebView view, String url, Bitmap favicon) {
+                super.onPageStarted(view, url, favicon);
+                // A new page gets a new host worker: the old account channel and website session end.
+                if (account != null) account.pageStarted();
             }
 
             @Override
@@ -94,6 +114,12 @@ public class MainActivity extends BridgeActivity {
                 callback.invoke(origin, false, false);
             }
         });
+    }
+
+    @Override
+    public void onDestroy() {
+        if (account != null) account.destroy();
+        super.onDestroy();
     }
 
     /** The app's own files, and HTTPS to Tinfoil's attested service hosts. Everything else is refused. */
