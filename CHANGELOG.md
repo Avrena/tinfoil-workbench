@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## 0.13.2 — Windows connections and maker logos
 
 - Windows: the installed app can now connect. The Windows builds up to 0.13.1 lacked zod, which the attested SDK's AI SDK dependencies import; npm had installed it only as their peer dependency, and electron-builder does not pack such packages. Loading the SDK failed with ERR_MODULE_NOT_FOUND, so every verification failed, with an API key and with Chat sign-in. Runs from source were not affected, and neither is the Android app, whose build bundles its dependencies. zod is now a direct dependency.
 - The packaged Windows app is now checked, not only the source: `npm run dist:win` ends with `scripts/check-package.mjs`, which requires every packaged module's dependencies and required peer dependencies to be in `app.asar`; the smoke test loads the attested SDK; and a release gate, `scripts/check-packaged-provider.mjs`, verifies a live enclave through the packaged app. Windows CI runs the package check and the packaged app's smoke test.
