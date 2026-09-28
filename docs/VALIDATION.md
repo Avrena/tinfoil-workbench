@@ -94,9 +94,29 @@ Further checks on the same images:
 - **Downgrade.** A workspace written by 0.12.0 was opened with 0.11.0's own `validateWorkspace()`, built from the `v0.11.0` tag. It opened, and conversations and instruction text were kept. The saved library, the thread's instruction name and the per-reply names were dropped. Reopening that result in 0.12.0 gave an empty library and unlabelled replies, as the changelog states. This was not repeated as a downgrade install on a device.
 - **Permissions.** The release APK requests `android.permission.INTERNET`. It also requests `org.avrena.tinfoil.workbench.DYNAMIC_RECEIVER_NOT_EXPORTED_PERMISSION`, an app-private permission at signature protection level that AndroidX Core declares for the app's own non-exported receivers. 0.11.0 declares the same two; its record described it as requesting only `INTERNET`.
 
+## Live inference with a Chat credential (recorded after release)
+
+Recorded 28 September 2026 on the build machine, after the release, with the code of the `v0.12.0` tag.
+
+- **Credential.** A short-lived Chat inference credential was exported from a signed-in Tinfoil Chat web session with an active subscription. It has `key` and `expires_at` fields, the shape the token endpoint returns, and was valid for 15 minutes.
+- **Code path.** A test process read the credential from a local file into memory. It ran `WorkbenchService` in `chat-account` mode, with an in-memory vault and a stand-in for `AccountSession` that returned the credential. The requests therefore went through `desktop/provider.mjs`, the official SDK, attestation and EHBP, as they do after a Windows sign-in.
+- **Handling.** The credential was not printed, logged, persisted or committed. A check after each run found it absent from the vault data.
+
+| Check | Result |
+|---|---|
+| Enclave verification | All five steps succeeded (`fetchDigest`, `verifyCode`, `verifyEnclave`, `compareMeasurements`, `verifyCertificate`) in about 4 s; 17 models listed |
+| Plain message (deepseek-v4-1-flash) | Streamed and completed in about 3 s, with usage reported (1,663 input tokens including the visual-tool definitions, 18 output) |
+| Message with the Concise starter selected | Completed with returned reasoning; the reply recorded the instructions name "Concise" |
+| Stop during a streamed answer | The reply was marked stopped, the text received before Stop was kept, and the conversation was no longer busy. Sending again in that thread was refused with "Select a completed reply before continuing…", as designed |
+| Visual tool | The model called `render_chart`, which completed and produced a chart artifact, followed by a sentence about the trend |
+| Comparison (deepseek-v4-1-flash and gpt-oss-120b) | Both replies completed independently |
+| Tinfoil web search | The provider's web search completed with 8 sources, and the answer cited docs.tinfoil.sh |
+
+These checks do not cover the Windows sign-in window and token exchange that produce the credential ([ACCOUNT.md](ACCOUNT.md)), or the renderer and Electron main process in Chat mode. They also do not cover Android, which has no Chat-account mode and still needs a developer API key. Those remain manual checks in [HANDOFF.md](HANDOFF.md).
+
 ## Not executed
 
-- **No real account or key:** chat with a real API key and model response; Tinfoil Chat website sign-in (Windows); hosted web search and delegation against a real entitlement. A reply's signature therefore appeared only for synthetic replies and for the rejected request.
+- **Real account and key:** live inference ran only through the service, with an exported Chat credential (see above). The Windows Chat sign-in window and token exchange, a real developer API key, delegation against a real entitlement, and live inference from the Electron renderer or the Android app were not executed.
 - **Windows hardware and configuration:** a clean, standard-user Windows machine (install, run and uninstall ran on the build machine); display scaling, high contrast, IME and the other manual items in [HANDOFF.md](HANDOFF.md); ARM64 Windows; code signing (not configured).
 - **Android hardware and configuration:** physical Android devices, ARM hardware, tablets and foldables, TalkBack (including the picker's spoken labels), non-English system pickers, OEM WebViews; a downgrade install from 0.12.0 to 0.11.0.
 - **iOS** is not supported.
