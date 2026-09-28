@@ -134,7 +134,7 @@ with sync_playwright() as p:
  third.locator('#prompt').fill('Plain question.');third.locator('#send').click();expect(third.locator('#stop')).to_be_hidden()
  expect(third.locator('.reply > .message-label')).to_have_count(0);expect(third.locator('.reply-signature')).to_have_text('demo/writer');expect(third.locator('.signature-instructions')).to_have_count(0)
  checks.append('an answer without custom instructions starts with its content and ends with only the model name')
- chip.click();expect(third.locator('#instructions-dialog')).to_be_visible();expect(third.locator('.instructions-intro')).to_contain_text('not required')
+ chip.click();expect(third.locator('#instructions-dialog')).to_be_visible();expect(third.locator('.instructions-intro')).to_contain_text('system message');expect(third.locator('.instructions-intro')).not_to_contain_text('not required')
  expect(third.locator('[data-instructions=none]')).to_have_attribute('aria-current','true')
  third.locator('[data-instructions="starter:starter-concise"]').click();expect(third.locator('#instructions-dialog')).to_be_hidden();expect(name).to_have_text('Concise')
  applied=third.evaluate('window.__active().settings');assert applied['systemPromptName']=='Concise' and applied['systemPrompt'].startswith('Be concise.')

@@ -70,7 +70,7 @@ Signing, device tests and the toolchain versions are described in [docs/ANDROID.
 
 ## Accounts, responses and tools
 
-Open Account & connection to choose the connection: the Tinfoil Chat website-session flow or the separate developer API-key mode. Both feed the official verified SDK/EHBP inference adapter, and neither silently falls back to the other. The custom system prompt is optional throughout.
+Open Account & connection to choose the connection: the Tinfoil Chat website-session flow or the separate developer API-key mode. Both feed the official verified SDK/EHBP inference adapter, and neither silently falls back to the other.
 
 On Windows, Chat sign-in opens Tinfoil's own sign-in page in a temporary window with no Workbench preload or Node bridge. Chat access renews automatically while that website session lasts, which is until sign-out or app exit; there is no Remember me. It has been tested on Windows; additional sign-in methods have not. On Android, Tinfoil's sign-in page opens on a separate screen with no bridge to the app and a WebView storage profile of its own. Sign in with your email and password (Google and Apple are refused there, since Google does not allow sign-in in embedded views). The website session is kept in the app's private storage while you are signed in and deleted when the app next starts. Chat access renews the same way. Signing in does not enable cloud sync or conceal the locally stored conversations. Existing history requires explicit approval before crossing Chat identities or Chat/API modes. [Account behavior and limitations](docs/ACCOUNT.md) describes the integration.
 

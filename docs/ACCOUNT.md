@@ -1,6 +1,6 @@
 # Account access and optional instructions
 
-The custom system prompt is optional and not required. Leave it blank for ordinary chat without an application-supplied custom system message. Provider-side defaults still apply. The existing, separately approved text-only delegate retains its narrow worker-protocol instruction; that does not make the user's custom prompt mandatory.
+Leaving the custom system prompt blank sends no application-supplied custom system message; provider-side defaults still apply. The existing, separately approved text-only delegate retains its narrow worker-protocol instruction; that does not make the user's custom prompt mandatory.
 
 ## What is implemented
 

@@ -1,6 +1,6 @@
 # Android app — 0.12
 
-Tinfoil Workbench for Android is the same renderer and conversation service as the Windows app, hosted by a [Capacitor 8](https://capacitorjs.com/docs) shell. It connects with a developer API key, verifies the Tinfoil enclave with the same SDK, and stores conversations in a workspace encrypted with a key held by the Android Keystore. **The custom system prompt is optional and not required.**
+Tinfoil Workbench for Android is the same renderer and conversation service as the Windows app, hosted by a [Capacitor 8](https://capacitorjs.com/docs) shell. It connects with a developer API key, verifies the Tinfoil enclave with the same SDK, and stores conversations in a workspace encrypted with a key held by the Android Keystore.
 
 <img src="android-start.png" alt="Android start screen" width="270"> <img src="android-instructions.png" alt="System instructions picker on Android" width="270">
 

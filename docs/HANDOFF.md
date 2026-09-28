@@ -1,6 +1,6 @@
 # Manual acceptance checklist — 0.13.0
 
-This checklist covers what automated checks cannot establish. **The custom system prompt is optional and not required.** No custom prompt needs to be copied from a ChatGPT response or this document.
+This checklist covers what automated checks cannot establish.
 
 For 0.13.0, the build steps in section 1 were already run on the build machine: bootstrap, doctor, tests, native smoke, packaging and the packaged smoke. So were the Android emulator checks in section 6 marked *automated*. Chat sign-in, including a key renewal after expiry, was checked with a real account on Windows (from source) and on one Android phone (debug build). See [VALIDATION.md](VALIDATION.md). Repeat section 1 on a clean, standard-user Windows machine. Sections 2–5 and the manual part of section 6 remain open until someone performs them with a real account on real hardware.
 

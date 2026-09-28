@@ -31,7 +31,7 @@ A batch is a native function-call round, not a claim of parallel execution or a 
 
 ## Account and instructions invariants (0.9)
 
-Always state that a custom system prompt is optional, not required, in delivery notes and relevant UI/documentation. Blank instructions must remain valid and must not add a custom system message to ordinary chat. Do not confuse that with provider defaults or the separately scoped delegate protocol.
+A custom system prompt is optional, not required. Say so once where people meet it: the Optional tag on the System instructions field, and one sentence in release notes and in the documentation of instructions. Do not repeat it in other labels, dialogs or panels, and do not add it to replies to the person you are working with, including progress updates and work summaries. Blank instructions must remain valid and must not add a custom system message to ordinary chat. Do not confuse that with provider defaults or the separately scoped delegate protocol.
 
 Keep website sign-in opt-in, on the exact Tinfoil origin in a temporary no-preload/no-Node window. No copied regular-browser cookies, pasted session tokens, fake OAuth flows, hidden login or invented profile/billing endpoints. Do not put identity or inference credentials in vaults, renderer snapshots, exports or logs. Local thread owner bindings are not credentials and are removed from exports/import approvals. Session tokens must match the expected current user before and after every async identity read. Auth errors cannot downgrade to free or developer access. Generation retries stay off.
 

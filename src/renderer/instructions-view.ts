@@ -6,9 +6,9 @@ import { icon } from './icons.js';
 /** Composer summary. Unnamed text is still labelled, never shown in full. */
 export function instructionsSummary(settings:GenerationSettings,saved:readonly InstructionPreset[]):{set:boolean;name:string;label:string} {
   const active=activeInstructions(settings,saved);
-  if(active.kind==='none')return {set:false,name:'',label:'System instructions (optional): none — provider defaults. Choose instructions'};
+  if(active.kind==='none')return {set:false,name:'',label:'System instructions: none — provider defaults. Choose instructions'};
   const name=active.kind==='custom'?active.name:active.preset.name;
-  return {set:true,name:name||'Custom',label:`System instructions (optional): ${name||'custom instructions'}. Change instructions`};
+  return {set:true,name:name||'Custom',label:`System instructions: ${name||'custom instructions'}. Change instructions`};
 }
 
 function option(key:string,title:string,detail:string,current:boolean,locked:boolean,edit?:{key:string;label:string;glyph:string}):string {

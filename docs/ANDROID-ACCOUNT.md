@@ -1,6 +1,6 @@
 # Android Chat account access: investigation and design
 
-**Status: implemented, not released.** Route A below is implemented, with email-and-password sign-in on Tinfoil's own page ([Implementation](#implementation)). It has been checked with a real account on one phone, and on emulators ([Checks](#checks)). Released builds connect with a developer API key. This document also records the investigation behind that choice. The custom system prompt is optional and not required on every route.
+**Status: released in 0.13.0.** Route A below is implemented, with email-and-password sign-in on Tinfoil's own page ([Implementation](#implementation)). It has been checked with a real account on one phone, and on emulators ([Checks](#checks)). This document also records the investigation behind that choice.
 
 Google OAuth requires a supported native/browser integration and cannot use an embedded website adapter. Tinfoil's direct account methods are a separate candidate. Whether a given account can use them, how to isolate the authentication view, how to store its session and how to deliver credentials from native code to the host worker have not been validated.
 

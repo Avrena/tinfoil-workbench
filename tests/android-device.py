@@ -313,11 +313,11 @@ else:
            find('Sign in to Tinfoil Chat', 10) is not None if onboarding else find('Tinfoil Chat sign-in needs a newer Android System WebView', 10, exact=False) is not None)
     adb('shell', 'input', 'keyevent', 'KEYCODE_BACK'); time.sleep(1)
     none_row = 'Provider defaults. No custom system message is sent.'
-    tap('System instructions (optional)', exact=False)
+    tap('System instructions', exact=False)
     record('the instructions picker opens from the composer control', find(none_row, 10, exact=False) is not None)
     tap('Concise', exact=False)
-    record('choosing a starter names it on the composer control', find('System instructions (optional): Concise', 10, exact=False) is not None)
-    tap('System instructions (optional)', exact=False); tap('New instructions')
+    record('choosing a starter names it on the composer control', find('System instructions: Concise', 10, exact=False) is not None)
+    tap('System instructions', exact=False); tap('New instructions')
     if keyboard_shown(): back(1)  # The first Back only hides the keyboard.
     back(1); listed = find(none_row, 10, exact=False) is not None
     back(1)
