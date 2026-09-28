@@ -1,8 +1,8 @@
-# Manual acceptance checklist — 0.12.1
+# Manual acceptance checklist — 0.13.0
 
 This checklist covers what automated checks cannot establish. **The custom system prompt is optional and not required.** No custom prompt needs to be copied from a ChatGPT response or this document.
 
-For 0.12.1, the build steps in section 1 were already run on the build machine: bootstrap, doctor, tests, native smoke, packaging, the packaged and installed smoke, and a silent install and uninstall. So were the Android emulator checks in section 6 marked *automated*. Chat sign-in, including a key renewal after expiry, was checked with a real account from source, not from the installed app. See [VALIDATION.md](VALIDATION.md). Repeat section 1 on a clean, standard-user Windows machine. Sections 2–5 and the manual part of section 6 remain open until someone performs them with a real account on real hardware.
+For 0.13.0, the build steps in section 1 were already run on the build machine: bootstrap, doctor, tests, native smoke, packaging and the packaged smoke. So were the Android emulator checks in section 6 marked *automated*. Chat sign-in, including a key renewal after expiry, was checked with a real account on Windows (from source) and on one Android phone (debug build). See [VALIDATION.md](VALIDATION.md). Repeat section 1 on a clean, standard-user Windows machine. Sections 2–5 and the manual part of section 6 remain open until someone performs them with a real account on real hardware.
 
 ## 1. Establish the build
 
@@ -18,7 +18,7 @@ npm run smoke:desktop
 npm start
 ```
 
-Stop at the first failing command and preserve its output. Bootstrap runs npm ci against the committed, reviewed lockfile and fetches the Electron binary, verified against the checksums shipped in the pinned electron package. A DNS/proxy failure is not resolved by deleting validation or enabling plaintext storage. Review npm’s audit output and notices; for 0.12.1 it reported no known vulnerabilities in runtime dependencies (see VALIDATION.md). Upgrades should be deliberate and retested, not an unconditional `--force` fix.
+Stop at the first failing command and preserve its output. Bootstrap runs npm ci against the committed, reviewed lockfile and fetches the Electron binary, verified against the checksums shipped in the pinned electron package. A DNS/proxy failure is not resolved by deleting validation or enabling plaintext storage. Review npm’s audit output and notices; for 0.13.0 it reported no known vulnerabilities in runtime dependencies (see VALIDATION.md). Upgrades should be deliberate and retested, not an unconditional `--force` fix.
 
 `doctor` must report all entries passing. A source-only pass says nothing about installation readiness. Native smoke must exit zero and print `DESKTOP_SMOKE_OK: encrypted storage, bridge, native PDF print and PDF.js canvas`. It temporarily changes userData so it does not test against your real workspace. A smoke pass still does not exercise real authentication or the manual close interactions below.
 
@@ -28,9 +28,9 @@ Python is optional for normal use. Native runner tests are skipped without a det
 
 Begin with nonsensitive test content. Confirm that the empty workspace offers Set up connection, Advanced is not required, and the system-prompt field can remain blank. Choose one connection mode explicitly. Developer API credentials and a Chat subscription are separate; no automatic fallback is permitted.
 
-For Chat mode, sign in on Tinfoil’s sign-in page in the separate window and note the method used. Check the displayed identity and subscription/access state, then run Verify enclave & load models. Send one short message. Leave the app open until the key’s expiry shown under Session & local workspace has passed (about 15 minutes), then send again: the reply must arrive without another sign-in. Inspect returned text/reasoning, stop another response, refresh account details, and sign out. Relaunch must require sign-in again. Profile management must open the provider’s own interface, not produce a fake local save.
+For Chat mode, sign in on Tinfoil’s sign-in page in the separate window and note the method used. Check the displayed identity and subscription/access state, then run Verify enclave & load models. Send one short message. Leave the app open until the key’s expiry shown under Session & local workspace has passed (about 15 minutes), then send again: the reply must arrive without another sign-in. Inspect returned text/reasoning, stop another response, refresh account details, and sign out. Relaunch must require sign-in again. Profile management must open the provider’s own interface, not produce a fake local save. On Android the same steps apply: sign in with email and password on Tinfoil’s page, on its own screen (Google and Apple are refused there with the reason shown), and after a relaunch the stored sign-in must be gone.
 
-Use a synthetic existing thread to check same-account and different-account history approvals; approval alone must not send. Chat sign-in has been checked; additional sign-in methods, and sign-in from the installed app, remain explicit local checks. Do not infer one method from another. If the sign-in page stops, the Account view names any host the window refused; record it. Failure must remain visible and must not charge a saved developer key instead.
+Use a synthetic existing thread to check same-account and different-account history approvals; approval alone must not send. Chat sign-in has been checked on Windows and Android. Additional sign-in methods, and sign-in from the installed Windows app or the release-signed Android app, remain explicit local checks. Do not infer one method from another. If the sign-in page stops, the Account view names any host the window refused; record it. Failure must remain visible and must not charge a saved developer key instead.
 
 ## 3. Accept recovery and daily UX
 
@@ -66,7 +66,7 @@ After the checks above:
 npm run dist:win
 ```
 
-The command gates packaging behind doctor, tests and native smoke and never publishes. Expected outputs are `release/Tinfoil-Workbench-0.12.1-x64-Setup.exe` and `release/Tinfoil-Workbench-0.12.1-x64-Portable.exe`. Validate the generated filenames and test both on a clean standard-user Windows installation. Code signing is not configured; do not describe artifacts as signed or instructions to disable OS protection. ARM64 requires its own real machine/runner validation.
+The command gates packaging behind doctor, tests and native smoke and never publishes. Expected outputs are `release/Tinfoil-Workbench-0.13.0-x64-Setup.exe` and `release/Tinfoil-Workbench-0.13.0-x64-Portable.exe`. Validate the generated filenames and test both on a clean standard-user Windows installation. Code signing is not configured; do not describe artifacts as signed or instructions to disable OS protection. ARM64 requires its own real machine/runner validation.
 
 Optional PowerShell orchestration: `./scripts/Local-Build.ps1 -Bootstrap -Package`. This script’s native execution remains untested here; the npm commands above are the reference sequence.
 
@@ -74,7 +74,7 @@ Record Windows build, architecture, display scale, Node/npm and installed Electr
 
 ## 6. Android acceptance
 
-*Automated on Android 16 and Android 14 emulators (`tests/android-device.py`):* start-up and Keystore-backed storage, page CSP and worker network allowlist, disabled Capacitor plugins, refusal of Chat sign-in and Chat mode, live enclave verification with an invalid key, draft durability across backgrounding and force-stop, resuming from the background in the same process, Back order, native confirmation, keyboard layout, the account view, the system instructions picker (touch, Back, saving with the on-screen keyboard open, persistence across a force-stop), the fonts used for code, and system-picker export, attach and import. Installing the 0.12.1 APK over 0.12.0 was checked on the Android 16 emulator.
+*Automated on Android 16 and Android 14 emulators (`tests/android-device.py`):* start-up and Keystore-backed storage, page CSP and worker network allowlist, disabled Capacitor plugins, Chat sign-in on Tinfoil’s page (Google refused, Cancel, no credential in the Workbench page, the sign-in profile deleted at the next launch) or its refusal where the WebView lacks the needed features, live enclave verification with an invalid key, draft durability across backgrounding and force-stop, resuming from the background in the same process, Back order, native confirmation, keyboard layout, the account view, the system instructions picker (touch, Back, saving with the on-screen keyboard open, persistence across a force-stop), the fonts used for code, and system-picker export, attach and import. Installing the 0.13.0 APK over 0.12.1 was checked on the Android 16 emulator.
 
 *Manual, on a physical phone with a real developer API key:*
 
@@ -86,10 +86,11 @@ Record Windows build, architecture, display scale, Node/npm and installed Electr
 - Open a link from a response. The native confirmation must name the host, and the page itself must never navigate away.
 - Choose, save and edit system instructions while typing on the on-screen keyboard and with TalkBack. The composer control's spoken name must say which instructions are set, and Save must stay reachable while typing.
 - On a device with an outdated Android System WebView, confirm the app shows *Update Android System WebView* instead of loading.
+- With the release-signed APK, sign in to Tinfoil Chat with email and password and your second factor. Run Verify enclave & load models, send a message, send again after the key’s expiry (about 15 minutes), background and resume the app, and sign out. A relaunch must ask you to sign in again, and Google or Apple must be refused with the reason shown.
 - On a phone with Android System WebView 140 or later, open Account & connection, the message editor, System instructions and Settings in portrait and landscape. Their headers and close buttons must sit below the status bar and clear of any display cutout, their close buttons must respond to a tap, and their bottom actions must stay above the navigation bar.
 
 Record the device model, Android version, WebView version, the key's billing mode, any failures, and the APK SHA-256.
 
 ## What is deliberately not in the release
 
-No credentials, signing keys, node_modules or font binaries. No Remember me, cloud sync, arbitrary MCP client configuration, automatic hosted-code provisioning, Windows code signing, or Android Chat sign-in, Python or HTML-to-PDF. Chat sign-in has been exercised from source; the other sign-in methods, the installed app and the native protected actions still need acceptance on real hardware with a real account.
+No credentials, signing keys, node_modules or font binaries. No Remember me, cloud sync, arbitrary MCP client configuration, automatic hosted-code provisioning, Windows code signing, or Android Google or Apple sign-in, Python or HTML-to-PDF. Chat sign-in has been exercised on Windows from source, and on Android, on one phone with the debug build; the other sign-in methods, the installed Windows app, the release-signed Android app and the native protected actions still need acceptance on real hardware with a real account.
