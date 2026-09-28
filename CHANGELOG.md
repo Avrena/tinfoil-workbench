@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## 0.13.1 — model list and clearer connection errors
 
 - *Choose model* lists Tinfoil's chat models instead of asking for a model ID. Each row shows the maker's badge, the model's name, marks for reasoning, image input and tool calling, and the context size. The list opens in full with the current model marked, search matches names, IDs and makers, and any other ID can still be entered. Speech, embedding, document, tool and safety models are left out.
 - The list no longer stays empty until *Verify & refresh models* has run. It comes from Tinfoil's public model catalog, fetched without credentials when the picker opens, and from the verified endpoint after any successful verification. After a failed fetch, the catalog is requested again after a minute at the earliest.
