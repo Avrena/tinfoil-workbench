@@ -10,8 +10,8 @@
 - If Tinfoil rejects a Chat key during a reply, only that key is dropped: you stay signed in, partial text is kept, and retrying the turn requests a new key. This used to sign the account out.
 - Waking the PC from sleep drops an expired key at once. A failed access check right after sign-in keeps you signed in, so Refresh account can try again.
 - Android is unchanged and still connects with a developer API key: Chat sign-in there needs a provider contract that Tinfoil does not publish, listed in docs/ANDROID.md. The device test now also checks that Android refuses Chat sign-in and resumes from the background in the same process.
-- Add `tests/account-live.mjs`, a manual check with a real account that logs no credentials, and 27 more tests in `tests/account.test.mjs`.
-- Verified on Windows 11 with a real Tinfoil account, including a key renewal after expiry; see docs/VALIDATION.md. The custom system prompt remains optional and not required.
+- Add `tests/account-live.mjs`, a manual check with a real account that logs no credentials, and 29 more tests in `tests/account.test.mjs`.
+- Checked on Windows 11, running from source, with a real Tinfoil account, including a key renewal after expiry; see docs/VALIDATION.md. The custom system prompt remains optional and not required.
 
 ## 0.12.0 — system instructions selection and reading type
 

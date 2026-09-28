@@ -1,6 +1,6 @@
-# Tinfoil Workbench 0.12 — validation record
+# Tinfoil Workbench 0.12.1 — validation record
 
-Recorded 28 September 2026 for the 0.12.0 release. It lists what ran, what failed on the way, and what did not run. **The custom system prompt is optional and not required**: None remains the default in the new instructions picker, and blank instructions remain covered by tests. The previous record is in [history/v0.11](history/v0.11/VALIDATION.md).
+Recorded 28 September 2026 for the 0.12.1 release, which completes Tinfoil Chat sign-in and key renewal on Windows. It lists what ran, what failed on the way, and what did not run. Synthetic checks, native Windows checks and checks against the live provider are listed separately. **The custom system prompt is optional and not required**: the live checks ran without custom instructions. The previous record is in [history/v0.12](history/v0.12/VALIDATION.md).
 
 ## Environment
 
@@ -11,126 +11,121 @@ Recorded 28 September 2026 for the 0.12.0 release. It lists what ran, what faile
 
 ## Dependencies
 
-- **No dependency changes** since 0.11.0; the lockfile differs only in its version field. A clean `npm run bootstrap` (npm ci plus the checksum-verified Electron binary) followed by `npm run doctor` passed all 27 entries.
-- **Audit:** `npm audit --omit=dev` reports no known vulnerabilities. The full audit reports the same three moderate advisories as 0.11.0, in the dev-only chain `@capacitor/cli` → `xcode` → `uuid` (GHSA-w5hq-g745-h8pq), which is not shipped.
+- **No dependency changes** since 0.12.0; the lockfile differs only in its version field. A clean `npm run bootstrap` (npm ci plus the checksum-verified Electron binary) followed by `npm run doctor` passed all 27 entries.
+- **Audit:** `npm audit --omit=dev` reports no known vulnerabilities. The full audit reports the same three moderate advisories as 0.12.0, in the dev-only chain `@capacitor/cli` → `xcode` → `uuid` (GHSA-w5hq-g745-h8pq), which is not shipped.
+
+## Tinfoil Chat sign-in and key renewal
+
+### Synthetic checks
+
+`tests/account.test.mjs` runs `AccountSession`, `AccountWindow` and `WorkbenchService` against injected stand-ins: a Clerk page, a token endpoint with scripted responses and a controllable clock, Electron windows and SDK clients. It uses no network and no Electron. Its 64 tests (29 more than in 0.12.0) all pass. They establish:
+
+- **Expiry:** a key needs an RFC 3339 `expires_at` with `Z` or an offset. A missing, malformed, zone-less or past time, or one less than 30 seconds away, is refused and the key is never used.
+- **Clock skew:** a key's lifetime follows the response `Date` header when the local clock is wrong.
+- **Reuse:** a cached key is reused only while more than 60 seconds remain, and never for more than an hour, even when it expires later. Before any reuse the website session is read again and must still have the bound user and Clerk session.
+- **Exchange failures:** 401 gets one forced identity refresh and one repeated exchange, never a repeated generation. 401 again, or 403, requires a new sign-in; 402 keeps the identity. 429, or the hourly-limit code with any status, starts a cooldown that follows `resets_at` on the server's clock, then `Retry-After`, then 60 seconds, bounded to between 10 seconds and one hour; explicit refreshes are spaced 30 seconds apart. Network errors, 5xx, malformed bodies, responses over 64 KiB (declared or only streamed) and an exchange that hangs past 15 seconds leave access unavailable. The exchange is sent with `redirect: 'error'` and `cache: 'no-store'`.
+- **Concurrency:** concurrent callers share one session read and one exchange. During a cooldown they send nothing.
+- **Binding:** sign-in binds the Clerk user and session. Another session for the same user, a user or session change while an exchange is in flight, and a session read whose owner does not match are refused, and that exchange's result is discarded.
+- **Sign-out and account change during a renewal:** a late token response cannot restore access or deliver the old key. Existing history needs approval under the new account.
+- **Inference rejection:** a 401 or 403 from inference drops only that key and its client, keeps partial output and the identity, and the next send renews without replaying anything. A renewal between tool rounds replaces the client for that round only.
+- **Ownership:** a Chat request refuses an SDK client minted for another account.
+- **Sleep:** resume drops an expired cached key without a network request.
+- **Sign-in window:** it opens `https://chat.tinfoil.sh/signin` and injects no sign-in script. A sign-in needs two agreeing session reads a second apart. A page that is loading or on another origin is not ready, never a sign-out. The host list governs the page, and a frame redirect cannot stall it; a refused host is reported by name. Google's country account hosts are allowed; other hosts on those domains and lookalikes are not.
+
+**Mutation checks.** A script disabled one rule at a time in `desktop/account-session.mjs`, `desktop/account-window.mjs`, `desktop/service.mjs` and the compiled host policy, and ran the account tests after each of the 36 changes. Examples: accepting a missing expiry for 60 seconds, as 0.12.0 did; ignoring the `Date` header; reusing a key until its last second; removing the 401 refresh or treating 403 as unavailable; dropping the cooldown or the hourly-limit code; following redirects; removing the coalescing, the Clerk-session comparison or the identity read after an exchange; guarding frame redirects; refusing Google's country hosts. 34 made the matching test fail. The two that did not were the one-hour reuse cap and the 64 KiB limit on a streamed body: the only oversize case sent a key that `secret()` refuses anyway, and a constructed `Response` declares no length. Tests for both were added in `480c9a7`. With them, those two changes, and removing the check on a declared length, each make a test fail.
+
+`tests/ui-account.py` checks the production renderer's account view with synthetic snapshots: 66 checks, as in 0.12.0.
+
+### Native Windows checks
+
+The packaged and installed smoke checks in [Windows](#windows) cover storage, the bridge and printing, not sign-in. The sign-in window, the token exchange and renewal ran natively only in the live runs below, and those started Workbench from source, not from the packaged or installed app. Real system sleep and resume were not exercised.
+
+### Live provider checks
+
+`tests/account-live.mjs` started Workbench from source with Electron 44.4.3 (Chromium 152.0.7977.130) and Node 24.21.0 on Windows 10.0.26200, with a temporary profile. Sign-in was completed with a real Tinfoil account. The harness drove the real renderer, main process, sign-in window and SDK. It logs statuses, UTC times, counts, booleans and page hosts (with paths on Tinfoil's origin). Credentials were compared only in memory; none was printed, logged or saved. Each temporary profile was scanned, then deleted. No custom system prompt was set.
+
+| Run | Code | Result |
+|---|---|---|
+| 1 | `5961de3` | Signed in. The exchange returned 200 in 393 ms with a `Date` header and a key valid for 15 minutes; verification completed all five steps in 4.6 s. The harness then read the model list before it had loaded and stopped (fixed in the harness, `88c2e59`). |
+| 2 | `88c2e59` | Sign-in remained stalled after an authentication step. This run did not yet log page hosts. |
+| 3 | `6782dff` | The same stall. The log showed the page's navigation to `accounts.youtube.com` refused. |
+| 4 | `247448e` | The same stall; the page's navigation to `accounts.google.co.uk` was refused. |
+| 5 | `5f76b70` | Full run, below. The generic sign-in modal needed another action to continue the pending authentication step. |
+| 6 | `2ab454f` | Quick run with Tinfoil's own sign-in page, below. The pending authentication step continued directly. |
+
+**Run 5, full run (`5f76b70`):**
+
+- **Sign-in:** one interactive sign-in. The profile matched the binding, the Clerk session was bound, and the identity read after the exchange matched. The exchange returned 200 in 176 ms with a `Date` header, and the sign-in window was then hidden.
+- **Verification:** all five steps in 3.1 s; 17 models.
+- **Renewal through expiry:** the key in use expired at 15:28:16Z. A comparison of deepseek-v4-1-flash and gpt-oss-120b was sent at 15:28:36Z, 20 seconds later. One exchange (200, 382 ms) served both lanes and returned a different key (key changed: true) expiring at 15:43:36Z. One new SDK client was created for the new key and passed verification. No interactive sign-in occurred, and the sign-in window stayed hidden. Both replies completed.
+- **Exposure:** 7 credentials (identity tokens and inference keys) were tracked in memory. None appeared in renderer content, in 49 renderer snapshots or in 14 vault writes. The temporary profile (53 files) held no JWT-shaped string and none of the tracked credentials.
+- **Sign-out during a renewal:** the harness held a renewal's response and signed out. The 200 response arrived after sign-out and was discarded; the refresh ended with "The account operation was cancelled." The key, binding and SDK client were cleared, and the sign-in window was destroyed.
+- **Send after sign-out:** refused with "Sign in to Tinfoil Chat in Account first. No API-key fallback is used."; nothing was sent or exchanged. This profile had no saved developer key; the synthetic checks cover one.
+
+**Run 6, quick run (`2ab454f`, without the wait for expiry):** the sign-in page completed its redirects. No host was refused and no frame redirected outside the list. The binding and the identity read after the exchange matched. The exchange returned 200 in 399 ms with a `Date` header, verification took 4.5 s (17 models), and a send completed. The exposure checks (5 credentials, 30 snapshots, 7 vault writes) and the profile scan were clean, and sign-out during a renewal and the refused send behaved as in run 5.
+
+The released code differs from `2ab454f` only in the Account view's session text and the version number, and the renewal code has not changed since `5f76b70`. Every exchange whose timing was logged returned 200 in 176–399 ms, each sign-in exchange carried a `Date` header, and every key whose expiry was logged was valid for 15 minutes.
+
+**Not covered live:** 401, 402, 403 and 429 responses and the hourly-limit code, none of which occurred; an account or session change during a renewal; an inference rejection; Stop during a Chat reply; Manage profile & security; real sleep and resume; additional sign-in methods; and sign-in from the packaged or installed app. The first group rests on the synthetic checks above; the rest remain open in [HANDOFF.md](HANDOFF.md).
+
+### Security findings
+
+- **Fixed in this release.** 0.12.0 accepted a token response without an expiry for 60 seconds, read a zone-less expiry as local time and measured expiry against the local clock. It bound a sign-in to the Clerk user only, so another session for that user, or a change during an exchange, went unnoticed. After a usage limit, the next request exchanged again. An inference 401/403 signed the account out.
+- **Widened on purpose.** The page may now open `accounts.youtube.com` and `accounts.<domain>` for the 187 domains in Google's published list, because Google's sign-in moves the page through them at the end of its sign-in. No other host on those domains is allowed. Frame redirects are no longer checked against the host list, only against the partition's HTTPS rule, so a provider's cookie check cannot stall the page. Frames still have no bridge, and any navigation of the page itself is checked against the list.
+- **Unchanged boundaries.** The sign-in window keeps a nonpersistent partition, no preload or Node, the sandbox, and denied permissions and downloads. Credentials stayed in the main process in every live run. No failure falls back to free access or to a developer key, and generation retries stay at zero.
+- **Residual risks.** The token endpoint is taken from Tinfoil's open-source web and iOS clients, not from public API documentation ([ACCOUNT.md](ACCOUNT.md#source-contracts-inspected)). The adapter depends on Clerk's public page API on Tinfoil's site. Google or another provider may refuse sign-in in an embedded browser; Workbench does not change its user agent. Whether Tinfoil revokes keys already issued when the Clerk session ends was not tested; Workbench discards them locally.
 
 ## Windows
 
 | Check | Result |
 |---|---|
-| `npm test` (strict build + Node tests) | **313 passed**, 0 failed, 0 skipped: the 300 tests of 0.11.0 plus 13 in `tests/instructions.test.mjs`. Python-runner cases ran against a real interpreter. |
+| `npm test` (strict build + Node tests) | At the build commit `fa69b95`: **340 passed**, 0 failed, 0 skipped: the 313 tests of 0.12.0 plus 27 account tests. With the two tests of `480c9a7`: **342 passed**. Python-runner cases ran against a real interpreter. |
 | `npm run dist:win` | Passed its doctor (27/27), test and native smoke gates (`DESKTOP_SMOKE_OK: encrypted storage, bridge, native PDF print and PDF.js canvas`); built the x64 NSIS installer and portable executable (unsigned) |
-| Packaged app `release\win-unpacked\Tinfoil Workbench.exe --smoke-test` | `DESKTOP_SMOKE_OK` |
-| Silent per-user install (`/S /D=…`) → installed-app smoke → silent uninstall | Installed with an uninstall entry for 0.12.0 plus Start-menu and desktop shortcuts; the installed app printed `DESKTOP_SMOKE_OK`; uninstall removed the program files, the uninstall entry and both shortcuts |
+| Packaged app `release\win-unpacked\Tinfoil Workbench.exe --smoke-test` | `DESKTOP_SMOKE_OK`; file version 0.12.1 |
+| Silent per-user install (`/S /D=…`) → installed-app smoke → silent uninstall | Installed with an uninstall entry for 0.12.1 plus Start-menu and desktop shortcuts; the installed app printed `DESKTOP_SMOKE_OK`; uninstall removed the program files, the uninstall entry and both shortcuts |
 
-The ten production-renderer browser suites passed **437 checks** on the release commit with no JavaScript errors and no external requests:
-
-| Suite | 0.11.0 | 0.12.0 |
-| --- | ---: | ---: |
-| ui-smoke.py | 22 | 33 |
-| ui-artifacts.py | 21 | 21 |
-| ui-inline.py | 20 | 20 |
-| ui-seamless.py | 17 | 17 |
-| ui-editing.py | 19 | 21 |
-| ui-responsive.py | 89 | 90 |
-| ui-spacing.py | 103 | 112 |
-| ui-activity.py | 32 | 32 |
-| ui-account.py | 66 | 66 |
-| ui-handoff.py | 24 | 25 |
-
-### Fonts on Windows 11
-
-DevTools `CSS.getPlatformFontsForNode` reported the fonts actually used, both in Electron 44.4.3 (a standalone probe with a throwaway profile, loading the preview) and in Playwright's Chromium 153:
-
-- **0.11.0 stack** `"Segoe UI Variable","Segoe UI",system-ui,sans-serif`: rendered with Segoe UI. The bare name `Segoe UI Variable` matches no installed family; on its own it fell through to the default serif face.
-- **0.12.0:** answer text rendered with Segoe UI Variable (PostScript `Segoe-UI-Variable-Text`), reply headings with `Segoe-UI-Variable-Display-Semibold`, and inline and block code with Consolas.
-
-### Defects found and fixed
-
-- **A second Escape discarded unsaved text.** Both the message editor and the new instructions editor keep their dialog open on Escape by cancelling its `cancel` event and asking before discarding. Chromium lets a page prevent only one close request per user activation, and Escape is not an activation. The second Escape therefore delivered a non-cancelable `cancel` event and closed the dialog without the question it had just shown. This reproduced in Electron 44.4.3 and in Chromium 153 with a single opening click, typed text and two Escape presses. The renderer now handles Escape at `keydown` (commit `7e17f04`).
-- **Tests that could not see it.** The first regression checks passed even without the fix, because Playwright evaluates its page queries with a user gesture. Each `expect()` between the two presses granted a new activation. The final checks press Escape twice with no page query in between. They fail when the `keydown` handler or the IME guard is removed, and pass with them.
-- **Stacked dialogs.** Android Back acted on the last open dialog in document order. The message editor is appended after every other dialog, so with close review open over an editor the lower dialog would have been chosen. Escape and Back now share `cancelTopDialog()`, which uses the opening order recorded by `openModal()`. `ui-handoff.py` checks Escape with close review over an unsaved editor, and fails when document order is used.
+The ten production-renderer browser suites passed **437 checks**, the same as 0.12.0, with no JavaScript errors and no external requests: ui-smoke 33, ui-artifacts 21, ui-inline 20, ui-seamless 17, ui-editing 21, ui-responsive 90, ui-spacing 112, ui-activity 32, ui-account 66 and ui-handoff 25.
 
 ## Android
 
-### Unit tests
-
-The Node tests above include the 18 Android host tests from 0.11.0. `tests/instructions.test.mjs` also sends the new library commands through the Android command handler with a real `WorkbenchService`.
-
-### Device checks
+Android has no Chat sign-in in this release and connects with a developer API key. A supported Android sign-in needs a provider contract that Tinfoil does not publish: a registered public client with PKCE, its redirect URIs, whether the token endpoint accepts OAuth access tokens, a scope for Chat access, a specification of the token endpoint, session lifetimes and revocation, and permission for third-party clients. [ANDROID.md](ANDROID.md#tinfoil-chat-sign-in) gives the details.
 
 `tests/android-device.py` ran against the final APKs:
 
 | Device image | Android System WebView | `--debug --live` | `--release` |
 |---|---|---|---|
-| Android 16 (API 36), Pixel 7 profile | 133.0.6943.137 | **30/30** | **13/13** |
-| Android 14 (API 34), Pixel 6 profile | 113.0.5672.136 | **30/30** | **13/13** |
-| Android 11 (API 30), Pixel 4 profile | 83.0.4103.106 (stock) | The app refused to load and showed *Update Android System WebView*, as designed | — |
+| Android 16 (API 36), Pixel 7 profile | 133.0.6943.137 | **33/33** | **13/13** |
+| Android 14 (API 34), Pixel 6 profile | 113.0.5672.136 | **33/33** | **13/13** |
 
-The 0.11.0 checks all still pass. That includes live enclave verification from the worker, where all five steps succeeded on both images and a request with a deliberately invalid key was rejected with "API authentication was rejected". The new checks are:
+The 0.12.0 checks all still pass. That includes live enclave verification from the worker, where all five steps succeeded on both images and a deliberately invalid key was rejected with "API authentication was rejected". The debug build adds three checks:
 
-- **Debug build**, through DevTools and real input:
-  - A touch on the icon-only instructions control (36 × 44 CSS px) opens the picker.
-  - A tapped starter applies through the Android host, and the control shows a dot as well as colour.
-  - The real Back key asks before discarding unsaved instructions, also when pressed again.
-  - Save is tapped while the on-screen keyboard is open and stores the entry without changing the conversation.
-  - Back steps from an unchanged editor to the list, then closes the picker.
-  - The saved entry and the conversation's choice survive a force-stop in the Keystore-encrypted vault.
-  - Inline and block code render with Droid Sans Mono. The 0.11.0 stack rendered with Cutive Mono, the typewriter face that Android maps Courier New to.
-- **Release build**, through UI Automator: the picker opens from the composer, a chosen starter names the control, and Back steps from the editor to the list and then closes the picker.
+- `account.login`, `account.refresh`, `account.signout` and a switch to Chat mode are refused with "Tinfoil Chat sign-in is not available in the Android app. Use a developer API key." The connection stays on the API key, and the account stays signed out.
+- Back at the root sends the app to the background. Starting it again resumes the same process, page and unsent draft.
+- After resuming, the host worker still reaches Tinfoil.
 
-Further checks on the same images:
+**Upgrade in place (Android 16).** The published, signed 0.12.0 APK was installed; a starter was chosen and a draft typed through the on-screen keyboard. `adb install -r` then installed the signed 0.12.1 APK, which reported versionName 0.12.1. The draft and the starter choice written by 0.12.0 opened, and both persisted across a force-stop.
 
-- **Upgrade in place (Android 16).** The signed 0.11.0 APK was installed and a draft typed through the on-screen keyboard. Then `adb install -r` installed the signed 0.12.0 APK, which reported versionName 0.12.0. The draft written by 0.11.0 reopened. A starter chosen in 0.12.0 persisted, together with that draft, across a force-stop.
-- **Logs.** After clearing logcat, both runs on each image left no plugin arguments or results in the log; Capacitor wrote only its "Starting BridgeActivity" lines.
-
-### Defect found and fixed
-
-- **Instructions editor actions behind the keyboard.** The first debug run on Android 16 failed three of the new checks. Tapping *Keep editing* focuses the text field and opens the on-screen keyboard. The dialog then fits the 527 CSS px left above the keyboard, and Back, Save for reuse and Use in this conversation sat at 540–584 px, below the visible part of the scrolling dialog. The harness tapped the keyboard instead of Save. A user would have had to discover that the dialog scrolls.
-- **Fix.** The action row is now sticky (commit `3f6d5f7`). `ui-responsive.py` checks Save and Use at 390×420 and 844×390 and fails without the fix (Save at y=421 in a 420 px viewport). The device checks now tap Save with the real keyboard open. The harness also accounts for the first Back only hiding the keyboard.
-
-### Compatibility checks
-
-- **Downgrade.** A workspace written by 0.12.0 was opened with 0.11.0's own `validateWorkspace()`, built from the `v0.11.0` tag. It opened, and conversations and instruction text were kept. The saved library, the thread's instruction name and the per-reply names were dropped. Reopening that result in 0.12.0 gave an empty library and unlabelled replies, as the changelog states. This was not repeated as a downgrade install on a device.
-- **Permissions.** The release APK requests `android.permission.INTERNET`. It also requests `org.avrena.tinfoil.workbench.DYNAMIC_RECEIVER_NOT_EXPORTED_PERMISSION`, an app-private permission at signature protection level that AndroidX Core declares for the app's own non-exported receivers. 0.11.0 declares the same two; its record described it as requesting only `INTERNET`.
-
-## Live inference with a Chat credential (recorded after release)
-
-Recorded 28 September 2026 on the build machine, after the release, with the code of the `v0.12.0` tag.
-
-- **Credential.** A short-lived Chat inference credential was exported from a signed-in Tinfoil Chat web session with an active subscription. It has `key` and `expires_at` fields, the shape the token endpoint returns, and was valid for 15 minutes.
-- **Code path.** A test process read the credential from a local file into memory. It ran `WorkbenchService` in `chat-account` mode, with an in-memory vault and a stand-in for `AccountSession` that returned the credential. The requests therefore went through `desktop/provider.mjs`, the official SDK, attestation and EHBP, as they do after a Windows sign-in.
-- **Handling.** The credential was not printed, logged, persisted or committed. A check after each run found it absent from the vault data.
-
-| Check | Result |
-|---|---|
-| Enclave verification | All five steps succeeded (`fetchDigest`, `verifyCode`, `verifyEnclave`, `compareMeasurements`, `verifyCertificate`) in about 4 s; 17 models listed |
-| Plain message (deepseek-v4-1-flash) | Streamed and completed in about 3 s, with usage reported (1,663 input tokens including the visual-tool definitions, 18 output) |
-| Message with the Concise starter selected | Completed with returned reasoning; the reply recorded the instructions name "Concise" |
-| Stop during a streamed answer | The reply was marked stopped, the text received before Stop was kept, and the conversation was no longer busy. Sending again in that thread was refused with "Select a completed reply before continuing…", as designed |
-| Visual tool | The model called `render_chart`, which completed and produced a chart artifact, followed by a sentence about the trend |
-| Comparison (deepseek-v4-1-flash and gpt-oss-120b) | Both replies completed independently |
-| Tinfoil web search | The provider's web search completed with 8 sources, and the answer cited docs.tinfoil.sh |
-
-These checks do not cover the Windows sign-in window and token exchange that produce the credential ([ACCOUNT.md](ACCOUNT.md)), or the renderer and Electron main process in Chat mode. They also do not cover Android, which has no Chat-account mode and still needs a developer API key. Those remain manual checks in [HANDOFF.md](HANDOFF.md).
+Android 11 (API 30) was not rerun. In 0.12.0 the app refused its stock WebView as designed, and nothing that affects that check has changed.
 
 ## Not executed
 
-- **Real account and key:** live inference ran only through the service, with an exported Chat credential (see above). The Windows Chat sign-in window and token exchange, a real developer API key, delegation against a real entitlement, and live inference from the Electron renderer or the Android app were not executed.
+- **Sign-in:** Apple, email-code, passkey, GitHub and Microsoft sign-in; sign-in from the packaged or installed app; another Windows machine or account.
+- **Live failure paths:** provider 401, 402, 403 and 429 responses, the hourly-limit code, an inference rejection and an account change during a renewal ran only as synthetic checks.
+- **Other account checks:** Manage profile & security, Stop during a Chat reply, delegation with a Chat account, and real system sleep and resume.
 - **Windows hardware and configuration:** a clean, standard-user Windows machine (install, run and uninstall ran on the build machine); display scaling, high contrast, IME and the other manual items in [HANDOFF.md](HANDOFF.md); ARM64 Windows; code signing (not configured).
-- **Android hardware and configuration:** physical Android devices, ARM hardware, tablets and foldables, TalkBack (including the picker's spoken labels), non-English system pickers, OEM WebViews; a downgrade install from 0.12.0 to 0.11.0.
+- **Android hardware and configuration:** Chat sign-in (no provider contract); physical Android devices, ARM hardware, tablets and foldables, TalkBack, non-English system pickers, OEM WebViews; a downgrade install from 0.12.1 to 0.12.0.
 - **iOS** is not supported.
 
 ## Release artifacts
 
-The release files were built from commit `e05441d`, the code of the `v0.12.0` tag. The tag commit adds only this record, the updated handoff checklist, refreshed screenshots and check records, none of which is packaged. Every check above ran on these exact files:
+The release files were built from commit `fa69b95`. The tag commit adds only two tests (`480c9a7`), this record, the updated handoff checklist, refreshed screenshots and check records, none of which is packaged. The packaging, smoke, install and device checks above ran on these exact files; the live account runs used the source at the commits named.
 
 | File | Bytes | SHA-256 |
 |---|---:|---|
-| `Tinfoil-Workbench-0.12.0-x64-Setup.exe` | 139,398,373 | `8742efefd2fc5e7bbdf389c0855f9f34c05966c3b26b1d5a1719f25c86beb2c5` |
-| `Tinfoil-Workbench-0.12.0-x64-Portable.exe` | 139,173,591 | `20e27c3d1e949514cf85d50f854d2907adf31592aa2ebd0bb02cc610d5e14750` |
-| `Tinfoil-Workbench-0.12.0-android.apk` | 4,238,101 | `0822c2eea55ebb0c35f1b4745ec00bda12000d8d8ddc3736863b75d769f3d064` |
+| `Tinfoil-Workbench-0.12.1-x64-Setup.exe` | 139,399,440 | `b1a262d871cb01a0781af239c6ce1e912d040cbc0c650193573df809f135d7fb` |
+| `Tinfoil-Workbench-0.12.1-x64-Portable.exe` | 139,174,581 | `a4705194965ae8b77096129ceea8e9f1c3fc65bc76611b4d4c532d88d821f043` |
+| `Tinfoil-Workbench-0.12.1-android.apk` | 4,239,797 | `c9a128d6f32eed33d5f2ab7297951d878b79559aafc6430d888e0183e191c65e` |
 
-The Windows files are not code-signed. The APK is signed with APK Signature Scheme v2, with the same release key as 0.11.0, and verified with `apksigner`. The signer's certificate SHA-256 is `6395ead797a520c632156abcd9ee2731869c64ed0ee510ad5b52e887185494cb`. The APK has versionName 0.12.0 and versionCode 12000, and targets SDK 36 with minimum SDK 24.
+The Windows files are not code-signed. The APK is signed with APK Signature Scheme v2, with the same release key as 0.12.0, and verified with `apksigner`. The signer's certificate SHA-256 is `6395ead797a520c632156abcd9ee2731869c64ed0ee510ad5b52e887185494cb`. The APK has versionName 0.12.1 and versionCode 12001, targets SDK 36 with minimum SDK 24, and requests the same two permissions as 0.12.0.
 
-GitHub Actions passed all three workflows on commit `e05441d`, in the pull request runs 36412699439 (Windows client), 36412699319 (Android client) and 36412699505 (renderer UI suites).
+GitHub Actions passed all three workflows on commit `fa69b95`, in the pull request runs 36447865162 (Windows client), 36447865183 (Android client) and 36447865218 (renderer UI suites).
