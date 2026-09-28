@@ -1,5 +1,5 @@
 {
-  "checks": 19,
+  "checks": 21,
   "passed": [
     "project and thread headings expose a real active thread title",
     "answer editor previews Markdown/LaTeX while authored HTML stays inert",
@@ -19,6 +19,8 @@
     "project removal requires confirmation and preserves all threads",
     "editing an active thread is blocked before opening a stale editor",
     "IME composition confirmation never submits a message",
+    "an Escape that ends an IME composition is left to the IME",
+    "a second Escape keeps the editor and its unsaved text behind the discard question",
     "editing and project flows produced no unhandled JavaScript errors"
   ],
   "javascript_errors": [],

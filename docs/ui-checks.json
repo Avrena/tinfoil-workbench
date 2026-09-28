@@ -1,5 +1,5 @@
 {
-  "checks": 22,
+  "checks": 33,
   "passed": [
     "default layout hides advanced controls and labels offline data",
     "model choice is available without opening the inspector",
@@ -22,6 +22,17 @@
     "comparison is an explicit advanced action and retains two separate response lanes",
     "comparison still requires a selected answer before continuation",
     "branching from a comparison preserves the original conversation",
+    "comparison lanes keep a model label above each answer and the same signature below it",
+    "an answer without custom instructions starts with its content and ends with only the model name",
+    "a selected starter applies from the next message; each reply footer names the instructions it was sent with, never above the answer",
+    "saving moves focus to the new entry, and an error does not follow the picker to another view",
+    "saving creates a reusable entry without applying it; selecting it copies the text into the conversation",
+    "deleting saved instructions keeps the copy the conversation already uses",
+    "Escape steps back from the editor, asks before discarding unsaved edits and returns focus to the control that opened it",
+    "pending Advanced edits block the picker; edited Advanced text applies as unnamed custom instructions",
+    "None turns custom instructions off for new requests without relabelling earlier replies",
+    "double-clicks choose at most one entry and never reach the controls the closing picker uncovers",
+    "a second Escape keeps unsaved instructions behind the discard question",
     "no JavaScript errors or external requests; CSP remains enforced during inert parsing"
   ],
   "javascript_errors": [],

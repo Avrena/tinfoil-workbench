@@ -36,7 +36,7 @@ On first launch choose **Set up connection**. On Windows you can use a developer
 
 Android details, including the security model and its differences from desktop, are in [docs/ANDROID.md](docs/ANDROID.md).
 
-<img src="docs/android-start.png" alt="Android start screen" width="270"> <img src="docs/android-attachment.png" alt="Android composer with an attached file" width="270">
+<img src="docs/android-start.png" alt="Android start screen" width="270"> <img src="docs/android-instructions.png" alt="Android system instructions picker" width="270"> <img src="docs/android-attachment.png" alt="Android composer with an attached file" width="270">
 
 ## Build from source
 

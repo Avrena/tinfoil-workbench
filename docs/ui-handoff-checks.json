@@ -1,5 +1,5 @@
 {
-  "checks": 24,
+  "checks": 25,
   "passed": [
     "no pending-settings strip on an unchanged workspace",
     "attaching a file persists unsent text and reference without sending",
@@ -17,6 +17,7 @@
     "dialog failures appear inside the active top-layer dialog, not just behind it",
     "settings dialog exposes an accessible heading",
     "native close protects the open editor and Keep working preserves the buffer",
+    "Escape answers the close review on top, not the editor underneath, and keeps its buffer",
     "explicit close discards uncommitted editor changes without silently saving them as an answer",
     "Escape from close review means keep working and preserves unapplied settings",
     "close review identifies active work; keeping open allows it to finish",

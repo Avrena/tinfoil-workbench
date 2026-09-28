@@ -1,5 +1,5 @@
 {
-  "checks": 89,
+  "checks": 90,
   "passed": [
     "phone-small: transcript and header fit 320\u00d7740 without page overflow",
     "phone-small: chart labels remain at least 9 CSS pixels at actual render scale",
@@ -88,6 +88,7 @@
     "keyboard-height simulation: composer send control stays in the visible viewport",
     "keyboard-height simulation: fullscreen editor keeps a usable field and reachable Save",
     "landscape rotation preserves an open editor and its unsent draft",
+    "keyboard-height simulation: the instructions editor keeps Save and Use visible and on top in portrait and landscape",
     "responsive drawers never overwrite the saved desktop sidebar preference",
     "responsive matrix produced no unhandled JavaScript errors"
   ],

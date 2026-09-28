@@ -1,8 +1,8 @@
-# Manual acceptance checklist — 0.12.0
+# Manual acceptance checklist — 0.11.0
 
 This checklist covers what automated checks cannot establish. **The custom system prompt is optional and not required.** No custom prompt needs to be copied from a ChatGPT response or this document.
 
-For 0.12.0, the build steps in section 1 were already run on the build machine: bootstrap, doctor, tests, native smoke, packaging, the packaged and installed smoke, and a silent install and uninstall. So were the Android emulator checks in section 6 marked *automated*. See [VALIDATION.md](VALIDATION.md). Repeat section 1 on a clean, standard-user Windows machine. Sections 2–5 and the manual part of section 6 remain open until someone performs them with a real account on real hardware.
+For 0.11.0, the build steps in section 1 were already run on the build machine: bootstrap, doctor, tests, native smoke, packaging, the packaged and installed smoke, and a silent install and uninstall. So were the Android emulator checks in section 6 marked *automated*. See [VALIDATION.md](VALIDATION.md). Repeat section 1 on a clean, standard-user Windows machine. Sections 2–5 and the manual part of section 6 remain open until someone performs them with a real account on real hardware.
 
 ## 1. Establish the build
 
@@ -18,7 +18,7 @@ npm run smoke:desktop
 npm start
 ```
 
-Stop at the first failing command and preserve its output. Bootstrap runs npm ci against the committed, reviewed lockfile and fetches the Electron binary, verified against the checksums shipped in the pinned electron package. A DNS/proxy failure is not resolved by deleting validation or enabling plaintext storage. Review npm’s audit output and notices; for 0.12.0 it reported no known vulnerabilities in runtime dependencies (see VALIDATION.md). Upgrades should be deliberate and retested, not an unconditional `--force` fix.
+Stop at the first failing command and preserve its output. Bootstrap runs npm ci against the committed, reviewed lockfile and fetches the Electron binary, verified against the checksums shipped in the pinned electron package. A DNS/proxy failure is not resolved by deleting validation or enabling plaintext storage. Review npm’s audit output and notices; for 0.11.0 it reported no known vulnerabilities in runtime dependencies (see VALIDATION.md). Upgrades should be deliberate and retested, not an unconditional `--force` fix.
 
 `doctor` must report all entries passing. A source-only pass says nothing about installation readiness. Native smoke must exit zero and print `DESKTOP_SMOKE_OK: encrypted storage, bridge, native PDF print and PDF.js canvas`. It temporarily changes userData so it does not test against your real workspace. A smoke pass still does not exercise real authentication or the manual close interactions below.
 
@@ -39,8 +39,6 @@ Type an unsent multilingual draft, attach a small UTF-8 text file, and close the
 Open the message editor and make changes. Alt+F4/window close must review unsaved edits; Keep working and Escape must preserve text and return focus. Explicit Close Workbench discards only the uncommitted editor/settings changes identified in the review while saving the composer draft. It must not silently save an edited answer or send a message. Repeat during an active response and verify retained partial output after restart. Normal closing protection is not a guarantee against power loss, Task Manager termination or OS shutdown.
 
 Modify Advanced instructions/model effort without applying, switch threads and return. The pending values and supported effort choices must remain local and visible. Apply changes explicitly, then try Discard on another change and reopen Advanced: the actual inputs must show the applied settings. Threads with no pending values must not display the extra strip. A blank custom system prompt must remain accepted.
-
-Open the instructions control beside the model; a new conversation must show None. Choose a starter, send a short message and check that the answer's footer names it. Switch back to None and check that the earlier answer keeps its label. Save an entry, edit it and delete it; a conversation that already uses it must keep its copy. In the instructions editor and in the message editor, type some text and press Escape twice: the discard question must stay and the text must remain. With close review open over an unsaved editor, Escape must answer close review and leave the editor open.
 
 Check response/prompt branching, local thinking annotations, project move/rename, search, keyboard focus, Copy, in-dialog errors and clearing an unsubmitted API key by closing Settings. Deleting a project must retain its threads. Exported files are plaintext and may contain the selected text, references, tool outputs or instructions; handle them accordingly.
 
@@ -66,7 +64,7 @@ After the checks above:
 npm run dist:win
 ```
 
-The command gates packaging behind doctor, tests and native smoke and never publishes. Expected outputs are `release/Tinfoil-Workbench-0.12.0-x64-Setup.exe` and `release/Tinfoil-Workbench-0.12.0-x64-Portable.exe`. Validate the generated filenames and test both on a clean standard-user Windows installation. Code signing is not configured; do not describe artifacts as signed or instructions to disable OS protection. ARM64 requires its own real machine/runner validation.
+The command gates packaging behind doctor, tests and native smoke and never publishes. Expected outputs are `release/Tinfoil-Workbench-0.11.0-x64-Setup.exe` and `release/Tinfoil-Workbench-0.11.0-x64-Portable.exe`. Validate the generated filenames and test both on a clean standard-user Windows installation. Code signing is not configured; do not describe artifacts as signed or instructions to disable OS protection. ARM64 requires its own real machine/runner validation.
 
 Optional PowerShell orchestration: `./scripts/Local-Build.ps1 -Bootstrap -Package`. This script’s native execution remains untested here; the npm commands above are the reference sequence.
 
@@ -74,7 +72,7 @@ Record Windows build, architecture, display scale, Node/npm and installed Electr
 
 ## 6. Android acceptance
 
-*Automated on Android 16 and Android 14 emulators (`tests/android-device.py`):* start-up and Keystore-backed storage, page CSP and worker network allowlist, disabled Capacitor plugins, live enclave verification with an invalid key, draft durability across backgrounding and force-stop, Back order, native confirmation, keyboard layout, the account view, the system instructions picker (touch, Back, saving with the on-screen keyboard open, persistence across a force-stop), the fonts used for code, and system-picker export, attach and import. Installing the 0.12.0 APK over 0.11.0 was checked on the Android 16 emulator.
+*Automated on Android 16 and Android 14 emulators (`tests/android-device.py`):* start-up and Keystore-backed storage, page CSP and worker network allowlist, disabled Capacitor plugins, live enclave verification with an invalid key, draft durability across backgrounding and force-stop, Back order, native confirmation, keyboard layout, the account view, and system-picker export, attach and import.
 
 *Manual, on a physical phone with a real developer API key:*
 
@@ -84,7 +82,6 @@ Record Windows build, architecture, display scale, Node/npm and installed Electr
 - Rotate the phone, use a tablet or foldable if available, and check TalkBack labels and focus order, large font sizes and dark/light system themes.
 - Open a local PDF, attach several text files including a non-UTF-8 one (it must be refused), export Markdown/JSON, and import the JSON on another install.
 - Open a link from a response. The native confirmation must name the host, and the page itself must never navigate away.
-- Choose, save and edit system instructions while typing on the on-screen keyboard and with TalkBack. The composer control's spoken name must say which instructions are set, and Save must stay reachable while typing.
 - On a device with an outdated Android System WebView, confirm the app shows *Update Android System WebView* instead of loading.
 
 Record the device model, Android version, WebView version, the key's billing mode, any failures, and the APK SHA-256.
