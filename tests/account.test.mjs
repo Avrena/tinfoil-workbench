@@ -119,6 +119,12 @@ test('a key close to expiry is used once; a cached key is reused only with more 
  f.tick(13*60_000);assert.equal((await f.account.getCredential()).key,'key-2');assert.equal(f.requests.length,2);
  f.tick(60_000);assert.equal((await f.account.getCredential()).key,'key-3');assert.equal(f.requests.length,3);
 });
+test('a key is never reused for more than an hour, even when it expires later',async()=>{
+ let n=0;const f=fixture(async(_u,_i,clock)=>response(200,{...body(),key:'key-'+(++n),expires_at:at(clock+3*3_600_000)}));await f.account.login();
+ f.tick(58*60_000);assert.equal((await f.account.getCredential()).key,'key-1');assert.equal(f.requests.length,1);
+ f.tick(60_000);assert.equal((await f.account.getCredential()).key,'key-2');assert.equal(f.requests.length,2);
+ assert.equal(f.account.snapshot().tokenExpiresAt,T0+59*60_000+3*3_600_000);
+});
 test('a missing, malformed, zone-less, expired or too-short expiry is refused and the key is never used',async()=>{
  for(const expires_at of [undefined,'soon',1790597793,'2026-09-28T12:15:00','2026-09-28T11:59:59Z','2026-09-28T12:00:20Z']){
   const f=fixture(async()=>response(200,{key:'inference-secret',...(expires_at===undefined?{}:{expires_at})}));await f.account.login();
@@ -191,6 +197,16 @@ test('during a cooldown, concurrent requests send nothing and explicit refreshes
 test('malformed token and oversized responses cannot authenticate',async()=>{
  for(const b of [{key:'contains whitespace',expires_at:'2026-09-28T13:00:00Z'}, {foo:'none'}, {key:'x'.repeat(70000),expires_at:'2026-09-28T13:00:00Z'}]){
   const f=fixture(async()=>response(200,b));await f.account.login();assert.notEqual(f.account.snapshot().entitlement,'active');assert.equal(f.account.key,null);
+ }
+});
+test('a token response over 64 KiB is refused whether its size is declared or only streamed',async()=>{
+ // Both carry a usable key, so only the size limit can refuse them.
+ const declared=()=>new Response(JSON.stringify(body()),{status:200,headers:{'content-type':'application/json','content-length':String(TIMING.maxBytes+1)}});
+ const streamed=()=>response(200,{...body(),padding:'x'.repeat(TIMING.maxBytes)});
+ for(const make of [declared,streamed]){
+  const f=fixture(async()=>make());await f.account.login();
+  assert.equal(f.account.key,null);assert.notEqual(f.account.snapshot().entitlement,'active');
+  assert.equal(f.account.snapshot().message,'The account response exceeded its size limit.');assert.equal(f.account.snapshot().status,'signed-in');
  }
 });
 test('untrusted transport failures are replaced by a nonsecret message',async()=>{
