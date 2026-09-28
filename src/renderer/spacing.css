@@ -427,17 +427,21 @@ dialog:not(.message-editor) .modal-body { padding: 8px 20px 20px; }
 /* System instructions: one footer row for actions and the reply signature, and a
    composer chip sized like the model control. No per-message measurement. */
 .reply-footer { display: flex; align-items: center; flex-wrap: wrap; gap: 4px 16px; margin-top: var(--space-3); min-height: 32px; container-type: inline-size; }
-.reply-footer > .reply-actions { margin: 0; min-height: 32px; flex: 0 1 auto; }
+.reply-footer > .reply-actions { margin: 0; min-height: 32px; flex: none; }
 .reply-actions .choose-reply, .reply-actions .chosen-label { margin-left: var(--space-2); }
-.reply-signature { margin: 0 0 0 auto; padding: 4px 0; gap: 2px 10px; }
-.signature-instructions { gap: 4px; }
-/* Narrow answers (phones, comparison lanes, split views) give the signature its own last line,
-   so action labels revealed on hover never push it onto a new row. */
+/* A zero flex basis keeps the signature beside the actions and lets it absorb width changes:
+   action labels revealed on hover truncate it instead of wrapping it onto a new row. */
+.reply-signature { flex: 1 1 0; margin: 0; padding: 4px 0; }
+.reply-signature > * + * { margin-left: 10px; }
+.signature-instructions svg { margin-right: 4px; }
+/* Narrow answers (phones, comparison lanes, split views) give the signature its own last line. */
 @container (max-width: 640px) {
-  .reply-signature { flex-basis: 100%; margin-left: 0; justify-content: flex-start; padding: 0 0 4px; }
+  .reply-signature { flex-basis: 100%; display: flex; flex-wrap: wrap; gap: 2px 10px; text-align: left; white-space: normal; overflow: visible; padding: 0 0 4px; }
+  .reply-signature > * + * { margin-left: 0; }
 }
 .instructions-chip { height: 32px; padding: 4px 8px; gap: 6px; flex: 0 1 auto; min-width: 32px; }
 .field-heading { gap: var(--space-2); margin: 16px 0 8px; }
+.inspector-body .field-heading label { margin: 0; }
 .field-action { padding: 2px 4px; min-height: 24px; }
 .inspector-body .instructions-applied { margin-top: 6px; }
 .instructions-intro { margin: 4px 0 12px; }
@@ -455,6 +459,9 @@ dialog:not(.message-editor) .modal-body { padding: 8px 20px 20px; }
   .instructions-chip { height: 44px; min-width: 44px; }
 }
 @media(max-width:600px) {
-  .instructions-chip { width: 36px; min-width: 36px; height: 44px; padding: 10px; }
+  .instructions-chip { width: 36px; min-width: 36px; height: 44px; padding: 10px; position: relative; }
   .instructions-chip > span { display: none; }
+  /* Icon-only on phones: a dot, not only colour, marks instructions as set. */
+  .instructions-chip.is-set::after { content: ''; position: absolute; top: 10px; right: 6px; border: 3px solid currentColor; border-radius: 50%; }
 }
+.modal-body .instructions-locked { margin: 4px 0 12px; }

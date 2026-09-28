@@ -129,7 +129,9 @@ with sync_playwright() as p:
         # Settings use the same content inset and do not spill at narrow widths.
         page.locator('.toolbar [data-action=inspector]').click();expect(page.locator('#inspector')).to_be_visible()
         assert page.locator('.inspector-body').evaluate('e=>e.scrollWidth<=e.clientWidth+1')
-        checks.append(f'{name}: advanced fields keep their inset without sideways overflow')
+        heading=page.locator('.field-heading').evaluate('e=>[getComputedStyle(e).marginTop,getComputedStyle(e.querySelector("label")).marginTop,getComputedStyle(e.querySelector("label")).marginBottom]')
+        assert heading==['16px','0px','0px'],(name,heading)
+        checks.append(f'{name}: advanced fields keep their inset without sideways overflow, and the instructions heading adds no extra margin')
         page.locator('#inspector [data-action=inspector]').click();page.wait_for_timeout(220)
         assert page.evaluate('scrollY===0&&document.scrollingElement.scrollTop===0&&document.querySelector("#app").scrollTop===0'),(name,page.evaluate('({scroll:scrollY,top:document.querySelector("#app").getBoundingClientRect().top})'))
         checks.append(f'{name}: closing editors and drawers does not scroll the app shell out of view')

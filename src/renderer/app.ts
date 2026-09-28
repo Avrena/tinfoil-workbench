@@ -36,7 +36,8 @@ app.innerHTML = `<div class="shell no-inspector" id="shell">
 <dialog id="view-dialog"><div class="modal-head"><h2>Reading & visibility</h2>${button('dismiss','Close reading settings','close','class="icon-button"')}</div><div class="modal-body"><label for="view-reasoning">Model reasoning</label><select id="view-reasoning"><option value="collapsed">Collapsed by default</option><option value="expanded">Expanded</option><option value="hidden">Hidden</option></select><p>Only reasoning actually returned by the provider is shown. Hiding it does not disable model reasoning.</p><label class="toggle-row"><span>Render Markdown</span><input id="view-markdown" type="checkbox"></label><label class="toggle-row"><span>Render LaTeX maths</span><input id="view-math" type="checkbox"></label><label class="toggle-row"><span>Show timing, tokens & context size</span><input id="view-metadata" type="checkbox"></label><label class="toggle-row"><span>Wrap long code lines</span><input id="view-wrapCode" type="checkbox"></label><label class="toggle-row"><span>Also open the workspace automatically</span><input id="view-autoArtifacts" type="checkbox"></label><label for="view-motion">Animations</label><select id="view-motion"><option value="system">Follow Windows motion preference</option><option value="reduced">Reduced motion</option></select><label class="toggle-row"><span>Focus mode <kbd>Ctrl Shift F</kbd></span><input id="view-focus" type="checkbox"></label><p>Tool approvals and errors remain visible in every mode.</p></div></dialog>
 <dialog id="model-dialog"><div class="modal-head"><h2>Choose model</h2>${button('dismiss','Close model picker','close','class="icon-button"')}</div><form id="model-form" class="modal-body"><label for="quick-model">Model</label><input id="quick-model" list="models" placeholder="Search or enter a model ID" autocomplete="off"><div id="model-options" class="model-options"></div><div class="modal-actions"><button type="button" data-action="show-inspector">Advanced…</button><button class="primary" type="submit">Use model</button></div></form></dialog>
 <dialog id="instructions-dialog" aria-labelledby="instructions-title"><div class="modal-head"><h2 id="instructions-title">System instructions</h2>${button('instructions-close','Close system instructions','close','class="icon-button"')}</div><div class="modal-body">
-<div id="instructions-list-view"><p class="instructions-intro">Optional — not required. The selection is sent as the system message of each new request in this conversation. None keeps provider defaults.</p><p id="instructions-locked" class="instructions-note" hidden>Stop the active response to change this conversation’s instructions. Saved instructions can still be managed.</p><div id="instructions-options" class="instruction-options" role="group" aria-label="Instructions for this conversation"></div><div class="modal-actions"><button type="button" data-action="instructions-new">${icon('plus')}New instructions</button></div></div>
+<p id="instructions-locked" class="instructions-note instructions-locked" role="status" hidden>Stop the active response to change this conversation’s instructions. Saved instructions can still be managed.</p>
+<div id="instructions-list-view"><p class="instructions-intro">Optional — not required. The selection is sent as the system message of each new request in this conversation. None keeps provider defaults.</p><div id="instructions-options" class="instruction-options" role="group" aria-label="Instructions for this conversation"></div><div class="modal-actions"><button type="button" data-action="instructions-new">${icon('plus')}New instructions</button></div></div>
 <form id="instructions-form" class="instructions-form" hidden><label for="instructions-name">Name <span class="field-optional">Needed to save for reuse</span></label><input id="instructions-name" maxlength="80" autocomplete="off" placeholder="For example, Code reviewer"><label for="instructions-text">Instructions</label><textarea id="instructions-text" maxlength="40000" rows="8" placeholder="How should the model respond in this conversation?" aria-describedby="instructions-count instructions-storage"></textarea><p class="instructions-count" id="instructions-count"></p><p class="instructions-note" id="instructions-storage">Saved instructions stay in this device’s encrypted workspace. A conversation keeps the text it was given, even if the saved copy later changes or is deleted.</p>
 <div class="instructions-confirm" id="instructions-discard" role="alert" hidden><span>Discard these changes?</span><button type="button" data-action="instructions-keep">Keep editing</button><button type="button" class="danger" data-action="instructions-discard">Discard</button></div>
 <div class="instructions-confirm" id="instructions-delete-confirm" role="alert" hidden><span id="instructions-delete-text"></span><button type="button" data-action="instructions-keep-saved">Cancel</button><button type="button" class="danger" data-action="instructions-confirm-delete">Delete</button></div>
@@ -238,13 +239,14 @@ function replyMarkup(reply:Reply, turn:Turn):string {
 }
 /** Quiet provenance after the answer: model, the instructions it was sent with, edits and opt-in metadata. */
 function replySignature(reply:Reply):string {
-  const parts=[`<span class="signature-model">${e(reply.model)}</span>`];
-  if(reply.systemPromptName!==undefined){const name=reply.systemPromptName||'Custom instructions';parts.push(`<span class="signature-instructions" title="System instructions sent with this request: ${e(name)}">${icon('instructions')}<span class="sr-only">System instructions: </span>${e(name)}</span>`);}
-  if(reply.edit)parts.push('<span class="edited-label" title="Manually revised; the original text is preserved">Edited</span>');
-  if(view.metadata)parts.push(`<span class="meta">${e(reply.status)} · ${(reply.elapsedMs/1000).toFixed(1)}s</span>`);
-  if(view.metadata&&reply.usage)parts.push(`<span class="usage" title="Main model requests only; delegated usage is shown separately">${reply.usage.input.toLocaleString()} in · ${reply.usage.output.toLocaleString()} out</span>`);
-  // Items are separated by spacing, not glyphs, so a wrapped line never starts with a stray separator.
-  return `<p class="reply-signature" data-key="signature">${parts.join('')}</p>`;
+  const parts=[`<span class="signature-model">${e(reply.model)}</span>`],plain=[reply.model];
+  if(reply.systemPromptName!==undefined){const name=reply.systemPromptName||'Custom instructions';plain.push('System instructions: '+name);parts.push(`<span class="signature-instructions">${icon('instructions')}<span class="sr-only">System instructions: </span>${e(name)}</span>`);}
+  if(reply.edit){plain.push('Edited; the original text is preserved');parts.push('<span class="edited-label">Edited</span>');}
+  if(view.metadata){const timing=`${reply.status} · ${(reply.elapsedMs/1000).toFixed(1)}s`;plain.push(timing);parts.push(`<span class="meta">${e(timing)}</span>`);}
+  if(view.metadata&&reply.usage){const usage=`${reply.usage.input.toLocaleString()} in · ${reply.usage.output.toLocaleString()} out`;plain.push(usage+' (main model requests only)');parts.push(`<span class="usage">${usage}</span>`);}
+  // Separated by spacing, not glyphs. A wide footer keeps it on one line and truncates it (the title
+  // holds everything); a narrow one gives it its own line, where it may wrap.
+  return `<p class="reply-signature" data-key="signature" title="${e(plain.join(' · '))}">${parts.join('')}</p>`;
 }
 function renderTranscript():void {
   const thread=current(), viewport=$('transcript'), container=$('transcript-inner');
@@ -340,7 +342,12 @@ function renderConnection():void {
   $('connection-card').innerHTML=`<strong>${icon('shield')}${label}</strong><p>${preview?'Sample conversations only. No API requests or attestation are performed.':v.state==='verified'?`SDK verification completed ${new Date(v.checkedAt!).toLocaleTimeString()}. Requests use encrypted EHBP transport.`:'The official SDK checks attestation before an inference request is sent.'}</p><button type="button" data-action="${ready?'connect':'account'}" ${connecting||state.busyThreadId?'disabled':''}>${ready?'Verify & refresh models':chat?'Sign in to Tinfoil Chat':'Set up connection'}</button>${v.steps.length?`<div class="verification-steps">${v.steps.map(s=>`<div><span>${e(s.name)}</span><span>${e(s.status)}</span></div>`).join('')}</div>`:''}`;
   $('status-connection').innerHTML=`<i class="status-indicator ${v.state==='verified'&&!preview?'verified':''}"></i>${label}`;
 }
-let instructionsEdit:{mode:'new'|'saved'|'current';id?:string;name:string;text:string}|null=null,instructionsLeave:'back'|'close'='back';
+let instructionsEdit:{mode:'new'|'saved'|'current';id?:string;name:string;text:string;origin:string}|null=null,instructionsLeave:'back'|'close'='back',instructionsPending=false;
+/** One picker request at a time: a repeated click must not save, apply or delete twice. */
+async function instructionsRequest(run:()=>Promise<void>):Promise<void> {
+  if(instructionsPending)return;instructionsPending=true;
+  try{await run();}finally{instructionsPending=false;}
+}
 const presets=():InstructionPreset[]=>state.workspace.instructionPresets??[];
 function findPreset(key:string):InstructionPreset|undefined {
   const split=key.indexOf(':'),kind=key.slice(0,split),id=key.slice(split+1);
@@ -366,13 +373,16 @@ function renderInstructionsLock():void {
   $('instructions-use').title=locked?'Stop the active response to change this conversation’s instructions.':'';
   if(!instructionsEdit)setMarkup($('instructions-options'),instructionsListMarkup(current().settings,presets(),locked));
 }
-function showInstructionsList():void {
-  instructionsEdit=null;
+/** Returns to the list. Focus goes back to the control that opened the editor, the entry
+ * just saved, or the current choice, so keyboard and screen-reader users keep their place. */
+function showInstructionsList(focus?:string):void {
+  instructionsEdit=null;$('instructions-dialog').querySelector('.dialog-feedback')?.remove();
   $('instructions-form').hidden=true;$('instructions-list-view').hidden=false;$('instructions-title').textContent='System instructions';
   renderInstructionsLock();
+  ((focus?$('instructions-dialog').querySelector<HTMLElement>(focus):null)??$('instructions-options').querySelector<HTMLElement>('[aria-current=true]'))?.focus();
 }
-function showInstructionsForm(mode:'new'|'saved'|'current',name:string,text:string,id?:string):void {
-  instructionsEdit={mode,id,name,text};
+function showInstructionsForm(mode:'new'|'saved'|'current',name:string,text:string,origin:string,id?:string):void {
+  instructionsEdit={mode,id,name,text,origin};$('instructions-dialog').querySelector('.dialog-feedback')?.remove();
   $('instructions-list-view').hidden=true;$('instructions-form').hidden=false;
   $('instructions-title').textContent=mode==='saved'?'Edit saved instructions':mode==='current'?'This conversation’s instructions':'New instructions';
   $<HTMLInputElement>('instructions-name').value=name;$<HTMLTextAreaElement>('instructions-text').value=text;
@@ -391,7 +401,7 @@ function instructionsDirty():boolean {
 }
 function leaveInstructions(target:'back'|'close'):void {
   if(instructionsDirty()){instructionsLeave=target;$('instructions-discard').hidden=false;document.querySelector<HTMLButtonElement>('[data-action=instructions-keep]')!.focus();return;}
-  if(target==='close'||!instructionsEdit)$<HTMLDialogElement>('instructions-dialog').close();else showInstructionsList();
+  if(target==='close'||!instructionsEdit)$<HTMLDialogElement>('instructions-dialog').close();else showInstructionsList(instructionsEdit.origin);
 }
 /** Copies text and name into this conversation's settings. It affects only later requests. */
 async function applyInstructions(text:string,name:string):Promise<boolean> {
@@ -402,22 +412,24 @@ async function applyInstructions(text:string,name:string):Promise<boolean> {
   if(ok)toast(text.trim()?`From your next message this conversation uses ${named?`“${named}”`:'custom instructions'}.`:'From your next message this conversation uses no custom instructions.');
   return ok;
 }
-async function chooseInstructions(target:HTMLElement):Promise<void> {
-  const key=target.dataset.instructions!;
-  if(target.getAttribute('aria-current')==='true'){$<HTMLDialogElement>('instructions-dialog').close();return;}
-  const preset=key==='none'?{text:'',name:''}:findPreset(key);
-  if(!preset){toast('These instructions are no longer available.',true);renderInstructionsLock();return;}
-  if(await applyInstructions(preset.text,preset.name))$<HTMLDialogElement>('instructions-dialog').close();
+function chooseInstructions(target:HTMLElement):Promise<void> {
+  return instructionsRequest(async()=>{
+    const key=target.dataset.instructions!;
+    if(target.getAttribute('aria-current')==='true'){$<HTMLDialogElement>('instructions-dialog').close();return;}
+    const preset=key==='none'?{text:'',name:''}:findPreset(key);
+    if(!preset){toast('These instructions are no longer available.',true);renderInstructionsLock();return;}
+    if(await applyInstructions(preset.text,preset.name))$<HTMLDialogElement>('instructions-dialog').close();
+  });
 }
-async function saveInstructionsForm():Promise<void> {
-  const edit=instructionsEdit;if(!edit)return;
-  const name=$<HTMLInputElement>('instructions-name').value.trim(),text=$<HTMLTextAreaElement>('instructions-text').value,thread=current();
-  if(!await dispatch({type:'instructions.save',...(edit.mode==='saved'&&edit.id?{id:edit.id}:{}),name,text}))return;
-  // Naming the text this conversation already uses relabels it here; what is sent stays the same.
-  const s=current().settings;
-  if(edit.mode==='current'&&current().id===thread.id&&text===s.systemPrompt&&name!==s.systemPromptName&&!configDirty&&state.busyThreadId!==thread.id)
-    await dispatch({type:'thread.settings',id:thread.id,settings:{...s,systemPromptName:name}});
-  toast(`Saved “${name}”.`);showInstructionsList();
+/** Saving only changes the library; a conversation changes only when an entry is chosen. */
+function saveInstructionsForm():Promise<void> {
+  return instructionsRequest(async()=>{
+    const edit=instructionsEdit;if(!edit)return;
+    const name=$<HTMLInputElement>('instructions-name').value.trim(),text=$<HTMLTextAreaElement>('instructions-text').value;
+    if(!await dispatch({type:'instructions.save',...(edit.mode==='saved'&&edit.id?{id:edit.id}:{}),name,text}))return;
+    const saved=presets().find(p=>p.name.toLocaleLowerCase()===name.toLocaleLowerCase());
+    toast(`Saved “${name}”.`);showInstructionsList(saved?`[data-instructions="saved:${CSS.escape(saved.id)}"]`:undefined);
+  });
 }
 function renderAttachments():void {
   const files=pendingFiles.get(current().id)??[];
@@ -510,8 +522,12 @@ bridge?.onAppEvent?.(async event=>{
   return false;
 });
 function showDialog(id:string):void { $(id).querySelector('.dialog-feedback')?.remove();transcriptScheduler.cancel();openModal($<HTMLDialogElement>(id)); }
+// Pickers close on the first click of a double-click; its second click must not reach the page below.
+let dialogClosedAt=-Infinity;
+window.addEventListener('click',event=>{if(event.detail>1&&performance.now()-dialogClosedAt<600){event.stopImmediatePropagation();event.preventDefault();}},true);
 document.querySelectorAll('dialog').forEach(dialog=>dialog.addEventListener('close',()=>{
   if(dialog.id==='settings-dialog')$<HTMLInputElement>('api-key').value='';
+  dialogClosedAt=performance.now();
   dialog.querySelector('.dialog-feedback')?.remove();scheduleTranscript(true);
 }));
 function dismiss():void { document.querySelectorAll<HTMLDialogElement>('dialog[open]').forEach(d=>{if(d===editor.dialog)editor.requestClose();else if(d.id==='instructions-dialog'&&instructionsDirty())leaveInstructions('close');else d.close();}); }
@@ -571,22 +587,22 @@ async function action(name:string, target?:HTMLElement):Promise<void> {
     case 'find-prev': moveFind(-1);break;
     case 'model-picker': $<HTMLInputElement>('quick-model').value=thread.settings.model; renderModels();showDialog('model-dialog');$('quick-model').focus();break;
     case 'instructions-picker':showInstructionsList();showDialog('instructions-dialog');$('instructions-options').querySelector<HTMLButtonElement>('[aria-current=true]')?.focus();break;
-    case 'instructions-new':showInstructionsForm('new','','');break;
+    case 'instructions-new':showInstructionsForm('new','','','[data-action=instructions-new]');break;
     case 'instructions-edit':{
-      const key=target?.dataset.edit??'',preset=findPreset(key);
-      if(key==='current')showInstructionsForm('current',thread.settings.systemPromptName,thread.settings.systemPrompt);
-      else if(preset&&key.startsWith('saved:'))showInstructionsForm('saved',preset.name,preset.text,preset.id);
-      else if(preset)showInstructionsForm('new','',preset.text); // Starters are read-only; edit a copy.
+      const key=target?.dataset.edit??'',preset=findPreset(key),origin=`.instruction-edit[data-edit="${CSS.escape(key)}"]`;
+      if(key==='current')showInstructionsForm('current',thread.settings.systemPromptName,thread.settings.systemPrompt,origin);
+      else if(preset&&key.startsWith('saved:'))showInstructionsForm('saved',preset.name,preset.text,origin,preset.id);
+      else if(preset)showInstructionsForm('new','',preset.text,origin); // Starters are read-only; edit a copy.
       break;
     }
     case 'instructions-back':leaveInstructions('back');break;
     case 'instructions-close':leaveInstructions('close');break;
     case 'instructions-keep':$('instructions-discard').hidden=true;$('instructions-text').focus();break;
-    case 'instructions-discard':instructionsEdit=null;$('instructions-discard').hidden=true;if(instructionsLeave==='close')$<HTMLDialogElement>('instructions-dialog').close();else showInstructionsList();break;
+    case 'instructions-discard':{const origin=instructionsEdit?.origin;instructionsEdit=null;$('instructions-discard').hidden=true;if(instructionsLeave==='close')$<HTMLDialogElement>('instructions-dialog').close();else showInstructionsList(origin);break;}
     case 'instructions-save':await saveInstructionsForm();break;
     case 'instructions-delete':{const preset=presets().find(p=>p.id===instructionsEdit?.id);if(!preset)break;$('instructions-delete-text').textContent=`Delete “${preset.name}” from saved instructions? Conversations that already use it keep their copy.`;$('instructions-delete-confirm').hidden=false;document.querySelector<HTMLButtonElement>('[data-action=instructions-keep-saved]')!.focus();break;}
     case 'instructions-keep-saved':$('instructions-delete-confirm').hidden=true;$('instructions-delete').focus();break;
-    case 'instructions-confirm-delete':if(instructionsEdit?.id&&await dispatch({type:'instructions.delete',id:instructionsEdit.id})){instructionsEdit=null;toast('Saved instructions deleted. Conversations that used them are unchanged.');showInstructionsList();}break;
+    case 'instructions-confirm-delete':await instructionsRequest(async()=>{if(instructionsEdit?.id&&await dispatch({type:'instructions.delete',id:instructionsEdit.id})){toast('Saved instructions deleted. Conversations that used them are unchanged.');showInstructionsList();}});break;
     case 'python-pick': await dispatch({type:'python.pick'});break;
     case 'source': if(target?.dataset.reply){rawReplies.has(target.dataset.reply)?rawReplies.delete(target.dataset.reply):rawReplies.add(target.dataset.reply);renderTranscript();}break;
     case 'cancel-delegate': if(target?.dataset.tool)await dispatch({type:'tool.cancel',id:thread.id,toolId:target.dataset.tool});break;
@@ -650,6 +666,9 @@ document.addEventListener('click',event=>{
   if(target.dataset.url){void dispatch({type:'open.url',url:target.dataset.url});return;}
   if(target.classList.contains('wrap-code')){target.closest('.code-block')?.classList.toggle('wrap');return;}
   if(target.classList.contains('run-code')||target.classList.contains('preview-code')){void codeAction(target);return;}
+  // The picker swaps views and closes on single clicks, so a second click of a double-click
+  // would act on whatever replaced the pressed button. No control there uses double-clicks.
+  if(event.detail>1&&target.closest('#instructions-dialog')){event.preventDefault();return;}
   if(target.dataset.instructions){void chooseInstructions(target);return;}
   if(target.dataset.quickModel){$<HTMLInputElement>('quick-model').value=target.dataset.quickModel; $<HTMLFormElement>('model-form').requestSubmit();return;}
   if(target.dataset.action) { void action(target.dataset.action,target); return; }
@@ -754,12 +773,12 @@ $('config-form').addEventListener('submit',event=>{
   const id=current().id,originalDraft=configDrafts.get(id);
   void dispatch({type:'thread.settings',id,settings:values}).then(ok=>{if(ok){if(configDrafts.get(id)===originalDraft)configDrafts.delete(id);configDirty=configDrafts.has(current().id);if(current().id===id&&!configDirty){$('apply-settings').textContent='Apply settings';renderConfiguration(true);}pendingSettings();toast('Conversation settings saved.');}});
 });
-$('instructions-form').addEventListener('submit',event=>{event.preventDefault();void(async()=>{if(await applyInstructions($<HTMLTextAreaElement>('instructions-text').value,$<HTMLInputElement>('instructions-name').value)){instructionsEdit=null;$<HTMLDialogElement>('instructions-dialog').close();}})();});
+$('instructions-form').addEventListener('submit',event=>{event.preventDefault();void instructionsRequest(async()=>{if(await applyInstructions($<HTMLTextAreaElement>('instructions-text').value,$<HTMLInputElement>('instructions-name').value)){instructionsEdit=null;$<HTMLDialogElement>('instructions-dialog').close();}});});
 $('instructions-form').addEventListener('input',refreshInstructionsForm);
 // Enter in the name field must not apply instructions; Ctrl+Enter applies from anywhere in the form.
 $('instructions-name').addEventListener('keydown',event=>{if(event.key==='Enter'&&!event.isComposing){event.preventDefault();$('instructions-text').focus();}});
 $('instructions-form').addEventListener('keydown',event=>{if((event.ctrlKey||event.metaKey)&&event.key==='Enter'&&!event.isComposing){event.preventDefault();$<HTMLFormElement>('instructions-form').requestSubmit();}});
-$<HTMLDialogElement>('instructions-dialog').addEventListener('cancel',event=>{if(instructionsDirty()){event.preventDefault();leaveInstructions('close');}});
+$<HTMLDialogElement>('instructions-dialog').addEventListener('cancel',event=>{if(instructionsEdit){event.preventDefault();leaveInstructions('back');}});
 $<HTMLDialogElement>('instructions-dialog').addEventListener('close',()=>{instructionsEdit=null;});
 $('instructions').addEventListener('input',renderInstructionsApplied);
 $('key-form').addEventListener('submit',event=>{

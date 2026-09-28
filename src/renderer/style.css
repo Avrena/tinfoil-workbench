@@ -810,10 +810,10 @@ dialog[open]{transform:translateZ(0);isolation:isolate}
 .comparison .reply-content{font-size:14px;line-height:1.65}
 
 /* Reply footer: actions, then a quiet signature naming the model and any instructions sent. */
-.reply-signature{display:flex;align-items:center;flex-wrap:wrap;justify-content:flex-end;min-width:0;font-size:11px;line-height:1.6;color:#8b919a}
+.reply-signature{min-width:0;font-size:11px;line-height:1.6;color:#8b919a;text-align:right;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .signature-model{color:#a8aeb7;overflow-wrap:anywhere}
-.signature-instructions{display:inline-flex;align-items:center;color:#9dbad8;min-width:0;overflow-wrap:anywhere}
-.signature-instructions svg{width:12px;height:12px}
+.signature-instructions{color:#9dbad8;overflow-wrap:anywhere}
+.signature-instructions svg{width:12px;height:12px;vertical-align:-2px}
 .reply-signature .usage,.reply-signature .meta{margin:0;font-size:11px;color:#8b919a}
 .reply-signature .edited-label{font-size:10px;line-height:1.4}
 
@@ -824,7 +824,6 @@ dialog[open]{transform:translateZ(0);isolation:isolate}
 .instructions-chip svg{width:15px;height:15px}
 .instructions-chip.is-set{color:#a7c9ec}
 .field-heading{display:flex;align-items:baseline;justify-content:space-between}
-.field-heading label{margin:0}
 .field-action{font-size:11px;color:#9cbfdf;white-space:nowrap;flex-shrink:0}
 .inspector-body .instructions-applied{color:#9dbad8}
 #instructions-dialog{width:min(560px,calc(100vw - 32px))}

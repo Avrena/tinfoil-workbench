@@ -145,6 +145,11 @@ with sync_playwright() as p:
  chip.click();third.locator('[data-action=instructions-new]').click();expect(third.locator('#instructions-save')).to_be_disabled()
  third.locator('#instructions-name').fill('Translator');third.locator('#instructions-text').fill('Answer in French.');third.locator('#instructions-save').click()
  expect(third.locator('[data-instructions^="saved:"]')).to_contain_text('Translator');expect(third.locator('[data-instructions="starter:starter-concise"]')).to_have_attribute('aria-current','true')
+ expect(third.locator('[data-instructions^="saved:"]')).to_be_focused()
+ third.locator('[data-action=instructions-new]').click();third.locator('#instructions-name').fill('translator');third.locator('#instructions-text').fill('Duplicate');third.locator('#instructions-save').click()
+ expect(third.locator('#instructions-dialog .dialog-feedback')).to_contain_text('already exist');third.keyboard.press('Escape');third.locator('[data-action=instructions-discard]').click()
+ expect(third.locator('#instructions-list-view')).to_be_visible();expect(third.locator('#instructions-dialog .dialog-feedback')).to_have_count(0)
+ checks.append('saving moves focus to the new entry, and an error does not follow the picker to another view')
  third.locator('[data-instructions^="saved:"]').click();expect(name).to_have_text('Translator')
  checks.append('saving creates a reusable entry without applying it; selecting it copies the text into the conversation')
  chip.click();third.locator('.instruction-edit[data-edit^="saved:"]').click();third.locator('#instructions-delete').click();third.locator('[data-action=instructions-confirm-delete]').click()
@@ -153,9 +158,10 @@ with sync_playwright() as p:
  checks.append('deleting saved instructions keeps the copy the conversation already uses')
  third.locator('.instruction-edit[data-edit=current]').click();third.locator('#instructions-text').fill('Changed but not applied');third.keyboard.press('Escape')
  expect(third.locator('#instructions-discard')).to_be_visible();expect(third.locator('#instructions-dialog')).to_be_visible()
- third.locator('[data-action=instructions-discard]').click();expect(third.locator('#instructions-dialog')).to_be_hidden()
+ third.locator('[data-action=instructions-discard]').click();expect(third.locator('#instructions-list-view')).to_be_visible();expect(third.locator('.instruction-edit[data-edit=current]')).to_be_focused()
+ third.keyboard.press('Escape');expect(third.locator('#instructions-dialog')).to_be_hidden()
  assert third.evaluate('window.__active().settings.systemPrompt')=='Answer in French.'
- checks.append('closing with unsaved instruction edits asks first and discarding changes nothing')
+ checks.append('Escape steps back from the editor, asks before discarding unsaved edits and returns focus to the control that opened it')
  third.locator('.toolbar [data-action=inspector]').click();expect(third.locator('#instructions-applied')).to_contain_text('Translator')
  third.locator('#instructions').fill('Use British spelling.');expect(third.locator('#instructions-applied')).to_contain_text('unnamed custom')
  chip.click();third.locator('[data-instructions=none]').click();expect(third.locator('#instructions-dialog .dialog-feedback')).to_contain_text('pending Advanced');third.keyboard.press('Escape')
@@ -164,6 +170,13 @@ with sync_playwright() as p:
  chip.click();third.locator('[data-instructions=none]').click();expect(name).to_have_text('')
  assert third.evaluate('window.__active().settings')['systemPrompt']=='';expect(third.locator('.reply-signature').last).to_contain_text('Concise')
  checks.append('None turns custom instructions off for new requests without relabelling earlier replies')
+ chip.click();third.locator('[data-action=instructions-new]').click();third.locator('[data-action=instructions-back]').dblclick()
+ expect(third.locator('#instructions-list-view')).to_be_visible();assert third.evaluate('window.__active().settings.systemPrompt')==''
+ threads=third.locator('#thread-list .thread').count()
+ third.evaluate("window.__stray=0;document.addEventListener('click',e=>{if(e.detail>1&&!e.target.closest('dialog'))window.__stray++;})")
+ third.locator('[data-instructions^="starter:"]').first.dblclick();expect(third.locator('#instructions-dialog')).to_be_hidden();expect(name).to_have_text('Concise')
+ third.wait_for_timeout(200);assert third.evaluate('window.__stray')==0;assert third.locator('#thread-list .thread').count()==threads;assert third.evaluate('window.__active().turns.length')==2
+ checks.append('double-clicks choose at most one entry and never reach the controls the closing picker uncovers')
  third.close()
  assert not errors,errors;assert len(blocked_styles)<=1,blocked_styles;assert not [r for r in requests if r.startswith(('http:','https:'))],requests
  checks.append('no JavaScript errors or external requests; CSP remains enforced during inert parsing')
