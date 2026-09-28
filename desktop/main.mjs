@@ -43,7 +43,7 @@ async function launch() {
   // Windows is the release target. On other OSes, only an actual secure backend may be used for development.
   if (process.platform === 'linux' && safeStorage.getSelectedStorageBackend() === 'basic_text') throw new Error('No secure key store');
   const vault = new EncryptedVault(app.getPath('userData'), safeStorage);
-  const accountWindow=new AccountWindow({BrowserWindow,session},message=>account?.invalidate(message));
+  const accountWindow=new AccountWindow({BrowserWindow,session},message=>account?.invalidate(message),host=>account?.blocked(host));
   account=new AccountSession(accountWindow,()=>service?.accountChanged());
   // Timers do not run during sleep; requests recheck expiry anyway, and resume drops a stale key at once.
   powerMonitor.on('resume',()=>account?.resume());

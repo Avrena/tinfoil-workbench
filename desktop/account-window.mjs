@@ -34,14 +34,19 @@ export function identityScript(expected){return `(()=>{
 export const signInScript=`(()=>{if(location.origin!==${JSON.stringify(CHAT_ORIGIN)})return false;const c=window.Clerk;if(!c?.loaded)return false;if(!c.user)c.openSignIn({forceRedirectUrl:${JSON.stringify(CHAT_ORIGIN+'/')},signUpForceRedirectUrl:${JSON.stringify(CHAT_ORIGIN+'/')}});return true;})()`;
 /** Electron is injected so boundary behavior can be tested without native binaries. */
 export class AccountWindow {
-  constructor({BrowserWindow,session},onInvalid=()=>{}){this.BrowserWindow=BrowserWindow;this.sessions=session;this.onInvalid=onInvalid;this.window=null;this.ses=null;this.children=new Set();this.rejectLogin=null;this.closing=false;this.epoch=0;}
+  constructor({BrowserWindow,session},onInvalid=()=>{},onBlocked=()=>{}){this.BrowserWindow=BrowserWindow;this.sessions=session;this.onInvalid=onInvalid;this.onBlocked=onBlocked;this.window=null;this.ses=null;this.children=new Set();this.rejectLogin=null;this.closing=false;this.epoch=0;}
   preferences(){return {session:this.ses,sandbox:true,contextIsolation:true,nodeIntegration:false,nodeIntegrationInWorker:false,nodeIntegrationInSubFrames:false,webSecurity:true,webviewTag:false,allowRunningInsecureContent:false,devTools:false,spellcheck:false};}
   secure(win){
     const wc=win.webContents;
-    wc.on('will-navigate',(event,url)=>{if(!allowedAccountNavigation(url??event.url))event.preventDefault();});
-    wc.on('will-redirect',(event,url)=>{if(!allowedAccountNavigation(url??event.url))event.preventDefault();});
+    // A refusal is reported by host, so a provider flow that needs another site does not just stall.
+    const refuse=url=>{let host='';try{host=new URL(url).hostname;}catch{}this.onBlocked(host);};
+    const guard=(event,url)=>{if(!allowedAccountNavigation(url)){event.preventDefault();refuse(url);}};
+    wc.on('will-navigate',(event,url)=>guard(event,url??event.url));
+    // The host list governs the page itself. Frames (provider cookie checks, CAPTCHAs) are limited to
+    // HTTPS by the session filter below, and a frame's redirect must not stall the page's sign-in.
+    wc.on('will-redirect',(event,url,_inPlace,isMainFrame)=>{if((event.isMainFrame??isMainFrame)!==false)guard(event,url??event.url);});
     wc.on('will-attach-webview',event=>event.preventDefault());
-    wc.setWindowOpenHandler(({url})=>allowedAccountNavigation(url)?{action:'allow',overrideBrowserWindowOptions:{title:'Tinfoil account — website',autoHideMenuBar:true,webPreferences:this.preferences()}}:{action:'deny'});
+    wc.setWindowOpenHandler(({url})=>{if(allowedAccountNavigation(url))return {action:'allow',overrideBrowserWindowOptions:{title:'Tinfoil account — website',autoHideMenuBar:true,webPreferences:this.preferences()}};refuse(url);return {action:'deny'};});
     wc.on('did-create-window',child=>{this.children.add(child);this.secure(child);child.once('closed',()=>this.children.delete(child));});
     wc.on('render-process-gone',()=>{if(!this.closing)this.onInvalid('The Tinfoil sign-in page stopped. Sign in again.');});
     wc.on('will-prevent-unload',event=>event.preventDefault());

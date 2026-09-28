@@ -245,10 +245,21 @@ test('native account window has a separate memory-only partition and no preload 
  await w.clear();assert.equal(e.windows[0].dead,true);assert.equal(e.ses.cleared,true);
 });
 test('native account navigation and popups keep the same unprivileged boundaries',async()=>{
- const e=fakeElectron(),w=new AccountWindow(e);await w.create();const win=e.windows[0];let blocked=false;
- win.webContents.emit('will-navigate',{preventDefault:()=>{blocked=true;}},'https://attacker.invalid');assert.equal(blocked,true);
- assert.equal(win.popup({url:'file:///tmp'}).action,'deny');const allowed=win.popup({url:'https://accounts.google.com/'});assert.equal(allowed.action,'allow');assert.equal(allowed.overrideBrowserWindowOptions.webPreferences.preload,undefined);assert.equal(allowed.overrideBrowserWindowOptions.webPreferences.nodeIntegration,false);
+ const e=fakeElectron(),refused=[],w=new AccountWindow(e,()=>{},host=>refused.push(host));await w.create();const win=e.windows[0];let blocked=false;
+ win.webContents.emit('will-navigate',{preventDefault:()=>{blocked=true;}},'https://attacker.invalid/path?code=secret');assert.equal(blocked,true);assert.deepEqual(refused,['attacker.invalid']);
+ assert.equal(win.popup({url:'file:///tmp'}).action,'deny');assert.deepEqual(refused,['attacker.invalid','']);const allowed=win.popup({url:'https://accounts.google.com/'});assert.equal(allowed.action,'allow');assert.equal(allowed.overrideBrowserWindowOptions.webPreferences.preload,undefined);assert.equal(allowed.overrideBrowserWindowOptions.webPreferences.nodeIntegration,false);
  await w.clear();
+});
+test('the host list governs the page, while a frame redirect cannot stall a provider sign-in',async()=>{
+ const e=fakeElectron(),refused=[],w=new AccountWindow(e,()=>{},host=>refused.push(host));await w.create();const wc=e.windows[0].webContents;
+ const redirect=(url,isMainFrame)=>{let blocked=false;wc.emit('will-redirect',{isMainFrame,url,preventDefault:()=>{blocked=true;}},url,false,isMainFrame);return blocked;};
+ assert.equal(redirect('https://accounts.youtube.com/accounts/SetSID',false),false);assert.equal(redirect('https://clerk.tinfoil.sh/v1/oauth_callback',true),false);
+ assert.equal(redirect('https://accounts.youtube.com/accounts/SetSID',true),true);assert.equal(redirect('https://attacker.invalid',undefined),true);
+ assert.deepEqual(refused,['accounts.youtube.com','attacker.invalid']);await w.clear();
+});
+test('a refused sign-in host is shown as a message, with only a plain host name',async()=>{
+ const f=fixture();f.account.blocked('accounts.youtube.com');assert.match(f.account.snapshot().message,/tried to open accounts\.youtube\.com/);
+ f.account.blocked('<img src=x onerror=alert(1)>');assert.match(f.account.snapshot().message,/tried to open another site/);f.account.blocked('');assert.match(f.account.snapshot().message,/another site/);
 });
 test('native session scripts are not evaluated outside the exact Tinfoil origin',async()=>{
  const e=fakeElectron(),w=new AccountWindow(e);await w.create();let calls=0;e.windows[0].webContents.executeJavaScript=async()=>{calls++;return raw();};

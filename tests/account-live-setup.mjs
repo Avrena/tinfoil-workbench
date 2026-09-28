@@ -17,7 +17,7 @@ import { join, dirname } from 'node:path';
 import { tmpdir, release } from 'node:os';
 import { fileURLToPath } from 'node:url';
 import { execFileSync } from 'node:child_process';
-import { CHAT_TOKEN_URL } from '../dist/core/account.js';
+import { CHAT_TOKEN_URL, allowedAccountNavigation } from '../dist/core/account.js';
 import { AccountSession } from '../desktop/account-session.mjs';
 import { AccountWindow } from '../desktop/account-window.mjs';
 import { WorkbenchService } from '../desktop/service.mjs';
@@ -29,7 +29,7 @@ app.setPath('userData', profile);
 const option = name => { const i = process.argv.indexOf(name); return i > 0 ? process.argv[i + 1] : null; };
 const dry = process.argv.includes('--dry'), logFile = option('--log'), shotFile = option('--shot');
 const secrets = new Set(), leaks = new Set();
-const stats = { exchanges: [], starts: 0, holding: false, held: [], logins: 0, loginsDone: 0, identityChecks: 0, identityMatched: null, clients: [], snapshots: 0, vaultWrites: 0, dateHeader: null };
+const stats = { exchanges: [], starts: 0, holding: false, held: [], pageHosts: [], frameRedirectHosts: new Set(), refusedHosts: [], logins: 0, loginsDone: 0, identityChecks: 0, identityMatched: null, clients: [], snapshots: 0, vaultWrites: 0, dateHeader: null };
 let service = null, holdNext = 0;
 const leaked = text => { for (const s of secrets) if (text.includes(s)) return true; return false; };
 const iso = ms => typeof ms === 'number' ? new Date(ms).toISOString() : null;
@@ -68,6 +68,16 @@ wrap(AccountWindow.prototype, 'identity', async function (original, [expected]) 
   const value = await original.call(this, expected); stats.identityChecks++;
   stats.identityMatched = value?.sessionUserId === expected.user && value?.sessionId === expected.session; return value;
 });
+// Sign-in navigation, by host name only (OAuth URLs carry codes and state).
+const hostOf = url => { try { return new URL(url).hostname; } catch { return ''; } };
+wrap(AccountWindow.prototype, 'secure', function (original, [win]) {
+  original.call(this, win);
+  const wc = win.webContents;
+  wc.on('did-navigate', (_event, url) => { const host = hostOf(url); if (stats.pageHosts.at(-1) !== host) { stats.pageHosts.push(host); log('sign-in-page', { host }); } });
+  wc.on('did-redirect-navigation', (event, url, _inPlace, isMainFrame) => { const target = url ?? event.url; if ((event.isMainFrame ?? isMainFrame) === false && !allowedAccountNavigation(target)) stats.frameRedirectHosts.add(hostOf(target)); });
+  wc.on('did-fail-load', (_event, code, _description, url, isMainFrame) => { if (isMainFrame && code !== -3) log('sign-in-load-failed', { host: hostOf(url), code }); });
+});
+wrap(AccountSession.prototype, 'blocked', function (original, [host]) { stats.refusedHosts.push(host); log('sign-in-refused-host', { host }); return original.call(this, host); });
 wrap(WorkbenchService.prototype, 'initialize', function (original, args) {
   service = this; const factory = this.providerFactory;
   this.providerFactory = async (key, cache, mode) => { secrets.add(key); stats.clients.push({ at: iso(Date.now()), mode }); return factory(key, cache, mode); };
@@ -140,11 +150,12 @@ async function run() {
     await until('sign-in to finish', () => stats.loginsDone > done, 11 * 60_000, 1000);
     const s = account().snapshot();
     if (s.status === 'signed-in') break;
-    log('sign-in-not-completed', { attempt, status: s.status, message: s.message });
+    log('sign-in-not-completed', { attempt, status: s.status, message: s.message, pageHosts: stats.pageHosts, frameRedirectHostsOutsideList: [...stats.frameRedirectHosts], refusedHosts: stats.refusedHosts });
     if (attempt >= 3 || s.status === 'expired') throw new Error('Sign-in did not complete.');
   }
   let s = account().snapshot();
   log('signed-in', { interactiveLogins: stats.logins, accountWindowVisible: accountWindow()?.isVisible() ?? null,
+    navigation: { pageHosts: stats.pageHosts, frameRedirectHostsOutsideList: [...stats.frameRedirectHosts], refusedHosts: stats.refusedHosts },
     identity: { profileMatchesBinding: account().binding?.user === s.profile.id, clerkSessionBound: /^sess_/.test(account().binding?.session ?? ''), postExchangeChecks: stats.identityChecks, postExchangeMatched: stats.identityMatched },
     exchanges: stats.exchanges, serverDateHeader: stats.dateHeader, entitlement: s.entitlement, subscriptionStatus: s.profile.subscriptionStatus, emailVerified: s.profile.emailVerified,
     usageReported: !!s.usage, tokenExpiresAt: iso(s.tokenExpiresAt), secondsUntilRenewal: Math.round((account().keyDeadline - Date.now()) / 1000) - 60, message: s.message });

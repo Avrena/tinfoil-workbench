@@ -156,6 +156,11 @@ export class AccountSession {
     if(!key||key!==this.key)return false;
     this.forget();this.state={...this.state,tokenExpiresAt:null,message};this.emit();return true;
   }
+  /** The website window refused to open a host outside its list. Say so, instead of leaving a stalled page unexplained. */
+  blocked(host){
+    const site=typeof host==='string'&&/^[a-z0-9.-]{1,253}$/i.test(host)?host:'another site';
+    this.state={...this.state,message:`The sign-in page tried to open ${site}, which Workbench does not open in its sign-in window. Try another sign-in method.`};this.emit();
+  }
   /** After system sleep: drop a key that has expired or is about to, without a network request. */
   resume(){if(this.key&&this.keyDeadline-this.now()<=this.timing.refreshMargin){this.forget();this.state={...this.state,tokenExpiresAt:null};this.emit();}}
   async manage(){if(this.state.status!=='signed-in'||!this.binding)throw new InputError('Sign in before managing your profile.');await this.adapter.manage(this.binding);}
