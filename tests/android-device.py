@@ -6,10 +6,12 @@ websocket-client for --debug, and an English system locale for the picker steps.
 
 --debug drives the debuggable build through the WebView DevTools socket: platform surface, renderer
 CSP, worker network allowlist, disabled Capacitor plugins, draft durability across a force-stop,
-Back navigation, native confirmation and keyboard layout. --live adds a real attestation check
+Back navigation, native confirmation, the system instructions picker (touch, Back, vault
+persistence), code fonts and keyboard layout. --live adds a real attestation check
 against Tinfoil with a deliberately invalid key (verification must pass, the key must be rejected).
 --release checks the signed build with UI Automator: start-up, non-debuggable package, draft
-durability through the real IME, the Android account view, and system document picker round trips.
+durability through the real IME, the Android account view, the instructions picker with Back, and
+system document picker round trips.
 Installing replaces any existing installation of the app and its local data."""
 import argparse, itertools, json, os, re, subprocess, sys, time, urllib.request
 from pathlib import Path
@@ -72,6 +74,12 @@ def composer_box(timeout=20):
         time.sleep(1)
     raise RuntimeError('The composer is not visible.')
 
+def keyboard_shown():
+    return re.search(r'mInputShown=true|mImeWindowVis=3', adb('shell', 'dumpsys', 'input_method')) is not None
+
+def back(wait=0.8):
+    adb('shell', 'input', 'keyevent', 'KEYCODE_BACK'); time.sleep(wait)
+
 def tap(label, timeout=20, exact=True):
     box = find(label, timeout, exact)
     if box: adb('shell', 'input', 'tap', str((box[0] + box[2]) // 2), str((box[1] + box[3]) // 2)); time.sleep(1.2)
@@ -133,6 +141,22 @@ def devtools(pid):
 
 def snap(page): return page.eval('() => window.tinfoil.snapshot()')
 def command(page, c): return page.eval('(c) => window.tinfoil.command(c)', c)
+def active_settings(s): return next(t for t in s['workspace']['threads'] if t['id'] == s['workspace']['activeId'])['settings']
+
+def tap_css(page, selector, wait=1.0):
+    # Tap an element at its on-screen position (CSS box x device pixel ratio + WebView offset).
+    x, y, dpr = page.eval("(s) => { const r = document.querySelector(s).getBoundingClientRect(); return [r.left + r.width / 2, r.top + r.height / 2, devicePixelRatio]; }", selector)
+    view = json.loads(next(t for t in json.load(urllib.request.urlopen('http://127.0.0.1:9333/json/list', timeout=5)) if t['type'] == 'page')['description'])
+    adb('shell', 'input', 'tap', str(int(x * dpr + view.get('screenX', 0))), str(int(y * dpr + view.get('screenY', 0)))); time.sleep(wait)
+
+def platform_fonts(page, selectors):
+    # Families Blink actually used for each element's text, as DevTools reports them.
+    page.call('DOM.enable'); page.call('CSS.enable')
+    root = page.call('DOM.getDocument', depth=-1)['root']['nodeId']
+    node = lambda sel: page.call('DOM.querySelector', nodeId=root, selector=sel)['nodeId']
+    out = {k: sorted({f['familyName'] for f in page.call('CSS.getPlatformFontsForNode', nodeId=node(v))['fonts']}) for k, v in selectors.items()}
+    page.call('CSS.disable'); page.call('DOM.disable')
+    return out
 
 adb('uninstall', PKG, check=False)
 record('APK installs', 'Success' in adb('install', args.apk))
@@ -198,10 +222,41 @@ if args.debug:
     page.eval("(id) => { window.tinfoil.command({ type: 'thread.delete', id }); }", target)
     tap('Delete conversation'); time.sleep(0.8)
     record('confirming removes the conversation', not any(t['id'] == target for t in snap(page)['workspace']['threads']))
-    # Tap the composer at its on-screen position (CSS box x device pixel ratio + WebView offset).
-    x, y, dpr = page.eval("() => { const r = document.querySelector('#prompt').getBoundingClientRect(); return [r.left + r.width / 2, r.top + r.height / 2, devicePixelRatio]; }")
-    view = json.loads(next(t for t in json.load(urllib.request.urlopen('http://127.0.0.1:9333/json/list', timeout=5)) if t['type'] == 'page')['description'])
-    adb('shell', 'input', 'tap', str(int(x * dpr + view.get('screenX', 0))), str(int(y * dpr + view.get('screenY', 0)))); time.sleep(2)
+    # Optional system instructions: real taps, the real Back key and the Keystore-encrypted vault.
+    is_open = lambda: page.eval("() => document.querySelector('#instructions-dialog').open")
+    chip = page.eval("() => { const c = document.querySelector('#composer-instructions'), r = c.getBoundingClientRect(); return { width: Math.round(r.width), height: Math.round(r.height), name: getComputedStyle(c.querySelector('span')).display }; }")
+    tap_css(page, '#composer-instructions')
+    record('the icon-only instructions control opens the picker from a touch', chip['height'] >= 44 and chip['name'] == 'none' and is_open(), json.dumps(chip))
+    tap_css(page, '[data-instructions="starter:starter-concise"]')
+    settings = active_settings(snap(page)); dot = page.eval("() => getComputedStyle(document.querySelector('#composer-instructions'), '::after').content")
+    record('a tapped starter applies through the Android host, marked by a dot as well as colour', settings['systemPromptName'] == 'Concise' and settings['systemPrompt'].startswith('Be concise.') and not is_open() and dot not in ('none', 'normal'), dot)
+    tap_css(page, '#composer-instructions'); tap_css(page, '[data-action=instructions-new]')
+    page.eval("() => { for (const [s, v] of [['#instructions-name', 'Field notes'], ['#instructions-text', 'Answer with short field notes.']]) { const el = document.querySelector(s); el.value = v; el.dispatchEvent(new Event('input', { bubbles: true })); } }")
+    editor_state = "() => ({ open: document.querySelector('#instructions-dialog').open, discard: !document.querySelector('#instructions-discard').hidden, text: document.querySelector('#instructions-text').value })"
+    if keyboard_shown(): back()  # The first Back only hides the keyboard, as it does for a user.
+    back(); asked = page.eval(editor_state)
+    back(); st = page.eval(editor_state)
+    record('Back in the instructions editor asks before discarding unsaved text, also when pressed again', asked['discard'] and st['open'] and st['discard'] and st['text'] == 'Answer with short field notes.' and PKG in resumed(), json.dumps(st))
+    tap_css(page, '[data-action=instructions-keep]'); typing = keyboard_shown()
+    tap_css(page, '#instructions-save')
+    s = snap(page)
+    record('with the keyboard open, Save stays reachable and stores the entry without changing the conversation', typing and [p['name'] for p in s['workspace']['instructionPresets']] == ['Field notes'] and active_settings(s)['systemPromptName'] == 'Concise' and page.eval("() => !document.querySelector('#instructions-list-view').hidden"), f'keyboard shown: {typing}')
+    tap_css(page, '[data-action=instructions-new]')
+    if keyboard_shown(): back()
+    back(); listed = page.eval("() => document.querySelector('#instructions-dialog').open && !document.querySelector('#instructions-list-view').hidden")
+    back()
+    record('Back steps from an unchanged editor to the list, then closes the picker', listed and not is_open() and PKG in resumed())
+    page.eval('''() => { const r = document.createElement('div'); r.className = 'reply-content'; r.id = 'font-probe';
+      r.innerHTML = '<p>Inline <code id="probe-inline">inline_code()</code></p><div class="code-block"><pre><code id="probe-block">const x = 1;</code></pre></div><p id="probe-old">Previous code stack</p>';
+      r.querySelector('#probe-old').style.fontFamily = 'Consolas,"Cascadia Code","Courier New",monospace'; document.body.append(r); void r.offsetHeight; }''')
+    time.sleep(0.5); fonts = platform_fonts(page, {'inline': '#probe-inline', 'block': '#probe-block', 'previous_stack': '#probe-old'})
+    page.eval("() => document.querySelector('#font-probe').remove()")
+    record('inline and block code share one sans monospace face, not the Courier New typewriter alias', fonts['inline'] and fonts['inline'] == fonts['block'] and not any('Cutive' in f for f in fonts['inline']), json.dumps(fonts))
+    adb('shell', 'am', 'force-stop', PKG)
+    page, worker = devtools(start())
+    s = snap(page); label = page.eval("() => document.querySelector('#composer-instructions').getAttribute('aria-label')")
+    record('saved instructions and the conversation choice survive a force-stop in the encrypted vault', [p['name'] for p in s['workspace']['instructionPresets']] == ['Field notes'] and active_settings(s)['systemPromptName'] == 'Concise' and 'Concise' in label, label)
+    tap_css(page, '#prompt', wait=2)
     g = page.eval("() => ({ bottom: document.querySelector('.composer').getBoundingClientRect().bottom, viewport: visualViewport.height, focused: document.activeElement?.id })")
     shown = re.search(r'mInputShown=true|mImeWindowVis=3', adb('shell', 'dumpsys', 'input_method')) is not None
     record('the composer stays above the on-screen keyboard', shown and g['focused'] == 'prompt' and g['bottom'] <= g['viewport'] + 1, json.dumps(g))
@@ -222,6 +277,16 @@ else:
     tap('Set up connection')
     record('the account view offers only the API key', find('Tinfoil Chat website sign-in is not available on Android', 10, exact=False) is not None)
     adb('shell', 'input', 'keyevent', 'KEYCODE_BACK'); time.sleep(1)
+    none_row = 'Provider defaults. No custom system message is sent.'
+    tap('System instructions (optional)', exact=False)
+    record('the instructions picker opens from the composer control', find(none_row, 10, exact=False) is not None)
+    tap('Concise', exact=False)
+    record('choosing a starter names it on the composer control', find('System instructions (optional): Concise', 10, exact=False) is not None)
+    tap('System instructions (optional)', exact=False); tap('New instructions')
+    if keyboard_shown(): back(1)  # The first Back only hides the keyboard.
+    back(1); listed = find(none_row, 10, exact=False) is not None
+    back(1)
+    record('Back steps from the instructions editor to the list, then closes the picker', listed and find(none_row, 3, exact=False) is None and PKG in resumed())
     adb('shell', 'rm', '-f', '/sdcard/Download/conversation.md', '/sdcard/Download/conversation.json', '/sdcard/Download/notes.md', check=False)
     tap('Conversation menu'); tap('Export Markdown')
     record('export asks for native confirmation', find('Export an unencrypted copy?', 10) is not None)

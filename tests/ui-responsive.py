@@ -54,6 +54,17 @@ with sync_playwright() as p:
  page.set_viewport_size({'width':390,'height':420});page.wait_for_timeout(180);send=page.locator('#send').bounding_box();assert send['y']+send['height']<=420;checks.append('keyboard-height simulation: composer send control stays in the visible viewport')
  page.locator('[data-action=edit-draft]').tap();page.locator('#editor-content').fill('Draft retained across a shorter viewport and rotation.');page.wait_for_timeout(180);save=page.locator('#editor-save').bounding_box();assert save['y']+save['height']<=420;assert page.locator('#editor-content').bounding_box()['height']>=60;checks.append('keyboard-height simulation: fullscreen editor keeps a usable field and reachable Save')
  page.set_viewport_size({'width':844,'height':390});page.wait_for_timeout(180);expect(page.locator('#editor-content')).to_have_value('Draft retained across a shorter viewport and rotation.');save=page.locator('#editor-save').bounding_box();assert save['y']+save['height']<=390;page.locator('#editor-save').tap();expect(page.locator('#edit-dialog')).to_be_hidden();expect(page.locator('#prompt')).to_have_value('Draft retained across a shorter viewport and rotation.');checks.append('landscape rotation preserves an open editor and its unsent draft')
+ # The instructions editor keeps its actions visible and on top when a keyboard leaves little of the dialog.
+ page.set_viewport_size({'width':390,'height':420});page.wait_for_timeout(180);page.locator('#composer-instructions').tap();page.locator('[data-action=instructions-new]').tap()
+ page.locator('#instructions-name').fill('Field notes');page.locator('#instructions-text').fill('Answer with short field notes.\n'*12)
+ for size in [{'width':390,'height':420},{'width':844,'height':390}]:
+  page.set_viewport_size(size);page.wait_for_timeout(180);page.locator('#instructions-text').focus()
+  for control in ['#instructions-save','#instructions-use']:
+   box=page.locator(control).bounding_box();assert box['y']>=0 and box['y']+box['height']<=size['height'],(size,control,box)
+   assert page.evaluate("s=>{const e=document.querySelector(s),r=e.getBoundingClientRect();return document.elementFromPoint(r.left+r.width/2,r.top+r.height/2)?.closest('button')===e}",control),(size,control)
+  assert page.locator('#instructions-text').bounding_box()['height']>=60
+ checks.append('keyboard-height simulation: the instructions editor keeps Save and Use visible and on top in portrait and landscape')
+ page.keyboard.press('Escape');page.locator('[data-action=instructions-discard]').tap();page.keyboard.press('Escape');expect(page.locator('#instructions-dialog')).to_be_hidden()
  page.set_viewport_size({'width':1280,'height':800});page.wait_for_timeout(150);expect(page.locator('.sidebar')).to_be_visible();page.set_viewport_size({'width':390,'height':844});page.wait_for_timeout(150);expect(page.locator('.sidebar')).to_be_hidden();assert page.evaluate('window.__inspect().view.sidebar') is True;checks.append('responsive drawers never overwrite the saved desktop sidebar preference')
  # Capture the actual responsive renderer, not a separate mock design.
  page.evaluate('window.__seed()');page.locator('#prompt').fill('');page.locator('#transcript').evaluate('(e)=>e.scrollTop=0');page.wait_for_timeout(250);page.screenshot(path=str(root/'docs/preview-phone.png'))

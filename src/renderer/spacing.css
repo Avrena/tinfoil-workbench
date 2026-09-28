@@ -467,3 +467,11 @@ dialog:not(.message-editor) .modal-body { padding: 8px 20px 20px; }
   .instructions-chip.is-set::after { content: ''; position: absolute; top: 10px; right: 6px; border: 3px solid currentColor; border-radius: 50%; }
 }
 .modal-body .instructions-locked { margin: 4px 0 12px; }
+/* An on-screen keyboard can leave little of the dialog visible. The editor's actions stick to the
+   bottom of the scrolling dialog, covering the body's bottom padding (same spacing at rest), and
+   focused fields scroll clear of them. */
+#instructions-dialog { scroll-padding-bottom: 76px; }
+.instructions-form > .modal-actions { position: sticky; bottom: 0; z-index: 1; background: #23252a; margin: 8px -20px -20px; padding: 12px 20px 20px; }
+@media(max-width:600px) {
+  .instructions-form > .modal-actions { margin: 8px -16px -16px; padding: 12px 16px 16px; }
+}
