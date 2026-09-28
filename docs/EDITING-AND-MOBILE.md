@@ -26,7 +26,7 @@ At compact widths, navigation and advanced settings are dismissible overlays; th
 
 Phone editors fill the visible viewport, keep Save/Cancel separate from the scrolling text area, and retain buffers through orientation changes. Touch Enter inserts a newline; use Send or Ctrl/Cmd+Enter to submit. IME confirmation is never send. Headers truncate long names rather than widen the page; full names remain in the rename/move controls. Wide tables scroll locally, chart geometry adapts to real width, and figure controls remain visible without hover. The host visualization background stays transparent/grey and seamless.
 
-The standalone preview can be opened in a browser for offline demonstration; it cannot authenticate or call Tinfoil. A hosted/mobile production distribution is not included. Eight Chromium touch-emulated viewports plus simulated keyboard-height/rotation checks were executed. Physical devices, real on-screen keyboards, iOS Safari and Android Chrome need separate testing; see VALIDATION.md.
+The standalone preview can be opened in a browser for offline demonstration; it cannot authenticate or call Tinfoil. A hosted browser distribution is not included; the separate Android app is described in [ANDROID.md](ANDROID.md) and was checked on Android emulators with real on-screen keyboards. Eight Chromium touch-emulated viewports plus simulated keyboard-height/rotation checks were executed. Physical devices, real on-screen keyboards, iOS Safari and Android Chrome need separate testing; see VALIDATION.md.
 
 ## Browser references used in implementation
 

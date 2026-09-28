@@ -1,5 +1,20 @@
 # Changelog
 
+## 0.11.0 — Android app and first verified release build
+
+- Add an Android app (Capacitor 8, Android 7.0+ with a current System WebView):
+  - The unchanged renderer runs in the WebView. The shared service, Tinfoil SDK (attestation + EHBP), vault crypto and API key run in a dedicated worker, while the page keeps `connect-src 'self'`.
+  - The workspace uses the desktop vault format, with its data key wrapped by a non-exportable Android Keystore key, atomic writes, and backup and device transfer disabled.
+  - A fixed nine-operation native plugin provides native dialogs, the system document picker, clipboard and link opening.
+  - The WebView network allowlist admits only `https://localhost` and `*.tinfoil.sh`, Capacitor's HTTP, cookie and server-path plugins are disabled, and the app refuses WebViews without an origin-restricted bridge.
+  - Backgrounding saves the draft, and Back closes the topmost layer before backgrounding the app.
+- Android omits Tinfoil Chat sign-in, Python execution and HTML-to-PDF export, and says so where those controls would appear. Desktop behavior is unchanged: the renderer reacts only to an optional `platform: 'android'` snapshot field and an optional `onAppEvent` bridge callback.
+- Fix bootstrap for Electron 44, which no longer downloads its binary from an install hook: `npm run bootstrap` now fetches it and verifies it against the checksums shipped in the pinned package. CI uses bootstrap and Node 24.
+- Commit the reviewed lockfile. npm 11's install-script gate records `electron-winstaller` and `esbuild` as explicitly denied; neither script is needed.
+- Make the Python browser suites run on stock Windows: they use Playwright's bundled Chromium, read files as UTF-8, and `ui-activity.py` no longer checks too early for a result that renders on the next animation frame.
+- Add 18 Node tests for the Android host (vault format and tamper handling, command parity, native-operation allowlist) and `tests/android-device.py` for emulator/device checks. Add Android and renderer CI workflows.
+- Verified on Windows 11 and on Android 16 and Android 14 emulators, including a live enclave verification from the Android worker; see docs/VALIDATION.md. The custom system prompt remains optional and not required.
+
 ## 0.10.0 — local handoff and recovery
 
 - Persist composer drafts and selected text-file contents together in the encrypted workspace; clear only the sent draft, retain branch references, and migrate older workspaces additively.

@@ -1,6 +1,6 @@
 # Working on Tinfoil Workbench
 
-Keep this project private. Never push to upstream or a different owner. Do not commit credentials, vaults, real transcripts, generated private files or signing keys. The private-publishing helper has not been run. Do not fabricate repository, release, CI, dependency or live-provider results.
+Keep this project private. The repository is the private `Avrena/tinfoil-workbench`; never push to upstream or a different owner. Do not commit credentials, vaults, real transcripts, generated private files or signing keys (Windows or Android). `scripts/Publish-PrivateRepo.ps1` only creates new repositories and is not needed for this one. Do not fabricate repository, release, CI, dependency or live-provider results.
 
 Maintain separation between the vanilla TypeScript renderer, fixed data-only preload, guarded native commands, provider/tool service and encrypted vault. No generic IPC, shell, filesystem or arbitrary URL-fetch bridges. Preserve SDK attestation/EHBP, renderer network denial and exact sender checks. API keys are not Tinfoil Chat subscription sessions.
 
@@ -45,3 +45,12 @@ Draft text and selected attachment contents must persist atomically in the encry
 All ordinary native close paths must go through CloseCoordinator. Ignore stale/duplicate close responses; acknowledgements stop the initial watchdog while a human reads. An unavailable renderer needs a native explicit force-close decision; save errors default to keeping the window open. Keep the exposed bridge narrow and validate request IDs/booleans in the main process. Do not claim crash/power-loss durability from normal-close tests.
 
 Keep exact reviewed direct pins and genuine lockfile requirements. Doctor is read-only, source-only mode is not installation success, and packaging must run real native smoke after installation. Do not substitute mocks or missing-library output for the PDF.js or DPAPI acceptance check. No force upgrades, automatic publication or user credentials in tests. Follow docs/HANDOFF.md before describing a release as Windows-validated.
+
+
+## 0.11 Android invariants
+
+The Android app reuses the renderer and `desktop/service.mjs` unchanged. Keep Android-specific behavior behind the optional `platform: 'android'` snapshot field and `onAppEvent` bridge callback so that desktop behavior stays identical. `mobile/commands.mjs` mirrors the command switch in `desktop/main.mjs`: change both together, including native confirmations, stale-approval rechecks and file limits. Unsupported features (Chat sign-in, Python, HTML-to-PDF) must fail with an explicit Android message, never silently.
+
+Keep the service, SDK, vault key and API key in the host worker; the renderer document keeps `connect-src 'self'`. The worker may request only the operations in `mobile/native-ops.mjs`, validated on the main thread. Do not add generic filesystem, network, intent or evaluation operations. Keep `MainActivity`'s request allowlist (`https://localhost`, HTTPS `*.tinfoil.sh`), navigation lock, WebView feature gate and the stubs replacing Capacitor's HTTP, cookie and server-path plugins. Keep Capacitor logging off: debug logging writes plugin arguments, including key material, to logcat.
+
+The vault stays in the desktop envelope format with a Keystore-wrapped data key; never add a plaintext or exportable-key fallback. Keep backup and device transfer disabled. Never commit the Android release keystore or its properties; releases are signed on the maintainer machine. Run `node --test tests/mobile-*.test.mjs` for host changes and `tests/android-device.py` (debug with `--live`, and release) on an emulator or device before an Android release. Do not claim physical-device, tablet or older-WebView support that was not tested.

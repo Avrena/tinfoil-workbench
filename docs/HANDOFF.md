@@ -1,10 +1,12 @@
-# Local Windows handoff — 0.10.0
+# Manual acceptance checklist — 0.11.0
 
-Prepared 28 September 2026. This is a build-candidate source handoff, not a release approval. **The custom system prompt is optional and not required.** No custom prompt needs to be copied from a ChatGPT response or this document.
+This checklist covers what automated checks cannot establish. **The custom system prompt is optional and not required.** No custom prompt needs to be copied from a ChatGPT response or this document.
+
+For 0.11.0, the build steps in section 1 were already run on the build machine: bootstrap, doctor, tests, native smoke, packaging, the packaged and installed smoke, and a silent install and uninstall. So were the Android emulator checks in section 6 marked *automated*. See [VALIDATION.md](VALIDATION.md). Repeat section 1 on a clean, standard-user Windows machine. Sections 2–5 and the manual part of section 6 remain open until someone performs them with a real account on real hardware.
 
 ## 1. Establish the build
 
-Use a standard Windows 11 x64 machine. Install Node.js 22.12 or newer, reopen PowerShell, and extract the complete archive to a local writable folder. Run in the folder containing package.json:
+Use a standard Windows 11 x64 machine. Install Node.js 22.12 or newer, reopen PowerShell, and clone the repository (or extract a release source archive) to a local writable folder. Run in the folder containing package.json:
 
 ```powershell
 node --version
@@ -16,7 +18,7 @@ npm run smoke:desktop
 npm start
 ```
 
-Stop at the first failing command and preserve its output. Bootstrap installs the fixed direct pins, generates a genuine transitive lockfile on first use and uses npm ci afterward. Review/commit package-lock.json before remote CI or sharing a build. A DNS/proxy failure is not resolved by deleting validation or enabling plaintext storage. Review npm’s audit output and notices; no automated transitive vulnerability audit ran during preparation. Upgrades should be deliberate and retested, not an unconditional `--force` fix.
+Stop at the first failing command and preserve its output. Bootstrap runs npm ci against the committed, reviewed lockfile and fetches the Electron binary, verified against the checksums shipped in the pinned electron package. A DNS/proxy failure is not resolved by deleting validation or enabling plaintext storage. Review npm’s audit output and notices; for 0.11.0 it reported no known vulnerabilities in runtime dependencies (see VALIDATION.md). Upgrades should be deliberate and retested, not an unconditional `--force` fix.
 
 `doctor` must report all entries passing. A source-only pass says nothing about installation readiness. Native smoke must exit zero and print `DESKTOP_SMOKE_OK: encrypted storage, bridge, native PDF print and PDF.js canvas`. It temporarily changes userData so it does not test against your real workspace. A smoke pass still does not exercise real authentication or the manual close interactions below.
 
@@ -54,7 +56,7 @@ For opt-in delegation, inspect the explicit task and approve one short child req
 
 On Windows test normal and maximized windows, snap layouts and 100/125/150/200% scaling. Check a long thread title, long email, dialog focus return, high contrast/reduced motion, IME and rapid Reading/focus/sidebar toggles. A prior intermittent rapid checkbox hit-test issue did not recur in this revision’s 12-cycle run; continue this stress check rather than treating it as conclusively fixed.
 
-The renderer has Chromium touch/viewport coverage, not certified mobile OS support. Test actual phone/tablet browsers and real virtual keyboards only if deploying a browser version; the Electron package itself remains a Windows desktop application. Do not assume mobile account sign-in or Safari behavior from Linux Chromium emulation.
+The renderer has Chromium touch/viewport coverage, not certified mobile OS support. Test actual phone/tablet browsers and real virtual keyboards if deploying a browser version; the Android app has its own checks in section 6. Do not assume mobile account sign-in or Safari behavior from Linux Chromium emulation.
 
 After the checks above:
 
@@ -62,12 +64,28 @@ After the checks above:
 npm run dist:win
 ```
 
-The command gates packaging behind doctor, tests and native smoke and never publishes. Expected outputs are `release/Tinfoil-Workbench-0.10.0-x64-Setup.exe` and `release/Tinfoil-Workbench-0.10.0-x64-Portable.exe`. Validate the generated filenames and test both on a clean standard-user Windows installation. Code signing is not configured; do not describe artifacts as signed or instructions to disable OS protection. ARM64 requires its own real machine/runner validation.
+The command gates packaging behind doctor, tests and native smoke and never publishes. Expected outputs are `release/Tinfoil-Workbench-0.11.0-x64-Setup.exe` and `release/Tinfoil-Workbench-0.11.0-x64-Portable.exe`. Validate the generated filenames and test both on a clean standard-user Windows installation. Code signing is not configured; do not describe artifacts as signed or instructions to disable OS protection. ARM64 requires its own real machine/runner validation.
 
 Optional PowerShell orchestration: `./scripts/Local-Build.ps1 -Bootstrap -Package`. This script’s native execution remains untested here; the npm commands above are the reference sequence.
 
-Record Windows build, architecture, display scale, Node/npm and installed Electron versions, test failures/skips, live sign-in method, SDK/attestation result and final artifact hashes. A completed checklist and genuine reviewed lockfile are the next handoff evidence, not this source ZIP alone. No remote push or release upload is part of these commands.
+Record Windows build, architecture, display scale, Node/npm and installed Electron versions, test failures/skips, live sign-in method, SDK/attestation result and final artifact hashes. A completed checklist is the remaining acceptance evidence. No remote push or release upload is part of these commands.
 
-## What is deliberately not in this package
+## 6. Android acceptance
 
-No credentials, native executable, fabricated lockfile, node_modules, font binaries, cloud-sync client, Remember me, arbitrary MCP client configuration, automatic hosted-code session provisioning or signed release. The experimental account integration and native protected actions must still be accepted on Windows.
+*Automated on Android 16 and Android 14 emulators (`tests/android-device.py`):* start-up and Keystore-backed storage, page CSP and worker network allowlist, disabled Capacitor plugins, live enclave verification with an invalid key, draft durability across backgrounding and force-stop, Back order, native confirmation, keyboard layout, the account view, and system-picker export, attach and import.
+
+*Manual, on a physical phone with a real developer API key:*
+
+- Install the signed APK over any earlier build and confirm existing conversations open. Confirm that an APK signed with a different key is refused as an update.
+- Save a key, run Verify enclave & load models, send a short message, stop a response, and continue a conversation with a visual artifact. Expand it into the workspace, open Data/Source, and save the original file.
+- Background the app during a streamed response. Return, and after a force-stop confirm the partial text is kept and marked interrupted.
+- Rotate the phone, use a tablet or foldable if available, and check TalkBack labels and focus order, large font sizes and dark/light system themes.
+- Open a local PDF, attach several text files including a non-UTF-8 one (it must be refused), export Markdown/JSON, and import the JSON on another install.
+- Open a link from a response. The native confirmation must name the host, and the page itself must never navigate away.
+- On a device with an outdated Android System WebView, confirm the app shows *Update Android System WebView* instead of loading.
+
+Record the device model, Android version, WebView version, the key's billing mode, any failures, and the APK SHA-256.
+
+## What is deliberately not in the release
+
+No credentials, signing keys, node_modules or font binaries. No Remember me, cloud sync, arbitrary MCP client configuration, automatic hosted-code provisioning, Windows code signing, or Android Chat sign-in, Python or HTML-to-PDF. The experimental account integration and the native protected actions still need acceptance on real hardware with a real account.

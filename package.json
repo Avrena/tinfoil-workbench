@@ -1,9 +1,9 @@
 {
   "name": "tinfoil-windows",
   "productName": "Tinfoil Workbench",
-  "version": "0.10.0",
+  "version": "0.11.0",
   "private": true,
-  "description": "Windows 11 Tinfoil Workbench — local-build handoff, durable drafts, inline artifacts and optional custom instructions",
+  "description": "Tinfoil Workbench for Windows 11 and Android — attested Tinfoil chat with inline artifacts and optional custom instructions",
   "author": "Avrena",
   "license": "UNLICENSED",
   "type": "module",
