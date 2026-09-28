@@ -4,10 +4,15 @@ import { escapeHtml as e } from '../core/markdown.js';
 const date=(value:number|null):string=>value===null?'Not reported':new Date(value).toLocaleString();
 const number=(value:number|null):string=>value===null?'Not reported':value.toLocaleString();
 export function accountFooter(snapshot:Snapshot):string {
+  if(snapshot.platform==='android')return `<span class="account-avatar" aria-hidden="true">○</span><span class="account-footer-text"><strong>Account</strong><small>${snapshot.hasKey?'Developer API key':'Add an API key'}</small></span>`;
   const a=snapshot.account??signedOutAccount();
   return `<span class="account-avatar" aria-hidden="true">${a.profile?e(initials(a.profile.name)):'○'}</span><span class="account-footer-text"><strong>${e(a.profile?.name??'Account')}</strong><small>${a.status==='signed-in'?'Tinfoil Chat':a.status==='signing-in'?'Signing in…':a.status==='expired'?'Reconnect account':'Sign in or manage access'}</small></span>`;
 }
 export function accountOverview(s:Snapshot):string {
+  // The Android app has no isolated website sign-in window; it connects with a developer API key.
+  if(s.platform==='android')return `<section class="account-identity"><span class="account-avatar large" aria-hidden="true">○</span><div><h3>Developer API key</h3><p>${s.hasKey?'A key is saved in this device’s encrypted workspace.':'No API key is saved yet.'}</p></div></section>
+    <section class="account-section"><h3>Connection for new requests</h3><p>The Android app connects with a separate developer API key. Tinfoil Chat website sign-in is not available on Android.</p><button data-action="account-api">${s.hasKey?'Manage saved API key':'Add an API key'}</button></section>
+    <p class="account-optional">Custom system instructions are optional—not required. Leave them blank to use provider defaults.</p>`;
   const a=s.account??signedOutAccount(),p=a.profile,waiting=a.status==='signing-in',busy=!!s.busyThreadId||s.verification.state==='checking',chat=s.connectionMode==='chat-account',usable=a.status==='signed-in';
   const active=chat?'Tinfoil Chat account':'Developer API key';
   return `${s.storage==='preview'?'<p class="account-demo-note">Offline preview · synthetic account data only. No credentials are accepted. <button data-action="account-sample">Toggle sample profile</button></p>':''}

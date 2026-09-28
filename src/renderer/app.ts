@@ -128,6 +128,11 @@ function accept(snapshot:Snapshot):void {
   const sequence = (snapshot as Snapshot & { sequence?:number }).sequence ?? ++revision;
   if (sequence < revision) return;
   revision=sequence; state=snapshot;state.workspace.projects??=[];
+  if(state.platform&&document.documentElement.dataset.platform!==state.platform){
+    document.documentElement.dataset.platform=state.platform;
+    const motion=document.querySelector<HTMLOptionElement>('#view-motion option[value="system"]');
+    if(motion)motion.textContent='Follow system motion preference';
+  }
   const existingIds=new Set(state.workspace.threads.map(t=>t.id));
   for(const map of [drafts,pendingFiles,configDrafts])for(const id of map.keys())if(!existingIds.has(id))map.delete(id);
   view = viewPreferences(snapshot.workspace.view); applyView();
@@ -154,7 +159,7 @@ function accept(snapshot:Snapshot):void {
   const notice = state.storage === 'preview' ? null : state.notice;
   const unconfigured=state.storage!=='preview'&&!state.hasKey&&state.account?.status!=='signed-in';
   if(notice)setMarkup($('notice'),e(notice));
-  else if(unconfigured)setMarkup($('notice'),'Connect an account or API key to start. <button type="button" data-action="account">Set up connection</button>');
+  else if(unconfigured)setMarkup($('notice'),`${state.platform==='android'?'Add a Tinfoil API key to start.':'Connect an account or API key to start.'} <button type="button" data-action="account">Set up connection</button>`);
   else setMarkup($('notice'),'');
   $('notice').classList.toggle('hidden',!notice&&!unconfigured);
   if (switched || document.activeElement!==$('prompt')) {
@@ -407,6 +412,19 @@ bridge?.onCloseRequested?.(id=>{void(async()=>{
   else await answerClose(true);
 })();});
 $<HTMLDialogElement>('close-dialog').addEventListener('cancel',event=>{event.preventDefault();void answerClose(false);});
+// Android: backgrounding persists the draft (the process may later be stopped without a close
+// request); Back closes the topmost layer and reports whether anything was open.
+bridge?.onAppEvent?.(async event=>{
+  if(event==='pause')return flushDraft();
+  const top=[...document.querySelectorAll<HTMLDialogElement>('dialog[open]')].at(-1);
+  if(top){if(top===editor.dialog)editor.requestClose();else if(top.dispatchEvent(new Event('cancel',{cancelable:true})))top.close();return true;}
+  const menu=document.querySelector<HTMLDetailsElement>('details.export-menu[open]');
+  if(menu){menu.open=false;return true;}
+  if(!$('find-bar').classList.contains('hidden')){void action('find-close');return true;}
+  if(responsive.compact&&(responsive.navigation||responsive.advanced||artifactPanel.isOpen())){responsive.close();return true;}
+  if(artifactPanel.isOpen()){artifactPanel.close();return true;}
+  return false;
+});
 function showDialog(id:string):void { $(id).querySelector('.dialog-feedback')?.remove();transcriptScheduler.cancel();openModal($<HTMLDialogElement>(id)); }
 document.querySelectorAll('dialog').forEach(dialog=>dialog.addEventListener('close',()=>{
   if(dialog.id==='settings-dialog')$<HTMLInputElement>('api-key').value='';

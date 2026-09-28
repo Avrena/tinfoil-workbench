@@ -779,3 +779,12 @@ body:has(dialog[open]) .inline-artifact iframe,body:has(dialog[open]) .artifact-
 dialog[data-entering]{pointer-events:none}
 /* Give native modal controls their own compositor surface above embedded views. */
 dialog[open]{transform:translateZ(0);isolation:isolate}
+
+/* Android app (html[data-platform=android], set from the Android host snapshot). Desktop-only
+   controls are hidden; the Android host also rejects their commands. The shell is inset from the
+   edge-to-edge system bars using the variables supplied by Capacitor's SystemBars plugin. */
+[data-platform=android] .window-controls,[data-platform=android] .execution-settings,[data-platform=android] .tools-badge,
+[data-platform=android] .run-code,[data-platform=android] [data-panel="pdf"],[data-platform=android] .settings-account-link,
+[data-platform=android] .shortcut{display:none!important}
+[data-platform=android] body{box-sizing:border-box;padding:var(--safe-area-inset-top,0px) var(--safe-area-inset-right,0px) var(--safe-area-inset-bottom,0px) var(--safe-area-inset-left,0px)}
+[data-platform=android] #app{height:100%}

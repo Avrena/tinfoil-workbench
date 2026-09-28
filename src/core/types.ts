@@ -83,6 +83,8 @@ export interface Snapshot {
   hasKey: boolean; models: string[]; capabilities?: ModelCapability[]; verification: Verification;
   busyThreadId: string | null; storage: 'os-encrypted' | 'preview';
   notice: string | null; pythonConfigured?: boolean;
+  /** Set only by the Android host; absent on the Windows desktop. */
+  platform?: 'android';
 }
 export interface ApiMessage { role: 'system' | 'user' | 'assistant' | 'tool'; content: string; tool_call_id?: string; tool_calls?: ToolCall[]; reasoning_content?: string }
 export interface GenerationJob {
@@ -135,5 +137,8 @@ export interface DesktopBridge {
   onCloseRequested?(callback: (requestId: string) => void): () => void;
   command(command: Command): Promise<{ snapshot: Snapshot; attachments?: Attachment[]; artifact?: Artifact }>;
   subscribe(callback: (snapshot: Snapshot) => void): () => void;
+  /** Android only: 'pause' when the app is backgrounded, 'back' for the system Back action.
+   * Resolve true when the renderer handled Back itself. */
+  onAppEvent?(callback: (event: 'pause' | 'back') => Promise<boolean>): () => void;
 }
 declare global { interface Window { tinfoil?: DesktopBridge } }
