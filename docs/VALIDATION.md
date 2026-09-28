@@ -43,6 +43,8 @@ The ten production-renderer browser suites passed **413 checks** with no JavaScr
 
 Before these passes, the suites could not run on stock Windows. Nine hard-coded `/usr/bin/chromium`, and all failed with `UnicodeDecodeError` under a non-UTF-8 code page. `ui-activity.py` also failed **2 of 6** runs at one check that counted `.delegate-thinking` elements before the next animation frame rendered. After switching that check to Playwright's auto-waiting assertion it passed 10 of 10 runs. These were harness defects; no product code changed.
 
+The first GitHub Actions Windows run failed one test, `python-runner.test.mjs` "generated supported files are collected…", which found 0 files instead of 1. The runner's TEMP is an 8.3 short path (`C:\Users\RUNNER~1\…`). `desktop/python-runner.mjs` compared each file's long `realpath()` with the short output directory, so its containment check silently dropped every Python output file for any user whose TEMP uses a short name. Pointing TEMP at a short alias reproduced this locally: the test failed with the old code and passed 9 of 9 with the fix, which compares resolved paths on both sides.
+
 The desktop smoke test was also run from the VS Code integrated terminal. There it initially failed because the editor exports `ELECTRON_RUN_AS_NODE=1`, which starts Electron as plain Node. It passed once the variable was cleared. This is an environment issue, now noted in the README.
 
 ## Android
