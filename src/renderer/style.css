@@ -1,4 +1,7 @@
-:root{color-scheme:dark;--bg:#1e1e1e;--side:#181818;--raised:#252526;--line:#343434;--text:#d4d4d4;--muted:#999b9f;--accent:#75bfff;--blue:#0078d4;--hover:#2b2d30;--danger:#f2a3a3;font-family:"Segoe UI Variable","Segoe UI",system-ui,sans-serif;font-size:14px}
+/* Windows 11 installs its variable UI font as optical-size families ("Segoe UI Variable Text", …).
+   Monospace never names Courier New: Android aliases it to a typewriter face. */
+:root{--font-ui:"Segoe UI Variable Text","Segoe UI",system-ui,sans-serif;--font-display:"Segoe UI Variable Display","Segoe UI",system-ui,sans-serif;--font-mono:Consolas,"Cascadia Mono","SF Mono",Menlo,"Roboto Mono","Noto Sans Mono","DejaVu Sans Mono",monospace;--reading-size:15px;--reading-leading:1.7}
+:root{color-scheme:dark;--bg:#1e1e1e;--side:#181818;--raised:#252526;--line:#343434;--text:#d4d4d4;--muted:#999b9f;--accent:#75bfff;--blue:#0078d4;--hover:#2b2d30;--danger:#f2a3a3;font-family:var(--font-ui);font-size:14px}
 *{box-sizing:border-box}
 html,body,#app{margin:0;width:100%;height:100%;overflow:hidden}
 button,input,textarea,select{font:inherit}
@@ -109,7 +112,7 @@ p{line-height:1.6}
 .reply-content table{border-collapse:collapse;display:block;overflow:auto;max-width:100%;margin:18px 0;font-size:12px}
 .reply-content th,.reply-content td{padding:9px 14px;border:1px solid #3a3c41;text-align:left}
 .reply-content th{background:#27292c;color:#e1e3e7;font-weight:500}
-.reply-content code,.reasoning code,.raw-source,.tool-run pre{font-family:Consolas,"Cascadia Code","Courier New",monospace}
+.reply-content code,.reasoning code,.raw-source,.tool-run pre{font-family:var(--font-mono)}
 .reply-content p code,.reply-content li code{background:#2c2e32;color:#cebcde;font-size:.88em;padding:2px 5px;border-radius:4px}
 .md-link{display:inline;padding:0;font-size:inherit;color:#83bbec;line-height:inherit;border-radius:2px;vertical-align:baseline;text-decoration:underline;text-decoration-color:#83bbec55;text-underline-offset:3px}
 .md-link:hover{background:none;color:#b7d8ff}
@@ -119,7 +122,7 @@ p{line-height:1.6}
 .code-tools{display:flex;gap:3px}
 .code-caption button{padding:3px 6px;font-size:10px;color:#abb2bf}
 .code-block pre{padding:15px;margin:0;max-height:370px;overflow:auto;white-space:pre;font-size:12px;line-height:1.75;tab-size:4}
-.code-block code{font-family:Consolas,"Cascadia Code",monospace}
+.code-block code{font-family:var(--font-mono);font-variant-ligatures:none}
 .wrap-all-code .code-block pre,.code-block.wrap pre{white-space:pre-wrap;overflow-wrap:anywhere}
 .token.comment,.token.prolog{color:#6a9955}
 .token.keyword,.token.tag{color:#569cd6}
@@ -135,7 +138,7 @@ p{line-height:1.6}
 .math-expression.display-math{display:block;overflow-x:auto;padding:15px 8px;margin:12px 0 20px;text-align:center}
 .math-expression math[display=block]{margin:0}
 .math-error{color:#dfa897!important;white-space:pre-wrap}
-.math-source{font-family:Consolas,monospace;white-space:pre-wrap}
+.math-source{font-family:var(--font-mono);white-space:pre-wrap}
 .reasoning,.tool-activity{border:0;margin:0 0 17px;font-size:12px;color:#a4a9b3}
 .reasoning summary,.tool-activity summary{cursor:pointer;list-style:none;display:flex;align-items:center;gap:8px;width:fit-content;padding:4px 0}
 .reasoning summary:before,.tool-activity summary:before{content:'›';font-size:17px;line-height:12px;width:9px;display:inline-block;transition:transform .1s}
@@ -155,7 +158,7 @@ p{line-height:1.6}
 .chosen-label{font-size:10px;color:#95bda6;margin-left:auto}
 .usage{font-size:10px;color:#888f9b;margin-left:auto}
 .reply-note{font-size:12px;line-height:1.6;color:#edc490;background:#332c23;border:1px solid #5b4930;border-radius:6px;padding:11px 13px;margin-top:12px}
-.raw-source{white-space:pre-wrap;overflow-wrap:anywhere;font-family:Consolas,monospace;font-size:12px;line-height:1.75;margin:0}
+.raw-source{white-space:pre-wrap;overflow-wrap:anywhere;font-family:var(--font-mono);font-size:12px;line-height:1.75;margin:0}
 .waiting{color:#8e949e;font-size:12px;padding:8px 0}
 .streaming-cursor{display:inline-block;width:5px;height:12px;margin-left:5px;background:#8fb6df;animation:pulse 1s infinite}
 @keyframes pulse{50%{opacity:.2}
@@ -411,7 +414,7 @@ button{transition:background-color 130ms ease,color 130ms ease,border-color 130m
 .inline-artifact{margin:23px 0 26px;border:0;border-radius:0;background:transparent;min-width:0;box-shadow:none;font-size:12px;line-height:1.5}
 .inline-artifact-header{display:flex;align-items:center;gap:10px;min-height:30px;padding:0;background:transparent}
 .inline-artifact-header strong{font-size:12px;font-weight:600;letter-spacing:.01em;flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:#d4d4d4}
-.artifact-kind{font-family:Consolas,"Cascadia Code",monospace;text-transform:uppercase;font-size:9px;letter-spacing:.07em;color:#aaaaaa;border:1px solid #444444;background:#2d2d2d;padding:2px 5px;border-radius:4px}
+.artifact-kind{font-family:var(--font-mono);text-transform:uppercase;font-size:9px;letter-spacing:.07em;color:#aaaaaa;border:1px solid #444444;background:#2d2d2d;padding:2px 5px;border-radius:4px}
 .inline-version{width:65px!important;max-width:65px;font-size:10px;border:0;padding:3px;color:#aaaaaa;background:transparent}
 .inline-version[hidden]{display:none}
 .inline-expand{width:28px;height:28px;padding:5px;color:#b0b0b0}
@@ -453,7 +456,7 @@ button{transition:background-color 130ms ease,color 130ms ease,border-color 130m
 .data-table-wrap th{background:transparent;color:#bdbdbd;font-size:10px;font-weight:500}
 .data-table-wrap th button{color:inherit;font-size:inherit}
 .data-table-wrap td{color:#cccccc}
-.data-table-wrap td.numeric{font-family:Consolas,"Cascadia Code",monospace;font-variant-numeric:tabular-nums}
+.data-table-wrap td.numeric{font-family:var(--font-mono);font-variant-numeric:tabular-nums}
 .data-table-wrap tr:hover td{background:#ffffff06}
 .table-controls{margin:8px 0;font-size:10px;color:#aaaaaa;justify-content:flex-end}
 .table-controls button{font-size:10px}
@@ -577,11 +580,11 @@ html,body,#app{height:var(--app-height,100dvh);min-height:0;overflow:hidden}
 .editor-note{font-size:11px;color:#a1a1a1;padding:4px 22px 9px;margin:0;line-height:1.55;flex-shrink:0}
 .editor-attachments{font-size:11px;color:#b5b5b5;margin:0 22px 10px;white-space:nowrap;text-overflow:ellipsis;overflow:hidden;flex-shrink:0}
 .editor-body{flex:1;min-height:70px;overflow:hidden;padding:0 20px 10px}
-.editor-body textarea{height:100%;resize:none;background:#1e1e1e;border-color:#414141;padding:16px;line-height:1.65;font-size:14px;font-family:Consolas,'Cascadia Code',monospace;tab-size:4;border-radius:6px;overflow:auto}
+.editor-body textarea{height:100%;resize:none;background:#1e1e1e;border-color:#414141;padding:16px;line-height:1.65;font-size:14px;font-family:var(--font-mono);tab-size:4;border-radius:6px;overflow:auto}
 .editor-body textarea:focus-visible{outline-offset:-1px}
 #editor-preview,#editor-changes{height:100%;overflow:auto;padding:14px 10px;overscroll-behavior:contain;overflow-wrap:anywhere}
 #editor-preview .code-block button{display:none}
-#editor-changes pre{white-space:pre-wrap;overflow-wrap:anywhere;font-family:Consolas,monospace;font-size:12px;line-height:1.65;margin:10px 0}
+#editor-changes pre{white-space:pre-wrap;overflow-wrap:anywhere;font-family:var(--font-mono);font-size:12px;line-height:1.65;margin:10px 0}
 .diff-removed,.diff-added{padding:12px 15px;margin-bottom:12px;border-left:2px solid #967777;background:#3e2b2b33}
 .diff-added{border-color:#769986;background:#24443322}
 .diff-removed strong,.diff-added strong{font-size:11px;font-weight:500;color:#ccc}
@@ -766,7 +769,7 @@ html,body,#app{height:var(--app-height,100dvh);min-height:0;overflow:hidden}
 .editor-markdown table{border-collapse:collapse;display:block;overflow:auto;max-width:100%;font-size:12px}
 .editor-markdown th,.editor-markdown td{padding:9px 14px;border:1px solid #414141}
 .editor-markdown blockquote{margin:15px 0;padding:1px 18px;border-left:2px solid #666;color:#bbb}
-.editor-markdown code{font-family:Consolas,monospace}
+.editor-markdown code{font-family:var(--font-mono)}
 .editor-markdown p code{background:#2c2c2c;padding:2px 5px;border-radius:3px}
 
 
@@ -788,6 +791,23 @@ dialog[open]{transform:translateZ(0);isolation:isolate}
 [data-platform=android] .shortcut{display:none!important}
 [data-platform=android] body{box-sizing:border-box;padding:var(--safe-area-inset-top,0px) var(--safe-area-inset-right,0px) var(--safe-area-inset-bottom,0px) var(--safe-area-inset-left,0px)}
 [data-platform=android] #app{height:100%}
+
+/* Reading type: answers, prompts and editor previews share one size; secondary text stays quieter. */
+.reply-content,.editor-markdown{font-size:var(--reading-size);line-height:var(--reading-leading)}
+.user-prompt{font-size:var(--reading-size)}
+.reply-content :is(p,li,blockquote),.editor-markdown :is(p,li){text-wrap:pretty}
+.reply-content :is(h1,h2,h3,h4,h5,h6),.editor-markdown :is(h1,h2,h3){text-wrap:balance;letter-spacing:-.005em}
+.reply-content h1,.editor-markdown h1{font-family:var(--font-display);font-size:22px;line-height:1.35}
+.reply-content h2,.editor-markdown h2{font-family:var(--font-display);font-size:19px;line-height:1.4}
+.reply-content h3,.editor-markdown h3{font-size:16.5px;line-height:1.45}
+.reply-content :is(h4,h5,h6){font-size:var(--reading-size)}
+.reply-content li::marker{color:#8f959e}
+.reply-content table{font-size:13px}
+.reply-content th{font-weight:600}
+.reply-content td{font-variant-numeric:tabular-nums}
+.code-block pre{font-size:13px;line-height:1.6}
+.reasoning-content{font-size:13px}
+.comparison .reply-content{font-size:14px;line-height:1.65}
 
 /* Reply footer: actions, then a quiet signature naming the model and any instructions sent. */
 .reply-signature{display:flex;align-items:center;flex-wrap:wrap;justify-content:flex-end;min-width:0;font-size:11px;line-height:1.6;color:#8b919a}
