@@ -1,8 +1,9 @@
 import { viewPreferences } from './preferences.js';
-import type { ReplyEdit, ApiMessage, Artifact, Attachment, GenerationSettings, Reply, Thread, ToolRun, Workspace } from './types.js';
+import type { ReplyEdit, ApiMessage, Artifact, Attachment, GenerationSettings, InstructionPreset, Reply, Thread, ToolRun, Workspace } from './types.js';
 export const LIMITS = Object.freeze({
   prompt: 160_000, attachment: 200_000, attachments: 8,
   context: 800_000, response: 2_000_000, threads: 300, turns: 400,
+  instructions: 40_000, instructionName: 80, instructionPresets: 50,
   importBytes: 24 * 1024 * 1024, workspaceBytes: 64 * 1024 * 1024,
 });
 export class InputError extends Error {
@@ -27,6 +28,18 @@ function numeric(value: unknown, low: number, high: number): number {
     throw new InputError(`Number must be between ${low} and ${high}.`);
   return value;
 }
+/** A single-line display name for system instructions. Never part of a request. */
+export function instructionName(value: unknown, required = false): string {
+  const name = text(value, 'Instructions name', LIMITS.instructionName, required).trim();
+  if (/[\x00-\x1f\x7f]/.test(name)) throw new InputError('Instructions names must be a single line of text.');
+  return name;
+}
+export function instructionPreset(value: unknown): InstructionPreset {
+  const v = record(value);
+  const createdAt = stamp(v.createdAt);
+  return { id: identifier(v.id), name: instructionName(v.name, true), text: text(v.text, 'Saved instructions', LIMITS.instructions, true),
+    createdAt, updatedAt: v.updatedAt === undefined ? createdAt : stamp(v.updatedAt) };
+}
 export function settings(value: unknown): GenerationSettings {
   const v = record(value);
   const reasoning = v.reasoningEffort;
@@ -38,6 +51,9 @@ export function settings(value: unknown): GenerationSettings {
   const tokens = numeric(v.maxTokens, 1, 131072);
   if (!Number.isInteger(tokens)) throw new InputError('Output limit must be an integer.');
   if (v.toolsMode !== undefined && !['off', 'ask'].includes(String(v.toolsMode))) throw new InputError('Invalid tool permission mode.');
+  const systemPrompt = text(v.systemPrompt, 'System instructions', LIMITS.instructions);
+  // Older workspaces have no name; a name without instructions describes nothing.
+  const systemPromptName = instructionName(v.systemPromptName ?? '');
   return {
     visualTools: v.visualTools === true,
     webSearch: v.webSearch === true,
@@ -47,7 +63,7 @@ export function settings(value: unknown): GenerationSettings {
     compareThinkingMode: ['enabled','disabled'].includes(String(v.compareThinkingMode)) ? v.compareThinkingMode as 'enabled'|'disabled' : 'default',
     toolsMode: v.toolsMode === 'ask' ? 'ask' : 'off',
     model: model.trim(), compareModel: compareModel.trim(), compare: v.compare,
-    systemPrompt: text(v.systemPrompt, 'System instructions', 40000),
+    systemPrompt, systemPromptName: systemPrompt.trim() ? systemPromptName : '',
     temperature: v.temperature === null ? null : numeric(v.temperature, 0, 2),
     maxTokens: tokens, reasoningEffort: reasoning as GenerationSettings['reasoningEffort'],
   };
@@ -93,6 +109,7 @@ function reply(value: unknown): Reply {
     content: text(v.content, 'Reply', LIMITS.response), reasoning: text(v.reasoning, 'Reasoning', LIMITS.response),
     ...(v.finalContentOffset === undefined ? {} : {finalContentOffset: offset(v.finalContentOffset, String(v.content ?? '').length)}),
     ...(['waiting','thinking','answering'].includes(String(v.phase)) ? {phase: v.phase as Reply['phase']} : {}),
+    ...(v.systemPromptName === undefined ? {} : {systemPromptName: instructionName(v.systemPromptName)}),
     status: v.status as Reply['status'], finishReason: v.finishReason === null ? null : text(v.finishReason, 'Finish reason', 100),
     error: v.error === null ? null : text(v.error, 'Error', 1000), usage, elapsedMs: numeric(v.elapsedMs, 0, 1e12),
   };
@@ -131,10 +148,12 @@ export function validateWorkspace(value: unknown): Workspace {
   const projects = list(v.projects ?? [], 100).map(item => {const p=record(item);return {id:identifier(p.id),name:text(p.name,'Project name',80,true).trim(),createdAt:stamp(p.createdAt)};});
   if(new Set(projects.map(p=>p.id)).size!==projects.length) throw new InputError('Duplicate project identifiers.');
   for(const thread of threads) if(thread.projectId && !projects.some(p=>p.id===thread.projectId)) throw new InputError('Thread project does not exist.');
+  const instructionPresets = list(v.instructionPresets ?? [], LIMITS.instructionPresets).map(instructionPreset);
+  if(new Set(instructionPresets.map(p=>p.id)).size!==instructionPresets.length) throw new InputError('Duplicate saved instruction identifiers.');
   const activeId = identifier(v.activeId);
   if (!threads.some(t => t.id === activeId)) throw new InputError('Active conversation is missing.');
   return {
-    version: 1, activeId, threads, projects, ...(v.connectionMode?{connectionMode:v.connectionMode as Workspace['connectionMode']}:{}), view: viewPreferences(v.view), pythonPath: text(v.pythonPath ?? '', 'Python interpreter path', 4096),
+    version: 1, activeId, threads, projects, instructionPresets, ...(v.connectionMode?{connectionMode:v.connectionMode as Workspace['connectionMode']}:{}), view: viewPreferences(v.view), pythonPath: text(v.pythonPath ?? '', 'Python interpreter path', 4096),
     apiKey: text(v.apiKey, 'API key', 4096), cacheSecret: text(v.cacheSecret, 'Cache secret', 200, true),
   };
 }

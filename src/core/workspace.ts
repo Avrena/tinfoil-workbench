@@ -2,7 +2,7 @@ import { defaultView } from './preferences.js';
 import type { ApiMessage, Attachment, GenerationJob, GenerationSettings, Reply, Thread, Workspace } from './types.js';
 import { InputError, LIMITS, attachments as checkAttachments, text, validateThread } from './validation.js';
 export const defaults: GenerationSettings = {
-  toolsMode: 'off', visualTools: true, webSearch: false, delegateMode: 'off', thinkingMode: 'default', compareReasoningEffort: 'default', compareThinkingMode: 'default', model: '', compareModel: '', compare: false, systemPrompt: '',
+  toolsMode: 'off', visualTools: true, webSearch: false, delegateMode: 'off', thinkingMode: 'default', compareReasoningEffort: 'default', compareThinkingMode: 'default', model: '', compareModel: '', compare: false, systemPrompt: '', systemPromptName: '',
   temperature: null, maxTokens: 8192, reasoningEffort: 'default',
 };
 export const uid = (): string => crypto.randomUUID();
@@ -12,7 +12,7 @@ export function newThread(seed: GenerationSettings = defaults): Thread {
 }
 export function newWorkspace(): Workspace {
   const thread = newThread();
-  return { version: 1, activeId: thread.id, threads: [thread], projects: [], apiKey: '', cacheSecret: uid() + uid(), view: { ...defaultView }, pythonPath: '' };
+  return { version: 1, activeId: thread.id, threads: [thread], projects: [], instructionPresets: [], apiKey: '', cacheSecret: uid() + uid(), view: { ...defaultView }, pythonPath: '' };
 }
 export function findThread(workspace: Workspace, id: string): Thread {
   const thread = workspace.threads.find(t => t.id === id);
@@ -56,8 +56,10 @@ export function beginTurn(thread: Thread, prompt: string, files: Attachment[]): 
   messages.push({ role: 'user', content: userContent(prompt, files) });
   if (JSON.stringify(messages).length > LIMITS.context)
     throw new InputError('Context exceeds the local 800,000-character safety limit. Start a shorter conversation; model token limits may be lower.');
+  // Record which instructions this request used; later settings changes must not relabel it.
+  const instructions = thread.settings.systemPrompt.trim() ? { systemPromptName: thread.settings.systemPromptName ?? '' } : {};
   const replies: Reply[] = models.map(model => ({
-    id: uid(), model, content: '', reasoning: '', tools: [], toolMessages: [], status: 'queued', finishReason: null, error: null, usage: null, elapsedMs: 0,
+    id: uid(), model, ...instructions, content: '', reasoning: '', tools: [], toolMessages: [], status: 'queued', finishReason: null, error: null, usage: null, elapsedMs: 0,
   }));
   const turn = { id: uid(), prompt, attachments: structuredClone(files), createdAt: Date.now(), replies,
     selectedReplyId: replies.length === 1 ? replies[0]!.id : null };
@@ -143,12 +145,14 @@ export function importThread(workspace: Workspace, value: unknown): Thread {
 }
 export function exportMarkdown(thread: Thread): string {
   const lines = [`# ${thread.title}`, '', '> Exported from Tinfoil Workbench. This file is plaintext.', ''];
-  if (thread.settings.systemPrompt) lines.push('## Custom system instructions (optional; not required)', '', thread.settings.systemPrompt, '');
+  if (thread.settings.systemPrompt) lines.push('## Custom system instructions (optional; not required)', '',
+    ...(thread.settings.systemPromptName ? [`Name: ${thread.settings.systemPromptName}`, ''] : []), thread.settings.systemPrompt, '');
   for (const turn of thread.turns) {
     lines.push('## You', '', turn.prompt, '');
     for (const file of turn.attachments) lines.push(`### Attachment: ${file.name}`, '', file.content, '');
     for (const reply of turn.replies) {
-      lines.push(`## ${reply.model}${reply.id === turn.selectedReplyId ? ' (selected)' : ''}`, '', `Status: ${reply.status}`, '', reply.content, '');
+      const instructions = reply.systemPromptName === undefined ? '' : ` · Instructions: ${reply.systemPromptName || 'Custom instructions'}`;
+      lines.push(`## ${reply.model}${reply.id === turn.selectedReplyId ? ' (selected)' : ''}`, '', `Status: ${reply.status}${instructions}`, '', reply.content, '');
       for (const tool of reply.tools ?? []) {
         lines.push(`### Tool: ${tool.name} (${tool.status}; ${tool.origin})`, '');
         if (tool.batchId) lines.push(`Batch: ${tool.batchId} · action ${(tool.batchIndex ?? 0)+1}/${tool.batchSize ?? '?'} · sequential client execution`, '');

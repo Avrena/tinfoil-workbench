@@ -1,6 +1,7 @@
 import { signedOutAccount } from '/core/account.js';
 import { editReply,editPrompt } from '/core/editing.js';
 import { createProject,renameProject,removeProject,moveThread,newProjectThread } from '/core/projects.js';
+import { saveInstructionPreset,deleteInstructionPreset } from '/core/instructions.js';
 import { chartSpec,chartSVG,tableSpec,tableHTML,diagramSpec,diagramSVG } from '/core/visual-tools.js';
 import { viewPreferences } from '/core/preferences.js';
 // Development preview only. This file is outside dist/desktop and is NOT packaged in the Windows application.
@@ -9,7 +10,7 @@ import {settings,attachments,InputError} from '/core/validation.js';
 let previewAccount=signedOutAccount(),previewMode='api-key';
 const workspace=newWorkspace(),listeners=new Set();let sequence=0,busy=null,stopped=false;
 Object.assign(workspace.threads[0].settings,{model:'demo/writer',compareModel:'demo/analyst'});
-const snapshot=()=>({sequence:++sequence,account:structuredClone(previewAccount),connectionMode:previewMode,workspace:structuredClone({version:workspace.version,activeId:workspace.activeId,threads:workspace.threads,projects:workspace.projects,view:workspace.view}),pythonConfigured:false,hasKey:false,models:['demo/writer','demo/analyst','deepseek-v4-pro','kimi-k3'],verification:{state:'idle',checkedAt:null,steps:[]},busyThreadId:busy,storage:'preview',notice:'OFFLINE PREVIEW · Synthetic responses · No API connection or local persistence'});
+const snapshot=()=>({sequence:++sequence,account:structuredClone(previewAccount),connectionMode:previewMode,workspace:structuredClone({version:workspace.version,activeId:workspace.activeId,threads:workspace.threads,projects:workspace.projects,instructionPresets:workspace.instructionPresets,view:workspace.view}),pythonConfigured:false,hasKey:false,models:['demo/writer','demo/analyst','deepseek-v4-pro','kimi-k3'],verification:{state:'idle',checkedAt:null,steps:[]},busyThreadId:busy,storage:'preview',notice:'OFFLINE PREVIEW · Synthetic responses · No API connection or local persistence'});
 const emit=()=>{const s=snapshot();for(const fn of listeners)fn(s);};
 const pause=ms=>new Promise(r=>setTimeout(r,ms));
 function encodeArtifact(value){const bytes=new TextEncoder().encode(value);let str='';for(const b of bytes)str+=String.fromCharCode(b);return btoa(str);}
@@ -106,6 +107,8 @@ window.tinfoil=Object.freeze({
       case 'project.rename':renameProject(workspace,c.id,c.name);break;
       case 'project.delete':removeProject(workspace,c.id);break;
       case 'thread.move':moveThread(workspace,c.id,c.projectId);break;
+      case 'instructions.save':saveInstructionPreset(workspace,c.id??undefined,c.name,c.text);break;
+      case 'instructions.delete':deleteInstructionPreset(workspace,c.id);break;
       case 'prompt.edit':if(c.id===busy)throw new InputError('Stop the response first.');editPrompt(workspace,c.id,c.turnId,c.content,c.expectedContent);break;
       case 'reply.edit':if(c.id===busy)throw new InputError('Stop the response first.');editReply(workspace,c.id,c);break;
       case 'thread.select':findThread(workspace,c.id);workspace.activeId=c.id;break;

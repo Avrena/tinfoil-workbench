@@ -14,6 +14,9 @@ export interface GenerationSettings {
   compareModel: string;
   compare: boolean;
   systemPrompt: string;
+  /** Display name of systemPrompt (a saved or starter entry, or one typed by the user).
+   * '' when unnamed or blank. Local presentation only; never sent to a model. */
+  systemPromptName: string;
   temperature: number | null;
   maxTokens: number;
   reasoningEffort: string;
@@ -44,11 +47,17 @@ export interface ToolRun {
 export interface ToolCall { id: string; type: 'function'; function: { name: string; arguments: string } }
 export interface ReplyEdit { originalContent: string; originalReasoning: string; contentEdited: boolean; reasoningEdited: boolean; historyRewritten?: boolean; editedAt: number }
 export interface Project { id: string; name: string; createdAt: number }
+/** Reusable system instructions. Selecting one copies its text into a thread's settings,
+ * so later edits or deletion never change an existing conversation. */
+export interface InstructionPreset { id: string; name: string; text: string; createdAt: number; updatedAt: number }
 export interface Reply {
   edit?: ReplyEdit;
   /** UTF-16 offset of the final round; tool history already stores prior rounds. */
   finalContentOffset?: number;
   phase?: 'waiting' | 'thinking' | 'answering';
+  /** Name of the custom system instructions sent with this request ('' when unnamed), for display
+   * only. Absent when none were sent, and on replies recorded before the field existed. */
+  systemPromptName?: string;
   id: string; model: string; content: string; reasoning: string;
   tools?: ToolRun[]; toolMessages?: ApiMessage[];
   status: ReplyStatus; finishReason: string | null;
@@ -69,7 +78,7 @@ export interface Thread {
   draftAttachments?: Attachment[];
 }
 export interface Workspace {
-  version: 1; activeId: string; threads: Thread[]; projects: Project[];
+  version: 1; activeId: string; threads: Thread[]; projects: Project[]; instructionPresets: InstructionPreset[];
   connectionMode?: ConnectionMode; apiKey: string; cacheSecret: string; view: ViewPreferences; pythonPath: string;
 }
 export interface Verification {
@@ -100,6 +109,8 @@ export type Command =
   | { type: 'project.rename'; id: string; name: string }
   | { type: 'project.delete'; id: string }
   | { type: 'thread.move'; id: string; projectId: string | null }
+  | { type: 'instructions.save'; id?: string; name: string; text: string }
+  | { type: 'instructions.delete'; id: string }
   | { type: 'prompt.edit'; id: string; turnId: string; content: string; expectedContent: string }
   | { type: 'reply.edit'; id: string; turnId: string; replyId: string; content: string; reasoning: string; expectedContent: string; expectedReasoning: string }
   | { type: 'view.set'; view: ViewPreferences }

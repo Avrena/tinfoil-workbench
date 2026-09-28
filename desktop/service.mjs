@@ -1,5 +1,6 @@
 import { editReply,editPrompt } from '../dist/core/editing.js';
 import { createProject,renameProject,removeProject,moveThread,newProjectThread } from '../dist/core/projects.js';
+import { saveInstructionPreset, deleteInstructionPreset } from '../dist/core/instructions.js';
 import { InputError, record, text, identifier, settings, attachments, validateWorkspace, LIMITS, validateTool } from '../dist/core/validation.js';
 import { newWorkspace, findThread, addThread, beginTurn, chooseReply, forkThread, recoverInterrupted, importThread } from '../dist/core/workspace.js';
 import { viewPreferences } from '../dist/core/preferences.js';
@@ -41,8 +42,8 @@ export class WorkbenchService {
     return this.snapshot();
   }
   snapshot() {
-    const { version, activeId, threads, projects, view } = this.workspace;
-    return { sequence: ++this.sequence, workspace: structuredClone({ version, activeId, threads, projects, view }), hasKey: !!this.workspace.apiKey,
+    const { version, activeId, threads, projects, instructionPresets, view } = this.workspace;
+    return { sequence: ++this.sequence, workspace: structuredClone({ version, activeId, threads, projects, instructionPresets, view }), hasKey: !!this.workspace.apiKey,
       pythonConfigured: !!this.workspace.pythonPath, models: [...this.models], capabilities: structuredClone(this.capabilities), verification: structuredClone(this.verification),
       account: this.options.account?.snapshot()??signedOutAccount(), connectionMode:this.workspace.connectionMode??'api-key',
       busyThreadId: this.busyThreadId, storage: 'os-encrypted', notice: this.notice };
@@ -188,6 +189,9 @@ export class WorkbenchService {
       case 'project.rename': renameProject(this.workspace,identifier(c.id),c.name); break;
       case 'project.delete': removeProject(this.workspace,identifier(c.id)); break;
       case 'thread.move': moveThread(this.workspace,identifier(c.id),c.projectId===null?null:identifier(c.projectId)); break;
+      // Library changes never alter a thread's copied instructions or any request in flight.
+      case 'instructions.save': saveInstructionPreset(this.workspace,c.id==null?undefined:identifier(c.id),c.name,c.text); break;
+      case 'instructions.delete': deleteInstructionPreset(this.workspace,identifier(c.id)); break;
       case 'prompt.edit': {this.editable(c.id);editPrompt(this.workspace,c.id,identifier(c.turnId),c.content,c.expectedContent);break;}
       case 'reply.edit': {this.editable(c.id);editReply(this.workspace,c.id,{turnId:identifier(c.turnId),replyId:identifier(c.replyId),content:c.content,reasoning:c.reasoning,expectedContent:c.expectedContent,expectedReasoning:c.expectedReasoning});break;}
       case 'thread.select': findThread(this.workspace, identifier(c.id)); this.workspace.activeId = c.id; break;
