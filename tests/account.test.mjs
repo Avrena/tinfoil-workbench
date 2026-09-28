@@ -45,7 +45,9 @@ test('account origins reject credential URLs, lookalikes, non-HTTPS and nonstand
  for(const u of ['http://chat.tinfoil.sh','https://chat.tinfoil.sh.evil.test','https://evil.test/chat.tinfoil.sh','https://user@chat.tinfoil.sh','https://chat.tinfoil.sh:8443','file:///index.html','app://workbench/index.html','javascript:alert(1)']){assert.equal(authOrigin(u),false);assert.equal(allowedAccountNavigation(u),false);}
  assert.equal(authOrigin('https://chat.tinfoil.sh/'),true);assert.equal(allowedAccountNavigation('https://accounts.google.com/o/oauth2'),true);
  assert.equal(allowedAccountNavigation('https://accounts.youtube.com/accounts/SetSID'),true);assert.equal(authOrigin('https://accounts.youtube.com/'),false);
- for(const u of ['https://www.youtube.com/','https://youtube.com/','https://accounts.youtube.com.evil.test/','http://accounts.youtube.com/'])assert.equal(allowedAccountNavigation(u),false);assert.equal(authOrigin('https://accounts.google.com'),false);
+ // Google's cookie step visits accounts.<the user's Google country domain>; only Google's published domains qualify.
+ for(const u of ['https://accounts.google.co.uk/accounts/SetSID','https://accounts.google.de/','https://accounts.google.com.au/','https://accounts.google.cat/'])assert.equal(allowedAccountNavigation(u),true,u);
+ for(const u of ['https://www.youtube.com/','https://youtube.com/','https://accounts.youtube.com.evil.test/','http://accounts.youtube.com/','https://www.google.co.uk/','https://google.co.uk/','https://accounts.google.co.zz/','https://accounts.google.co.uk.evil.test/','https://mail.accounts.google.co.uk/','https://accounts.google.co.uk:8443/'])assert.equal(allowedAccountNavigation(u),false,u);assert.equal(authOrigin('https://accounts.google.com'),false);
 });
 test('blank optional system prompts are omitted; supplied instructions remain user-controlled',()=>{
  const w=newWorkspace(),t=w.threads[0];assert.equal(t.settings.systemPrompt,'');assert.deepEqual(buildHistory(t),[]);

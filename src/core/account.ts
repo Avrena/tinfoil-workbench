@@ -49,11 +49,23 @@ export function normalizeUsage(value: unknown): AccountUsage | null {
 export function authOrigin(url: string): boolean {
   try {const u=new URL(url);return u.origin===CHAT_ORIGIN && !u.username && !u.password; }catch{return false;}
 }
-/** Top-level login navigation only; remote pages never receive a native bridge. At the end of its sign-in,
- * Google's sign-in moves the page through accounts.youtube.com to set its account cookies, then returns. */
+/** Google's own domains, from its published list (https://www.google.com/supported_domains, 187 entries,
+ * retrieved 28 September 2026). At the end of its sign-in, Google moves the page itself through
+ * accounts.youtube.com and accounts.<the Google domain for the user's country> to set account cookies,
+ * then returns to accounts.google.com. Only those accounts hosts are allowed, not the rest of each domain. */
+const GOOGLE_DOMAINS = new Set(`
+com ad ae com.af com.ag al am co.ao com.ar as at com.au az ba com.bd be bf bg com.bh bi bj com.bn com.bo com.br bs bt co.bw by com.bz ca cd cf cg ch
+ci co.ck cl cm cn com.co co.cr com.cu cv com.cy cz de dj dk dm com.do dz com.ec ee com.eg es com.et fi com.fj fm fr ga ge gg com.gh com.gi gl gm gr
+com.gt gy com.hk hn hr ht hu co.id ie co.il im co.in iq is it je com.jm jo co.jp co.ke com.kh ki kg co.kr com.kw kz la com.lb li lk co.ls lt lu lv
+com.ly co.ma md me mg mk ml com.mm mn com.mt mu mv mw com.mx com.my co.mz com.na com.ng com.ni ne nl no com.np nr nu co.nz com.om com.pa com.pe com.pg
+com.ph com.pk pl pn com.pr ps pt com.py com.qa ro ru rw com.sa com.sb sc se com.sg sh si sk com.sl sn so sm sr st com.sv td tg co.th com.tj tl tm tn
+to com.tr tt com.tw co.tz com.ua co.ug co.uk com.uy co.uz com.vc co.ve co.vi com.vn vu ws rs co.za co.zm co.zw cat
+`.trim().split(/\s+/).map(suffix => 'google.' + suffix));
+const ACCOUNT_HOSTS = ['chat.tinfoil.sh','clerk.tinfoil.sh','accounts.tinfoil.sh','accounts.youtube.com','appleid.apple.com','github.com','login.microsoftonline.com','login.live.com'];
+/** Top-level login navigation only; remote pages never receive a native bridge. */
 export function allowedAccountNavigation(url: string): boolean {
-  try {const u=new URL(url);return u.protocol==='https:'&&!u.username&&!u.password&&!u.port&&
-    ['chat.tinfoil.sh','clerk.tinfoil.sh','accounts.tinfoil.sh','accounts.google.com','accounts.youtube.com','appleid.apple.com','github.com','login.microsoftonline.com','login.live.com'].includes(u.hostname);
+  try {const u=new URL(url),h=u.hostname;return u.protocol==='https:'&&!u.username&&!u.password&&!u.port&&
+    (ACCOUNT_HOSTS.includes(h)||h.startsWith('accounts.')&&GOOGLE_DOMAINS.has(h.slice('accounts.'.length)));
   }catch{return false;}
 }
 export function initials(name:string):string {return name.trim().split(/\s+/).slice(0,2).map(x=>Array.from(x)[0]??'').join('').toLocaleUpperCase()||'TF';}
