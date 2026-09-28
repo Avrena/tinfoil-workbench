@@ -66,7 +66,7 @@ This is accidental-cross-account-send protection, not a defense against a malici
 
 ## Android
 
-The Android app has no Chat account sign-in; it uses a developer API key. No provider-supported native sign-in exists for a third-party app today. [ANDROID.md](ANDROID.md#tinfoil-chat-sign-in) lists the provider contract that would be needed.
+Android Chat access is not implemented. Google OAuth requires a supported native/browser integration and cannot use the embedded website adapter. Tinfoil's direct account methods are a separate candidate for investigation; their availability for the account, authentication-view isolation, session storage and native-to-worker credential delivery have not been validated. The Android app uses a developer API key. [ANDROID.md](ANDROID.md#tinfoil-chat-sign-in) lists what Google's route would need from Tinfoil, and [ANDROID-ACCOUNT.md](ANDROID-ACCOUNT.md) the investigation of the direct methods.
 
 ## Offline preview and tests
 

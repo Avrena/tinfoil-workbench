@@ -88,7 +88,7 @@ The ten production-renderer browser suites passed **437 checks**, the same as 0.
 
 ## Android
 
-Android has no Chat sign-in in this release and connects with a developer API key. A supported Android sign-in needs a provider contract that Tinfoil does not publish: a registered public client with PKCE, its redirect URIs, whether the token endpoint accepts OAuth access tokens, a scope for Chat access, a specification of the token endpoint, session lifetimes and revocation, and permission for third-party clients. [ANDROID.md](ANDROID.md#tinfoil-chat-sign-in) gives the details.
+Android has no Chat sign-in in this release and connects with a developer API key. A supported Android Google (OAuth) sign-in needs a provider contract that Tinfoil does not publish: a registered public client with PKCE, its redirect URIs, whether the token endpoint accepts OAuth access tokens, a scope for Chat access, a specification of the token endpoint, session lifetimes and revocation, and permission for third-party clients. [ANDROID.md](ANDROID.md#tinfoil-chat-sign-in) gives the details.
 
 `tests/android-device.py` ran against the final APKs:
 
@@ -113,7 +113,7 @@ Android 11 (API 30) was not rerun. In 0.12.0 the app refused its stock WebView a
 - **Live failure paths:** provider 401, 402, 403 and 429 responses, the hourly-limit code, an inference rejection and an account change during a renewal ran only as synthetic checks.
 - **Other account checks:** Manage profile & security, Stop during a Chat reply, delegation with a Chat account, and real system sleep and resume.
 - **Windows hardware and configuration:** a clean, standard-user Windows machine (install, run and uninstall ran on the build machine); display scaling, high contrast, IME and the other manual items in [HANDOFF.md](HANDOFF.md); ARM64 Windows; code signing (not configured).
-- **Android hardware and configuration:** Chat sign-in (no provider contract); physical Android devices, ARM hardware, tablets and foldables, TalkBack, non-English system pickers, OEM WebViews; a downgrade install from 0.12.1 to 0.12.0.
+- **Android hardware and configuration:** Chat sign-in (Google needs a provider contract; Tinfoil's direct methods were not investigated for this release); physical Android devices, ARM hardware, tablets and foldables, TalkBack, non-English system pickers, OEM WebViews; a downgrade install from 0.12.1 to 0.12.0.
 - **iOS** is not supported.
 
 ## Release artifacts
