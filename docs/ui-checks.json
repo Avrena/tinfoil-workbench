@@ -1,0 +1,31 @@
+{
+  "checks": 22,
+  "passed": [
+    "default layout hides advanced controls and labels offline data",
+    "model choice is available without opening the inspector",
+    "streamed answer renders Markdown tables, highlighted code and native MathML",
+    "reasoning is folded by default and user expansion survives snapshots",
+    "reading controls hide reasoning and explicitly reveal token statistics",
+    "per-message source toggle preserves the original Markdown",
+    "math visibility changes presentation, not source content",
+    "in-conversation find highlights matches without rewriting stored answers",
+    "focus and sidebar keyboard shortcuts restore the prior layout",
+    "offline preview refuses execution rather than simulating a real run",
+    "advanced instructions and ask-before-run controls persist only on apply",
+    "drafts and IME-friendly multiline input survive thread changes",
+    "command palette opens settings; preview rejects and clears credentials",
+    "HTML preview preserves permitted styles in an opaque sandbox and strips scripts, navigation and images",
+    "raw model HTML remains inert text in the transcript",
+    "pending execution cannot be hidden by reasoning visibility preferences",
+    "completed tools fold into activity with stdout and generated-file preview on demand",
+    "940 \u00d7 640 minimum window keeps composer usable without page-wide overflow",
+    "comparison is an explicit advanced action and retains two separate response lanes",
+    "comparison still requires a selected answer before continuation",
+    "branching from a comparison preserves the original conversation",
+    "no JavaScript errors or external requests; CSP remains enforced during inert parsing"
+  ],
+  "javascript_errors": [],
+  "external_requests": [],
+  "expected_inert_parse_style_blocks": 1,
+  "scope": "renderer only; synthetic provider and tool fixtures; no native Electron or Windows validation"
+}

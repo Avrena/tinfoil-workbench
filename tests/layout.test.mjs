@@ -1,0 +1,23 @@
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import { inlineGroups, replyParts } from '../dist/core/reply-layout.js';
+import { viewPreferences } from '../dist/core/preferences.js';
+import { chartSVG, chartSpec, diagramSVG, diagramSpec } from '../dist/core/visual-tools.js';
+import { validateTool } from '../dist/core/validation.js';
+const artifact=(id,extra={})=>({id,name:id+'.txt',mime:'text/plain',data:'',source:'sample',...extra});
+const tool=(id,offset,artifacts)=>({id,contentOffset:offset,artifacts});
+test('inline layout preserves explanation, visual, and interpretation in order',()=>{
+ const reply={content:'Before.\n\nAfter.',tools:[tool('t',9,[artifact('a')])]};
+ const parts=replyParts(reply);assert.deepEqual(parts.map(p=>p.kind),['text','artifact','text']);assert.equal(parts[0].text,'Before.\n\n');assert.equal(parts[2].text,'After.');
+});
+test('legacy artifacts without anchors follow the full answer',()=>{const parts=replyParts({content:'Legacy',tools:[tool('t',undefined,[artifact('a')])]});assert.equal(parts[0].text,'Legacy');assert.equal(parts[1].kind,'artifact');});
+test('one stable inline card holds immutable revisions in arrival order',()=>{const groups=inlineGroups({content:'Intro and ending',tools:[tool('t',5,[artifact('a',{rootId:'a',version:1})]),tool('u',12,[artifact('b',{rootId:'a',version:2})])]});assert.equal(groups.length,1);assert.equal(groups[0].offset,5);assert.deepEqual(groups[0].versions.map(v=>v.artifact.version),[1,2]);});
+test('multiple artifacts at the same boundary retain tool ordering',()=>{const groups=inlineGroups({content:'x',tools:[tool('t',0,[artifact('a'),artifact('b')])]});assert.deepEqual(groups.map(g=>g.rootId),['a','b']);});
+test('imported positions cannot split a surrogate pair or exceed answer length',()=>{assert.equal(inlineGroups({content:'A💡B',tools:[tool('t',2,[artifact('a')]) ]})[0].offset,1);assert.equal(inlineGroups({content:'x',tools:[tool('t',999,[artifact('a')])]})[0].offset,1);});
+test('appending text leaves previous segment keys and anchors unchanged',()=>{const r={content:'Start',tools:[tool('t',5,[artifact('a')])]};const before=replyParts(r);r.content+='End';const after=replyParts(r);assert.deepEqual(before.map(p=>p.key),after.map(p=>p.key));assert.equal(after.at(-1).text,'End');});
+test('new workspaces default to inline visualizations and OS motion preferences',()=>{assert.equal(viewPreferences().autoArtifacts,false);assert.equal(viewPreferences().motion,'system');assert.equal(viewPreferences({motion:'reduced'}).motion,'reduced');assert.equal(viewPreferences({motion:'no'}).motion,'system');});
+test('explicit workspace auto-open preference remains respected',()=>{assert.equal(viewPreferences({autoArtifacts:true}).autoArtifacts,true);});
+test('visual themes and chart headings are consistent between export and embed',()=>{const spec=chartSpec({title:'Example',type:'line',labels:['a','b'],series:[{name:'s',values:[1,2]}]});const svg=chartSVG(spec,[],{heading:false});assert.ok(!svg.includes('#101c30'));assert.ok(!svg.includes('<rect width="100%"'));assert.ok(svg.includes('#363636')); assert.ok(svg.includes('#75b9ff'));assert.ok(svg.includes('class="chart-line"'));assert.ok(!svg.includes('font-size="17"'));assert.ok(svg.includes('<title>Example</title>'));});
+test('empty chart selection remains a finite coordinate system',()=>{const spec=chartSpec({title:'Empty view',type:'line',labels:['a'],series:[{name:'s',values:[2]}]});assert.doesNotMatch(chartSVG(spec,[0]),/NaN|Infinity/);});
+test('inline diagrams namespace arrow IDs to avoid collisions across cards',()=>{const spec=diagramSpec({title:'D',nodes:[{id:'a',label:'A'},{id:'b',label:'B'}],edges:[{from:'a',to:'b'}]});assert.ok(diagramSVG(spec,'scope-a').includes('url(#scope-a)'));assert.ok(diagramSVG(spec,'scope-b').includes('id="scope-b"'));});
+test('tool insertion metadata survives validation and rejects fractional offsets',()=>{const t={id:'test',callId:'call',name:'render_chart',arguments:'{}',origin:'model',status:'complete',stdout:'',stderr:'',exitCode:0,elapsedMs:0,artifacts:[],truncated:false,contentOffset:8};assert.equal(validateTool(t).contentOffset,8);assert.throws(()=>validateTool({...t,contentOffset:1.5}));});

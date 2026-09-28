@@ -1,0 +1,31 @@
+{
+  "checks": 24,
+  "passed": [
+    "no pending-settings strip on an unchanged workspace",
+    "attaching a file persists unsent text and reference without sending",
+    "native-close request flushes newest text and references before approval",
+    "attachment removal also survives a close immediately after the click",
+    "failed encrypted write prevents close and retains the composer text",
+    "failed draft save does not open an editor on potentially stale content",
+    "unapplied Advanced edits survive thread navigation without changing request settings",
+    "pending settings can be applied from the conversation without reopening Advanced",
+    "discarding Advanced draft restores applied settings instead of sending it",
+    "pending model changes restore their supported effort options and selection after a thread switch",
+    "Discard restores the actual Advanced field even when the applied-settings render signature is unchanged",
+    "blank system instructions remain a supported ordinary-chat setting",
+    "closing Settings clears an unsubmitted credential field",
+    "dialog failures appear inside the active top-layer dialog, not just behind it",
+    "settings dialog exposes an accessible heading",
+    "native close protects the open editor and Keep working preserves the buffer",
+    "explicit close discards uncommitted editor changes without silently saving them as an answer",
+    "Escape from close review means keep working and preserves unapplied settings",
+    "close review identifies active work; keeping open allows it to finish",
+    "12 rapid reading/focus/sidebar cycles complete with 24 genuine checkbox clicks; no artificial settling delay",
+    "320x740 touch close review is reachable, wrap-safe and preserves edits",
+    "390x844 touch close review is reachable, wrap-safe and preserves edits",
+    "820x1180 touch close review is reachable, wrap-safe and preserves edits",
+    "1024x768 touch close review is reachable, wrap-safe and preserves edits"
+  ],
+  "javascript_errors": [],
+  "scope": "Chromium renderer and injected close transport; no native Windows lifecycle or credentials"
+}

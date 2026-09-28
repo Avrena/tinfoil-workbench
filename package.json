@@ -1,0 +1,74 @@
+{
+  "name": "tinfoil-windows",
+  "productName": "Tinfoil Workbench",
+  "version": "0.10.0",
+  "private": true,
+  "description": "Windows 11 Tinfoil Workbench \u2014 local-build handoff, durable drafts, inline artifacts and optional custom instructions",
+  "author": "Avrena",
+  "license": "UNLICENSED",
+  "type": "module",
+  "main": "desktop/main.mjs",
+  "engines": {
+    "node": ">=22.12.0"
+  },
+  "scripts": {
+    "bootstrap": "node scripts/bootstrap.mjs",
+    "build": "node scripts/build.mjs",
+    "typecheck": "tsc --noEmit",
+    "test": "npm run build && node --test tests/*.test.mjs",
+    "start": "npm run doctor && npm run build && electron .",
+    "preview": "npm run build && node scripts/preview.mjs",
+    "dist:win": "npm run verify:local && electron-builder --win --x64 --publish never",
+    "dist:arm64": "npm run verify:local && electron-builder --win --arm64 --publish never",
+    "smoke:desktop": "npm run build && electron . --smoke-test",
+    "preview:build": "npm run build && node scripts/build-preview.mjs",
+    "doctor": "node scripts/doctor.mjs",
+    "check:source": "node scripts/doctor.mjs --source",
+    "verify:local": "npm run doctor && npm test && npm run smoke:desktop"
+  },
+  "dependencies": {
+    "tinfoil": "1.2.1",
+    "pdfjs-dist": "5.4.149"
+  },
+  "devDependencies": {
+    "electron": "44.4.3",
+    "electron-builder": "26.17.0",
+    "typescript": "5.8.3"
+  },
+  "build": {
+    "appId": "org.avrena.tinfoil.workbench",
+    "productName": "Tinfoil Workbench",
+    "asar": true,
+    "directories": {
+      "output": "release",
+      "buildResources": "assets"
+    },
+    "files": [
+      "dist/**",
+      "desktop/**",
+      "package.json",
+      "NOTICE.md",
+      "assets/icon.ico"
+    ],
+    "win": {
+      "target": [
+        "nsis",
+        "portable"
+      ],
+      "icon": "assets/icon.ico"
+    },
+    "nsis": {
+      "oneClick": false,
+      "perMachine": false,
+      "allowElevation": false,
+      "allowToChangeInstallationDirectory": true,
+      "deleteAppDataOnUninstall": false,
+      "createDesktopShortcut": true,
+      "artifactName": "Tinfoil-Workbench-${version}-${arch}-Setup.${ext}"
+    },
+    "publish": null,
+    "portable": {
+      "artifactName": "Tinfoil-Workbench-${version}-${arch}-Portable.${ext}"
+    }
+  }
+}

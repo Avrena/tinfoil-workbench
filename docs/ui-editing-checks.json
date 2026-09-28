@@ -1,0 +1,26 @@
+{
+  "checks": 19,
+  "passed": [
+    "project and thread headings expose a real active thread title",
+    "answer editor previews Markdown/LaTeX while authored HTML stays inert",
+    "bounded Changes view shows the edited region",
+    "answer and thinking buffers survive tab switches",
+    "Escape offers a discard guard without losing changes",
+    "save creates a new selected branch with explicit edit provenance and an untouched original",
+    "edited thinking is visibly labelled local-only",
+    "thinking has a direct editor action and original-text restoration",
+    "stale edits fail without overwriting either concurrent or unsaved text",
+    "prompt editing creates an unsent branch draft with its attachments",
+    "expanded composer saves multiline Unicode drafts without generating a reply",
+    "formatting controls preserve native textarea undo",
+    "projects can be created from navigation",
+    "moving a thread updates both its project group and breadcrumb",
+    "project rename updates the active thread header",
+    "project removal requires confirmation and preserves all threads",
+    "editing an active thread is blocked before opening a stale editor",
+    "IME composition confirmation never submits a message",
+    "editing and project flows produced no unhandled JavaScript errors"
+  ],
+  "javascript_errors": [],
+  "scope": "Chromium renderer with synthetic fixtures; not native Windows or live provider"
+}

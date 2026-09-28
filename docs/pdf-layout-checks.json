@@ -1,0 +1,10 @@
+{
+  "pages": 1,
+  "checks": [
+    "one A4 page",
+    "expected text and tabular values extracted",
+    "embedded script did not replace content",
+    "no network requests"
+  ],
+  "scope": "shared print stylesheet + headless Chromium only; not native Electron printing or real PDF.js"
+}

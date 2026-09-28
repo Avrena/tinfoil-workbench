@@ -1,0 +1,16 @@
+{
+  "date": "2026-09-28",
+  "dependency_probe": {
+    "command": "npm view electron version --fetch-retries=0 --fetch-timeout=8000",
+    "outcome": "EAI_AGAIN registry.npmjs.org",
+    "installed": false
+  },
+  "browser_navigation_probes": {
+    "file_protocol": "ERR_BLOCKED_BY_ADMINISTRATOR",
+    "loopback_http": "ERR_BLOCKED_BY_ADMINISTRATOR",
+    "policy_changed": false
+  },
+  "successful_browser_mode": "Production renderer loaded with Playwright page.set_content; synthetic bridge only",
+  "native_tests_run": false,
+  "live_account_used": false
+}

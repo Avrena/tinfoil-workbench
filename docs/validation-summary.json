@@ -1,0 +1,59 @@
+{
+  "version": "0.10.0",
+  "date": "2026-09-28",
+  "node": {
+    "tests": 282,
+    "passed": 282,
+    "failed": 0,
+    "skipped": 0
+  },
+  "browser": {
+    "checks": 413,
+    "suites": {
+      "ui-checks.json": 22,
+      "ui-artifact-checks.json": 21,
+      "ui-inline-checks.json": 20,
+      "ui-seamless-checks.json": 17,
+      "ui-editing-checks.json": 19,
+      "ui-responsive-checks.json": 89,
+      "ui-spacing-checks.json": 103,
+      "ui-activity-checks.json": 32,
+      "ui-account-checks.json": 66,
+      "ui-handoff-checks.json": 24
+    },
+    "scope": "Linux Chromium production renderer with synthetic provider/close bridges"
+  },
+  "pdf_layout": {
+    "checks": 4,
+    "scope": "Shared stylesheet and headless Chromium; not installed PDF.js or Electron"
+  },
+  "javascript_syntax": {
+    "files": 18,
+    "failed": 0
+  },
+  "source_doctor": {
+    "passed": true,
+    "checks": 10
+  },
+  "dependency_doctor": {
+    "passed": false,
+    "expected_missing_installation": true
+  },
+  "native_windows": {
+    "run": false
+  },
+  "live_tinfoil": {
+    "run": false
+  },
+  "powershell": {
+    "run": false
+  },
+  "github_push": false,
+  "system_prompt_required": false,
+  "normal_url_navigation": "Blocked by host policy; no policy changes",
+  "rendering": {
+    "markdownCharacters": 0.0,
+    "templateCharacters": 0.0,
+    "markdownCalls": 0.0
+  }
+}

@@ -1,0 +1,1712 @@
+
+> tinfoil-windows@0.10.0 test
+> npm run build && node --test tests/*.test.mjs
+
+
+> tinfoil-windows@0.10.0 build
+> node scripts/build.mjs
+
+Built TypeScript core and renderer.
+PDF.js is not installed. Run npm run bootstrap before using desktop PDF preview.
+TAP version 13
+# Subtest: profile exposes only normalized identity and explicit metadata
+ok 1 - profile exposes only normalized identity and explicit metadata
+  ---
+  duration_ms: 2.023793
+  type: 'test'
+  ...
+# Subtest: usage uses actual flat wire fields without inventing unlimited quotas
+ok 2 - usage uses actual flat wire fields without inventing unlimited quotas
+  ---
+  duration_ms: 1.356617
+  type: 'test'
+  ...
+# Subtest: account origins reject credential URLs, lookalikes, non-HTTPS and nonstandard ports
+ok 3 - account origins reject credential URLs, lookalikes, non-HTTPS and nonstandard ports
+  ---
+  duration_ms: 0.513489
+  type: 'test'
+  ...
+# Subtest: blank optional system prompts are omitted; supplied instructions remain user-controlled
+ok 4 - blank optional system prompts are omitted; supplied instructions remain user-controlled
+  ---
+  duration_ms: 0.989256
+  type: 'test'
+  ...
+# Subtest: session script uses Clerk getToken and reload only on demand, with an exact origin check
+ok 5 - session script uses Clerk getToken and reload only on demand, with an exact origin check
+  ---
+  duration_ms: 2.545935
+  type: 'test'
+  ...
+# Subtest: session script detects user changes both before and during token retrieval
+ok 6 - session script detects user changes both before and during token retrieval
+  ---
+  duration_ms: 1.386515
+  type: 'test'
+  ...
+# Subtest: sign-in script uses provider UI without password or token input fields
+ok 7 - sign-in script uses provider UI without password or token input fields
+  ---
+  duration_ms: 1.132071
+  type: 'test'
+  ...
+# Subtest: login exchanges at the fixed endpoint and never puts credentials in snapshots
+ok 8 - login exchanges at the fixed endpoint and never puts credentials in snapshots
+  ---
+  duration_ms: 26.234558
+  type: 'test'
+  ...
+# Subtest: cached inference token still checks the current identity before reuse
+ok 9 - cached inference token still checks the current identity before reuse
+  ---
+  duration_ms: 1.355758
+  type: 'test'
+  ...
+# Subtest: concurrent credential requests share one session check and one token mint
+ok 10 - concurrent credential requests share one session check and one token mint
+  ---
+  duration_ms: 1.340285
+  type: 'test'
+  ...
+# Subtest: expiry refresh mints a new credential instead of retaining it indefinitely
+ok 11 - expiry refresh mints a new credential instead of retaining it indefinitely
+  ---
+  duration_ms: 1.857517
+  type: 'test'
+  ...
+# Subtest: 401 authorizes exactly one identity refresh, not an inference retry
+ok 12 - 401 authorizes exactly one identity refresh, not an inference retry
+  ---
+  duration_ms: 1.489622
+  type: 'test'
+  ...
+# Subtest: repeated authorization rejection expires session without raw server secrets
+ok 13 - repeated authorization rejection expires session without raw server secrets
+  ---
+  duration_ms: 2.464593
+  type: 'test'
+  ...
+# Subtest: 402 keeps identity separate from entitlement and never requests a free or API key
+ok 14 - 402 keeps identity separate from entitlement and never requests a free or API key
+  ---
+  duration_ms: 1.136163
+  type: 'test'
+  ...
+# Subtest: 429 records real reset budgets and blocks repeated minting until reset
+ok 15 - 429 records real reset budgets and blocks repeated minting until reset
+  ---
+  duration_ms: 1.267559
+  type: 'test'
+  ...
+# Subtest: malformed token, expired token and oversized responses cannot authenticate
+ok 16 - malformed token, expired token and oversized responses cannot authenticate
+  ---
+  duration_ms: 2.46263
+  type: 'test'
+  ...
+# Subtest: untrusted transport failures are replaced by a nonsecret message
+ok 17 - untrusted transport failures are replaced by a nonsecret message
+  ---
+  duration_ms: 0.405084
+  type: 'test'
+  ...
+# Subtest: changing user after sign-in revokes cached credentials before any further fetch
+ok 18 - changing user after sign-in revokes cached credentials before any further fetch
+  ---
+  duration_ms: 0.551462
+  type: 'test'
+  ...
+# Subtest: mismatched Clerk user and session owner cannot authenticate
+ok 19 - mismatched Clerk user and session owner cannot authenticate
+  ---
+  duration_ms: 0.170756
+  type: 'test'
+  ...
+# Subtest: sign-out clears session state, and late token responses cannot restore it
+ok 20 - sign-out clears session state, and late token responses cannot restore it
+  ---
+  duration_ms: 20.642208
+  type: 'test'
+  ...
+# Subtest: profile management calls the provider adapter only while signed in
+ok 21 - profile management calls the provider adapter only while signed in
+  ---
+  duration_ms: 1.142178
+  type: 'test'
+  ...
+# Subtest: native account window has a separate memory-only partition and no preload or Node bridge
+ok 22 - native account window has a separate memory-only partition and no preload or Node bridge
+  ---
+  duration_ms: 1.513943
+  type: 'test'
+  ...
+# Subtest: native account navigation and popups keep the same unprivileged boundaries
+ok 23 - native account navigation and popups keep the same unprivileged boundaries
+  ---
+  duration_ms: 6.211255
+  type: 'test'
+  ...
+# Subtest: native session scripts are not evaluated outside the exact Tinfoil origin
+ok 24 - native session scripts are not evaluated outside the exact Tinfoil origin
+  ---
+  duration_ms: 0.439373
+  type: 'test'
+  ...
+# Subtest: closing sign-in rejects it and cannot report a synthetic successful identity
+ok 25 - closing sign-in rejects it and cannot report a synthetic successful identity
+  ---
+  duration_ms: 1.836391
+  type: 'test'
+  ...
+# Subtest: account mode uses subscription credentials while the saved developer key remains separate
+ok 26 - account mode uses subscription credentials while the saved developer key remains separate
+  ---
+  duration_ms: 8.537893
+  type: 'test'
+  ...
+# Subtest: signed-out account mode never falls back to a saved developer key
+ok 27 - signed-out account mode never falls back to a saved developer key
+  ---
+  duration_ms: 1.465271
+  type: 'test'
+  ...
+# Subtest: existing threads require native-scoped authorization after a connection change
+ok 28 - existing threads require native-scoped authorization after a connection change
+  ---
+  duration_ms: 8.297281
+  type: 'test'
+  ...
+# Subtest: binding survives branches but cannot be imported as a forged approval or leak in an export
+ok 29 - binding survives branches but cannot be imported as a forged approval or leak in an export
+  ---
+  duration_ms: 0.698279
+  type: 'test'
+  ...
+# Subtest: account mode migration preserves old workspaces without requiring a system prompt or login
+ok 30 - account mode migration preserves old workspaces without requiring a system prompt or login
+  ---
+  duration_ms: 0.577837
+  type: 'test'
+  ...
+# Subtest: identity IDs are rejected rather than trimmed or truncated into another identity
+ok 31 - identity IDs are rejected rather than trimmed or truncated into another identity
+  ---
+  duration_ms: 0.114912
+  type: 'test'
+  ...
+# Subtest: lost session response invalidates a cached key even if the adapter does not signal it
+ok 32 - lost session response invalidates a cached key even if the adapter does not signal it
+  ---
+  duration_ms: 0.517037
+  type: 'test'
+  ...
+# Subtest: inference authorization failure requires reconnect without retrying or blaming a saved API key
+ok 33 - inference authorization failure requires reconnect without retrying or blaming a saved API key
+  ---
+  duration_ms: 2.566065
+  type: 'test'
+  ...
+# Subtest: account usage and billing errors do not claim developer API credit is required
+ok 34 - account usage and billing errors do not claim developer API credit is required
+  ---
+  duration_ms: 1.300534
+  type: 'test'
+  ...
+# Subtest: a new sign-in waits for the old temporary browser partition to finish clearing
+ok 35 - a new sign-in waits for the old temporary browser partition to finish clearing
+  ---
+  duration_ms: 9.584908
+  type: 'test'
+  ...
+# Subtest: delegation waits for explicit approval, uses same verified client/model and returns matched tool result
+ok 36 - delegation waits for explicit approval, uses same verified client/model and returns matched tool result
+  ---
+  duration_ms: 36.032706
+  type: 'test'
+  ...
+# Subtest: denied delegation creates no child request and is not retried automatically
+ok 37 - denied delegation creates no child request and is not retried automatically
+  ---
+  duration_ms: 5.442172
+  type: 'test'
+  ...
+# Subtest: disabled delegation is not advertised and cannot execute an unsolicited call
+ok 38 - disabled delegation is not advertised and cannot execute an unsolicited call
+  ---
+  duration_ms: 2.034885
+  type: 'test'
+  ...
+# Subtest: malformed delegation never reaches an approval or a child request
+ok 39 - malformed delegation never reaches an approval or a child request
+  ---
+  duration_ms: 3.32887
+  type: 'test'
+  ...
+# Subtest: parent cancellation while delegate awaits approval makes no extra request
+ok 40 - parent cancellation while delegate awaits approval makes no extra request
+  ---
+  duration_ms: 5.388255
+  type: 'test'
+  ...
+# Subtest: individual delegate cancellation retains partial output and lets parent summarize cancellation
+ok 41 - individual delegate cancellation retains partial output and lets parent summarize cancellation
+  ---
+  duration_ms: 7.271843
+  type: 'test'
+  ...
+# Subtest: child tool calls are rejected without recursion or native execution
+ok 42 - child tool calls are rejected without recursion or native execution
+  ---
+  duration_ms: 6.506986
+  type: 'test'
+  ...
+# Subtest: child interrupted and output-limit responses never masquerade as completed
+ok 43 - child interrupted and output-limit responses never masquerade as completed
+  ---
+  duration_ms: 12.604757
+  type: 'test'
+  ...
+# Subtest: delegation hard budget allows two requests and records the third as blocked without approval
+ok 44 - delegation hard budget allows two requests and records the third as blocked without approval
+  ---
+  duration_ms: 19.090083
+  type: 'test'
+  ...
+# Subtest: queued batch is visible in full before execution and every protected action keeps its approval
+ok 45 - queued batch is visible in full before execution and every protected action keeps its approval
+  ---
+  duration_ms: 7.542412
+  type: 'test'
+  ...
+# Subtest: stopping a batch cancels remaining queued actions without silently executing them
+ok 46 - stopping a batch cancels remaining queued actions without silently executing them
+  ---
+  duration_ms: 5.252583
+  type: 'test'
+  ...
+# Subtest: provider MCP events are passive display data, stripped from answer and never executed locally
+ok 47 - provider MCP events are passive display data, stripped from answer and never executed locally
+  ---
+  duration_ms: 5.666269
+  type: 'test'
+  ...
+# Subtest: search opt-in is separate from observing events and defaults off
+ok 48 - search opt-in is separate from observing events and defaults off
+  ---
+  duration_ms: 3.059366
+  type: 'test'
+  ...
+# Subtest: missing MCP terminal events and late in-progress repeats have honest states
+ok 49 - missing MCP terminal events and late in-progress repeats have honest states
+  ---
+  duration_ms: 2.069922
+  type: 'test'
+  ...
+# Subtest: invalid child output aborts its network stream and is recorded as an error, not a user cancellation
+ok 50 - invalid child output aborts its network stream and is recorded as an error, not a user cancellation
+  ---
+  duration_ms: 5.146205
+  type: 'test'
+  ...
+# Subtest: stalled delegate is cancelled by its own timeout and main conversation can continue
+ok 51 - stalled delegate is cancelled by its own timeout and main conversation can continue
+  ---
+  duration_ms: 24.890765
+  type: 'test'
+  ...
+# Subtest: two delegate requests are a shared hard limit across concurrent comparison lanes
+ok 52 - two delegate requests are a shared hard limit across concurrent comparison lanes
+  ---
+  duration_ms: 11.78566
+  type: 'test'
+  ...
+# Subtest: router events survive every possible two-chunk split without losing adjacent answer text
+ok 53 - router events survive every possible two-chunk split without losing adjacent answer text
+  ---
+  duration_ms: 6.91576
+  type: 'test'
+  ...
+# Subtest: one-character streaming preserves padding and multiple event order
+ok 54 - one-character streaming preserves padding and multiple event order
+  ---
+  duration_ms: 1.129555
+  type: 'test'
+  ...
+# Subtest: ordinary text and incomplete delimiters are lossless at every chunk boundary
+ok 55 - ordinary text and incomplete delimiters are lossless at every chunk boundary
+  ---
+  duration_ms: 0.457412
+  type: 'test'
+  ...
+# Subtest: unknown, malformed, missing-ID and unsupported-status event markers remain inert source text
+ok 56 - unknown, malformed, missing-ID and unsupported-status event markers remain inert source text
+  ---
+  duration_ms: 0.656856
+  type: 'test'
+  ...
+# Subtest: oversized event payload is not retained indefinitely or accepted as activity
+ok 57 - oversized event payload is not retained indefinitely or accepted as activity
+  ---
+  duration_ms: 2.99999
+  type: 'test'
+  ...
+# Subtest: secret fields are redacted and unsafe source links are excluded
+ok 58 - secret fields are redacted and unsafe source links are excluded
+  ---
+  duration_ms: 0.308311
+  type: 'test'
+  ...
+# Subtest: code-execution metadata is data only, with explicit states
+ok 59 - code-execution metadata is data only, with explicit states
+  ---
+  duration_ms: 0.372816
+  type: 'test'
+  ...
+# Subtest: batch grouping requires an explicit batch ID, never inferred simultaneity
+ok 60 - batch grouping requires an explicit batch ID, never inferred simultaneity
+  ---
+  duration_ms: 0.274152
+  type: 'test'
+  ...
+# Subtest: mixed batch summary distinguishes failed declined and cancelled from done
+ok 61 - mixed batch summary distinguishes failed declined and cancelled from done
+  ---
+  duration_ms: 0.5222
+  type: 'test'
+  ...
+# Subtest: delegated tasks have bounded exact input and no credential/model override fields
+ok 62 - delegated tasks have bounded exact input and no credential/model override fields
+  ---
+  duration_ms: 14.98313
+  type: 'test'
+  ...
+# Subtest: legacy settings migrate without enabling web search or delegation
+ok 63 - legacy settings migrate without enabling web search or delegation
+  ---
+  duration_ms: 0.38444
+  type: 'test'
+  ...
+# Subtest: tool activity, delegate output and MCP sources validate and survive workspace persistence
+ok 64 - tool activity, delegate output and MCP sources validate and survive workspace persistence
+  ---
+  duration_ms: 5.878187
+  type: 'test'
+  ...
+# Subtest: recovery cancels queued actions without running or claiming they completed
+ok 65 - recovery cancels queued actions without running or claiming they completed
+  ---
+  duration_ms: 0.293506
+  type: 'test'
+  ...
+# Subtest: untrusted persistence cannot smuggle unsafe provider links or oversized delegates
+ok 66 - untrusted persistence cannot smuggle unsafe provider links or oversized delegates
+  ---
+  duration_ms: 0.194895
+  type: 'test'
+  ...
+# Subtest: plaintext export preserves activity provenance and separate child usage and reasoning
+ok 67 - plaintext export preserves activity provenance and separate child usage and reasoning
+  ---
+  duration_ms: 0.621903
+  type: 'test'
+  ...
+# Subtest: settings preserve provider-default sampling
+ok 68 - settings preserve provider-default sampling
+  ---
+  duration_ms: 1.442096
+  type: 'test'
+  ...
+# Subtest: settings reject invalid numbers and model control characters
+ok 69 - settings reject invalid numbers and model control characters
+  ---
+  duration_ms: 0.53543
+  type: 'test'
+  ...
+# Subtest: attachment limits apply to aggregate size and count
+ok 70 - attachment limits apply to aggregate size and count
+  ---
+  duration_ms: 0.350574
+  type: 'test'
+  ...
+# Subtest: attachment contents remain user data and are not system messages
+ok 71 - attachment contents remain user data and are not system messages
+  ---
+  duration_ms: 3.435479
+  type: 'test'
+  ...
+# Subtest: comparison requests receive independent identical histories
+ok 72 - comparison requests receive independent identical histories
+  ---
+  duration_ms: 1.511848
+  type: 'test'
+  ...
+# Subtest: comparison requires explicit selection and never concatenates variants
+ok 73 - comparison requires explicit selection and never concatenates variants
+  ---
+  duration_ms: 0.818302
+  type: 'test'
+  ...
+# Subtest: a previous selection cannot rewrite existing descendants
+ok 74 - a previous selection cannot rewrite existing descendants
+  ---
+  duration_ms: 0.529952
+  type: 'test'
+  ...
+# Subtest: branching preserves original and selects only the requested reply
+ok 75 - branching preserves original and selects only the requested reply
+  ---
+  duration_ms: 0.795241
+  type: 'test'
+  ...
+# Subtest: editing forks before a turn, prefilling original prompt
+ok 76 - editing forks before a turn, prefilling original prompt
+  ---
+  duration_ms: 0.636633
+  type: 'test'
+  ...
+# Subtest: invalid branch does not add a conversation
+ok 77 - invalid branch does not add a conversation
+  ---
+  duration_ms: 1.070269
+  type: 'test'
+  ...
+# Subtest: generation jobs snapshot settings
+ok 78 - generation jobs snapshot settings
+  ---
+  duration_ms: 0.654895
+  type: 'test'
+  ...
+# Subtest: crash recovery never marks partial replies complete
+ok 79 - crash recovery never marks partial replies complete
+  ---
+  duration_ms: 0.45488
+  type: 'test'
+  ...
+# Subtest: export omits API and cache keys; import regenerates IDs
+ok 80 - export omits API and cache keys; import regenerates IDs
+  ---
+  duration_ms: 1.736217
+  type: 'test'
+  ...
+# Subtest: workspace validation drops unknown fields and rejects invalid references
+ok 81 - workspace validation drops unknown fields and rejects invalid references
+  ---
+  duration_ms: 0.8227
+  type: 'test'
+  ...
+# Subtest: import rejects duplicate reply IDs and mismatched selection
+ok 82 - import rejects duplicate reply IDs and mismatched selection
+  ---
+  duration_ms: 0.487886
+  type: 'test'
+  ...
+# Subtest: HTML and remote images in model output remain inert
+ok 83 - HTML and remote images in model output remain inert
+  ---
+  duration_ms: 15.022983
+  type: 'test'
+  ...
+# Subtest: fenced source is escaped, including malicious language identifiers
+ok 84 - fenced source is escaped, including malicious language identifiers
+  ---
+  duration_ms: 0.566486
+  type: 'test'
+  ...
+# Subtest: frame authorization rejects prefix attacks
+ok 85 - frame authorization rejects prefix attacks
+  ---
+  duration_ms: 0.361947
+  type: 'test'
+  ...
+# Subtest: protocol only serves explicitly allowlisted resources
+ok 86 - protocol only serves explicitly allowlisted resources
+  ---
+  duration_ms: 0.441816
+  type: 'test'
+  ...
+# Subtest: provider errors and forged InputError names cannot leak secrets
+ok 87 - provider errors and forged InputError names cannot leak secrets
+  ---
+  duration_ms: 0.623422
+  type: 'test'
+  ...
+# Subtest: oversized contexts fail before mutating history
+ok 88 - oversized contexts fail before mutating history
+  ---
+  duration_ms: 4.851012
+  type: 'test'
+  ...
+# Subtest: answer editing creates a selected continuation branch and preserves original/descendants
+ok 89 - answer editing creates a selected continuation branch and preserves original/descendants
+  ---
+  duration_ms: 3.720269
+  type: 'test'
+  ...
+# Subtest: edited answer is the next turn context exactly once
+ok 90 - edited answer is the next turn context exactly once
+  ---
+  duration_ms: 0.55154
+  type: 'test'
+  ...
+# Subtest: thinking revisions are explicit local annotations, not replayed provider reasoning
+ok 91 - thinking revisions are explicit local annotations, not replayed provider reasoning
+  ---
+  duration_ms: 0.638384
+  type: 'test'
+  ...
+# Subtest: tool calls/results stay paired while edited narration is not duplicated
+ok 92 - tool calls/results stay paired while edited narration is not duplicated
+  ---
+  duration_ms: 0.369658
+  type: 'test'
+  ...
+# Subtest: stale answer edit is rejected before allocating a branch
+ok 93 - stale answer edit is rejected before allocating a branch
+  ---
+  duration_ms: 1.831433
+  type: 'test'
+  ...
+# Subtest: stale thinking edit is rejected before allocating a branch
+ok 94 - stale thinking edit is rejected before allocating a branch
+  ---
+  duration_ms: 0.355019
+  type: 'test'
+  ...
+# Subtest: unchanged and oversized edits are rejected atomically
+ok 95 - unchanged and oversized edits are rejected atomically
+  ---
+  duration_ms: 0.339174
+  type: 'test'
+  ...
+# Subtest: missing thinking is not fabricated by the editor backend
+ok 96 - missing thinking is not fabricated by the editor backend
+  ---
+  duration_ms: 0.474424
+  type: 'test'
+  ...
+# Subtest: streaming and stopped replies cannot silently become completed through editing
+ok 97 - streaming and stopped replies cannot silently become completed through editing
+  ---
+  duration_ms: 0.635581
+  type: 'test'
+  ...
+# Subtest: re-editing keeps the earliest original content
+ok 98 - re-editing keeps the earliest original content
+  ---
+  duration_ms: 0.523274
+  type: 'test'
+  ...
+# Subtest: restoring original text in another branch clears the content override flag
+ok 99 - restoring original text in another branch clears the content override flag
+  ---
+  duration_ms: 0.255987
+  type: 'test'
+  ...
+# Subtest: prompt edit only creates a draft branch with validated ancestors
+ok 100 - prompt edit only creates a draft branch with validated ancestors
+  ---
+  duration_ms: 0.177805
+  type: 'test'
+  ...
+# Subtest: empty, stale and unchanged prompt edits do not create threads
+ok 101 - empty, stale and unchanged prompt edits do not create threads
+  ---
+  duration_ms: 13.561307
+  type: 'test'
+  ...
+# Subtest: edit span is linear and handles append, delete, insertion and non-BMP characters
+ok 102 - edit span is linear and handles append, delete, insertion and non-BMP characters
+  ---
+  duration_ms: 0.214745
+  type: 'test'
+  ...
+# Subtest: artifact insertion offsets shift without losing tool identity
+ok 103 - artifact insertion offsets shift without losing tool identity
+  ---
+  duration_ms: 0.541783
+  type: 'test'
+  ...
+# Subtest: projects migrate from a 0.5 workspace without resetting conversations
+ok 104 - projects migrate from a 0.5 workspace without resetting conversations
+  ---
+  duration_ms: 0.957688
+  type: 'test'
+  ...
+# Subtest: create, rename and move project preserve case and reject duplicate names
+ok 105 - create, rename and move project preserve case and reject duplicate names
+  ---
+  duration_ms: 0.294659
+  type: 'test'
+  ...
+# Subtest: invalid projects fail without changing thread membership
+ok 106 - invalid projects fail without changing thread membership
+  ---
+  duration_ms: 0.244251
+  type: 'test'
+  ...
+# Subtest: new project threads and edit branches inherit only organizational membership
+ok 107 - new project threads and edit branches inherit only organizational membership
+  ---
+  duration_ms: 0.294255
+  type: 'test'
+  ...
+# Subtest: removing a project keeps all its threads
+ok 108 - removing a project keeps all its threads
+  ---
+  duration_ms: 0.279514
+  type: 'test'
+  ...
+# Subtest: workspace validation rejects orphan and duplicate projects
+ok 109 - workspace validation rejects orphan and duplicate projects
+  ---
+  duration_ms: 0.342011
+  type: 'test'
+  ...
+# Subtest: revisions survive export/import while external project and parent links are cleared
+ok 110 - revisions survive export/import while external project and parent links are cleared
+  ---
+  duration_ms: 0.75659
+  type: 'test'
+  ...
+# Subtest: project count is bounded
+ok 111 - project count is bounded
+  ---
+  duration_ms: 0.906886
+  type: 'test'
+  ...
+# Subtest: mobile charts use a readable width without changing print geometry
+ok 112 - mobile charts use a readable width without changing print geometry
+  ---
+  duration_ms: 1.797817
+  type: 'test'
+  ...
+# Subtest: native service snapshots include projects but exclude credentials
+ok 113 - native service snapshots include projects but exclude credentials
+  ---
+  duration_ms: 1.779268
+  type: 'test'
+  ...
+# Subtest: native edit commands save branches with no provider request
+ok 114 - native edit commands save branches with no provider request
+  ---
+  duration_ms: 0.759309
+  type: 'test'
+  ...
+# Subtest: native service rejects editing an active thread
+ok 115 - native service rejects editing an active thread
+  ---
+  duration_ms: 0.676017
+  type: 'test'
+  ...
+# Subtest: restoring narration after multiple replacements never drops the final model context
+ok 116 - restoring narration after multiple replacements never drops the final model context
+  ---
+  duration_ms: 0.629097
+  type: 'test'
+  ...
+# Subtest: thinking-only revisions keep original tool narration and final slice intact
+ok 117 - thinking-only revisions keep original tool narration and final slice intact
+  ---
+  duration_ms: 0.190747
+  type: 'test'
+  ...
+# Subtest: edited provenance flags cannot disagree with original text on import
+ok 118 - edited provenance flags cannot disagree with original text on import
+  ---
+  duration_ms: 0.167828
+  type: 'test'
+  ...
+# Subtest: restored-history routing survives export/import
+ok 119 - restored-history routing survives export/import
+  ---
+  duration_ms: 0.248262
+  type: 'test'
+  ...
+# Subtest: native close waits for an explicit renderer decision
+ok 120 - native close waits for an explicit renderer decision
+  ---
+  duration_ms: 1.845475
+  type: 'test'
+  ...
+# Subtest: native close ignores duplicate requests while a decision is pending
+ok 121 - native close ignores duplicate requests while a decision is pending
+  ---
+  duration_ms: 0.377283
+  type: 'test'
+  ...
+# Subtest: keep-open cancels a native close without destroying the window
+ok 122 - keep-open cancels a native close without destroying the window
+  ---
+  duration_ms: 0.229092
+  type: 'test'
+  ...
+# Subtest: stale and malformed close decisions cannot close a later request
+ok 123 - stale and malformed close decisions cannot close a later request
+  ---
+  duration_ms: 0.300784
+  type: 'test'
+  ...
+# Subtest: acknowledgement stops timeout while the person reads the close dialog
+ok 124 - acknowledgement stops timeout while the person reads the close dialog
+  ---
+  duration_ms: 31.189537
+  type: 'test'
+  ...
+# Subtest: unresponsive renderer requires a separate native force-close decision
+ok 125 - unresponsive renderer requires a separate native force-close decision
+  ---
+  duration_ms: 25.467255
+  type: 'test'
+  ...
+# Subtest: declining a native force-close leaves the window open
+ok 126 - declining a native force-close leaves the window open
+  ---
+  duration_ms: 26.162147
+  type: 'test'
+  ...
+# Subtest: native prompt error fails open without discarding edits
+ok 127 - native prompt error fails open without discarding edits
+  ---
+  duration_ms: 25.573917
+  type: 'test'
+  ...
+# Subtest: racing fallback paths cannot display two native dialogs
+ok 128 - racing fallback paths cannot display two native dialogs
+  ---
+  duration_ms: 0.647936
+  type: 'test'
+  ...
+# Subtest: disposal invalidates a pending native close response
+ok 129 - disposal invalidates a pending native close response
+  ---
+  duration_ms: 0.338981
+  type: 'test'
+  ...
+# Subtest: a late native fallback cannot override renderer cancellation
+ok 130 - a late native fallback cannot override renderer cancellation
+  ---
+  duration_ms: 0.307967
+  type: 'test'
+  ...
+# Subtest: source-only doctor succeeds without pretending native dependencies exist
+ok 131 - source-only doctor succeeds without pretending native dependencies exist
+  ---
+  duration_ms: 0.863563
+  type: 'test'
+  ...
+# Subtest: doctor rejects unsupported Node before local execution
+ok 132 - doctor rejects unsupported Node before local execution
+  ---
+  duration_ms: 0.435848
+  type: 'test'
+  ...
+# Subtest: dependency doctor rejects a missing lockfile and installation
+ok 133 - dependency doctor rejects a missing lockfile and installation
+  ---
+  duration_ms: 9.042517
+  type: 'test'
+  ...
+# Subtest: bootstrap and package scripts no longer float to an unknown major
+ok 134 - bootstrap and package scripts no longer float to an unknown major
+  ---
+  duration_ms: 1.262003
+  type: 'test'
+  ...
+# Subtest: Windows CI checks lockfile before enabling npm cache
+ok 135 - Windows CI checks lockfile before enabling npm cache
+  ---
+  duration_ms: 1.183051
+  type: 'test'
+  ...
+# Subtest: current Electron clipboard completion is awaited before reporting success
+ok 136 - current Electron clipboard completion is awaited before reporting success
+  ---
+  duration_ms: 1.416367
+  type: 'test'
+  ...
+# Subtest: legacy drafts gain an empty attachment collection
+ok 137 - legacy drafts gain an empty attachment collection
+  ---
+  duration_ms: 1.40691
+  type: 'test'
+  ...
+# Subtest: draft attachments are validated before persistence
+ok 138 - draft attachments are validated before persistence
+  ---
+  duration_ms: 14.72944
+  type: 'test'
+  ...
+# Subtest: sending moves supplied attachments into a turn and clears only that draft
+ok 139 - sending moves supplied attachments into a turn and clears only that draft
+  ---
+  duration_ms: 0.728164
+  type: 'test'
+  ...
+# Subtest: prompt branches retain reference files without mutating the original
+ok 140 - prompt branches retain reference files without mutating the original
+  ---
+  duration_ms: 0.438983
+  type: 'test'
+  ...
+# Subtest: failed sends leave the unsent attachments in the draft
+ok 141 - failed sends leave the unsent attachments in the draft
+  ---
+  duration_ms: 0.205767
+  type: 'test'
+  ...
+# Subtest: service draft writes survive reload without any provider call
+ok 142 - service draft writes survive reload without any provider call
+  ---
+  duration_ms: 1.583195
+  type: 'test'
+  ...
+# Subtest: text-only draft updates preserve references; explicit empty list removes them
+ok 143 - text-only draft updates preserve references; explicit empty list removes them
+  ---
+  duration_ms: 0.688705
+  type: 'test'
+  ...
+# Subtest: draft text and references use the existing encrypted vault envelope
+ok 144 - draft text and references use the existing encrypted vault envelope
+  ---
+  duration_ms: 10.967422
+  type: 'test'
+  ...
+# Subtest: renderer becoming unresponsive after acknowledgement retains a native escape path
+ok 145 - renderer becoming unresponsive after acknowledgement retains a native escape path
+  ---
+  duration_ms: 0.866612
+  type: 'test'
+  ...
+# Subtest: main close decision cannot bypass a disk failure after a failure snapshot
+ok 146 - main close decision cannot bypass a disk failure after a failure snapshot
+  ---
+  duration_ms: 0.62037
+  type: 'test'
+  ...
+# Subtest: main close persists again even if the renderer had no dirty draft
+ok 147 - main close persists again even if the renderer had no dirty draft
+  ---
+  duration_ms: 0.192849
+  type: 'test'
+  ...
+# Subtest: keep-open does not perform an unnecessary durability write
+ok 148 - keep-open does not perform an unnecessary durability write
+  ---
+  duration_ms: 0.126039
+  type: 'test'
+  ...
+# Subtest: cancellation while a final durability write waits cannot close later
+ok 149 - cancellation while a final durability write waits cannot close later
+  ---
+  duration_ms: 0.150741
+  type: 'test'
+  ...
+# Subtest: inline layout preserves explanation, visual, and interpretation in order
+ok 150 - inline layout preserves explanation, visual, and interpretation in order
+  ---
+  duration_ms: 1.592275
+  type: 'test'
+  ...
+# Subtest: legacy artifacts without anchors follow the full answer
+ok 151 - legacy artifacts without anchors follow the full answer
+  ---
+  duration_ms: 0.171508
+  type: 'test'
+  ...
+# Subtest: one stable inline card holds immutable revisions in arrival order
+ok 152 - one stable inline card holds immutable revisions in arrival order
+  ---
+  duration_ms: 0.280692
+  type: 'test'
+  ...
+# Subtest: multiple artifacts at the same boundary retain tool ordering
+ok 153 - multiple artifacts at the same boundary retain tool ordering
+  ---
+  duration_ms: 0.166198
+  type: 'test'
+  ...
+# Subtest: imported positions cannot split a surrogate pair or exceed answer length
+ok 154 - imported positions cannot split a surrogate pair or exceed answer length
+  ---
+  duration_ms: 0.179945
+  type: 'test'
+  ...
+# Subtest: appending text leaves previous segment keys and anchors unchanged
+ok 155 - appending text leaves previous segment keys and anchors unchanged
+  ---
+  duration_ms: 0.152584
+  type: 'test'
+  ...
+# Subtest: new workspaces default to inline visualizations and OS motion preferences
+ok 156 - new workspaces default to inline visualizations and OS motion preferences
+  ---
+  duration_ms: 0.29536
+  type: 'test'
+  ...
+# Subtest: explicit workspace auto-open preference remains respected
+ok 157 - explicit workspace auto-open preference remains respected
+  ---
+  duration_ms: 0.092681
+  type: 'test'
+  ...
+# Subtest: visual themes and chart headings are consistent between export and embed
+ok 158 - visual themes and chart headings are consistent between export and embed
+  ---
+  duration_ms: 23.623484
+  type: 'test'
+  ...
+# Subtest: empty chart selection remains a finite coordinate system
+ok 159 - empty chart selection remains a finite coordinate system
+  ---
+  duration_ms: 0.707018
+  type: 'test'
+  ...
+# Subtest: inline diagrams namespace arrow IDs to avoid collisions across cards
+ok 160 - inline diagrams namespace arrow IDs to avoid collisions across cards
+  ---
+  duration_ms: 0.746726
+  type: 'test'
+  ...
+# Subtest: tool insertion metadata survives validation and rejects fractional offsets
+ok 161 - tool insertion metadata survives validation and rejects fractional offsets
+  ---
+  duration_ms: 0.736955
+  type: 'test'
+  ...
+# Subtest: native Python captures Unicode stdout and stderr separately
+ok 162 - native Python captures Unicode stdout and stderr separately
+  ---
+  duration_ms: 810.619092
+  type: 'test'
+  ...
+# Subtest: native Python returns exceptions as error results
+ok 163 - native Python returns exceptions as error results
+  ---
+  duration_ms: 739.606967
+  type: 'test'
+  ...
+# Subtest: native Python enforces runtime timeout
+ok 164 - native Python enforces runtime timeout
+  ---
+  duration_ms: 155.982275
+  type: 'test'
+  ...
+# Subtest: native Python can be cancelled while running
+ok 165 - native Python can be cancelled while running
+  ---
+  duration_ms: 153.836797
+  type: 'test'
+  ...
+# Subtest: native Python bounds output and stops excessive printing
+ok 166 - native Python bounds output and stops excessive printing
+  ---
+  duration_ms: 630.455962
+  type: 'test'
+  ...
+# Subtest: generated supported files are collected, oversized and executable files ignored
+ok 167 - generated supported files are collected, oversized and executable files ignored
+  ---
+  duration_ms: 777.65577
+  type: 'test'
+  ...
+# Subtest: Python environment omits API secrets and temporary work directory is removed
+ok 168 - Python environment omits API secrets and temporary work directory is removed
+  ---
+  duration_ms: 785.290856
+  type: 'test'
+  ...
+# Subtest: native Python refuses relative executables and invalid code
+ok 169 - native Python refuses relative executables and invalid code
+  ---
+  duration_ms: 0.56744
+  type: 'test'
+  ...
+# Subtest: missing Python executable returns a bounded startup error
+ok 170 - missing Python executable returns a bounded startup error
+  ---
+  duration_ms: 4.422425
+  type: 'test'
+  ...
+# Subtest: render cache evicts least recently used entries under both limits
+ok 171 - render cache evicts least recently used entries under both limits
+  ---
+  duration_ms: 1.053603
+  type: 'test'
+  ...
+# Subtest: render cache updates accounting, rejects oversize entries and clears
+ok 172 - render cache updates accounting, rejects oversize entries and clears
+  ---
+  duration_ms: 0.466726
+  type: 'test'
+  ...
+# Subtest: cached maths and highlighting preserve source indexing and safety
+ok 173 - cached maths and highlighting preserve source indexing and safety
+  ---
+  duration_ms: 20.467617
+  type: 'test'
+  ...
+# Subtest: stream scheduler coalesces bursts, is idle between events, and retains final paint
+ok 174 - stream scheduler coalesces bursts, is idle between events, and retains final paint
+  ---
+  duration_ms: 0.51821
+  type: 'test'
+  ...
+# Subtest: urgent completion cancels throttling rather than delaying final output
+ok 175 - urgent completion cancels throttling rather than delaying final output
+  ---
+  duration_ms: 0.150974
+  type: 'test'
+  ...
+# Subtest: background work is deferred until visible and no timer loop remains
+ok 176 - background work is deferred until visible and no timer loop remains
+  ---
+  duration_ms: 0.264205
+  type: 'test'
+  ...
+# Subtest: scheduler checks visibility again between timer and frame
+ok 177 - scheduler checks visibility again between timer and frame
+  ---
+  duration_ms: 0.125509
+  type: 'test'
+  ...
+# Subtest: SVG chart canvas is transparent and neutral rules replace blue panels
+ok 178 - SVG chart canvas is transparent and neutral rules replace blue panels
+  ---
+  duration_ms: 14.657417
+  type: 'test'
+  ...
+# Subtest: dense line charts omit redundant dots without dropping coordinates or isolated points
+ok 179 - dense line charts omit redundant dots without dropping coordinates or isolated points
+  ---
+  duration_ms: 1.976242
+  type: 'test'
+  ...
+# Subtest: diagram uses neutral nodes without an enclosing background rectangle
+ok 180 - diagram uses neutral nodes without an enclosing background rectangle
+  ---
+  duration_ms: 0.976591
+  type: 'test'
+  ...
+# Subtest: model artifact guidance prefers seamless neutral structured output
+ok 181 - model artifact guidance prefers seamless neutral structured output
+  ---
+  duration_ms: 0.248526
+  type: 'test'
+  ...
+# Subtest: transparent structured charts use a separate readable palette for white PDF pages
+ok 182 - transparent structured charts use a separate readable palette for white PDF pages
+  ---
+  duration_ms: 0.471648
+  type: 'test'
+  ...
+# Subtest: print diagram palette keeps light nodes and dark text without changing label contents
+ok 183 - print diagram palette keeps light nodes and dark text without changing label contents
+  ---
+  duration_ms: 0.169367
+  type: 'test'
+  ...
+# Subtest: minimal preferences default to folded reasoning and hidden advanced metadata
+ok 184 - minimal preferences default to folded reasoning and hidden advanced metadata
+  ---
+  duration_ms: 1.450004
+  type: 'test'
+  ...
+# Subtest: old workspace migrates additively with execution off
+ok 185 - old workspace migrates additively with execution off
+  ---
+  duration_ms: 2.597508
+  type: 'test'
+  ...
+# Subtest: GFM tables, nested lists, blockquotes, tasks and strikethrough render
+ok 186 - GFM tables, nested lists, blockquotes, tasks and strikethrough render
+  ---
+  duration_ms: 15.422848
+  type: 'test'
+  ...
+# Subtest: LaTeX inline and display forms become native MathML offline
+ok 187 - LaTeX inline and display forms become native MathML offline
+  ---
+  duration_ms: 4.350602
+  type: 'test'
+  ...
+# Subtest: math does not interpret code spans or code fences
+ok 188 - math does not interpret code spans or code fences
+  ---
+  duration_ms: 4.669992
+  type: 'test'
+  ...
+# Subtest: unsupported math and partial streaming input preserve original TeX
+ok 189 - unsupported math and partial streaming input preserve original TeX
+  ---
+  duration_ms: 0.786839
+  type: 'test'
+  ...
+# Subtest: LaTeX HTML and external-link commands cannot introduce executable markup
+ok 190 - LaTeX HTML and external-link commands cannot introduce executable markup
+  ---
+  duration_ms: 1.77978
+  type: 'test'
+  ...
+# Subtest: links are explicit buttons, remote images placeholders, embedded HTML escaped
+ok 191 - links are explicit buttons, remote images placeholders, embedded HTML escaped
+  ---
+  duration_ms: 0.817445
+  type: 'test'
+  ...
+# Subtest: external URL validation rejects credentials, controls and non-HTTP schemes
+ok 192 - external URL validation rejects credentials, controls and non-HTTP schemes
+  ---
+  duration_ms: 0.460251
+  type: 'test'
+  ...
+# Subtest: code is highlighted and Python execution actions are separate from rendering
+ok 193 - code is highlighted and Python execution actions are separate from rendering
+  ---
+  duration_ms: 1.007047
+  type: 'test'
+  ...
+# Subtest: block extraction preserves nested source and renderer indexes
+ok 194 - block extraction preserves nested source and renderer indexes
+  ---
+  duration_ms: 0.788633
+  type: 'test'
+  ...
+# Subtest: display parsing is bounded without modifying stored source
+ok 195 - display parsing is bounded without modifying stored source
+  ---
+  duration_ms: 5.74968
+  type: 'test'
+  ...
+# Subtest: fragmented tool calls assemble independently in stable index order
+ok 196 - fragmented tool calls assemble independently in stable index order
+  ---
+  duration_ms: 0.550263
+  type: 'test'
+  ...
+# Subtest: invalid tool streams fail closed
+ok 197 - invalid tool streams fail closed
+  ---
+  duration_ms: 0.487014
+  type: 'test'
+  ...
+# Subtest: Python schema rejects extra arguments, empty code and oversized payloads
+ok 198 - Python schema rejects extra arguments, empty code and oversized payloads
+  ---
+  duration_ms: 1.792437
+  type: 'test'
+  ...
+# Subtest: artifacts reject unsupported MIME, traversal and malformed base64
+ok 199 - artifacts reject unsupported MIME, traversal and malformed base64
+  ---
+  duration_ms: 0.396578
+  type: 'test'
+  ...
+# Subtest: import and crash recovery never resume tool approvals
+ok 200 - import and crash recovery never resume tool approvals
+  ---
+  duration_ms: 1.70174
+  type: 'test'
+  ...
+# Subtest: snapshot redacts credentials and has increasing revisions
+ok 201 - snapshot redacts credentials and has increasing revisions
+  ---
+  duration_ms: 9.149016
+  type: 'test'
+  ...
+# Subtest: a verified stream completes with separated reasoning and usage
+ok 202 - a verified stream completes with separated reasoning and usage
+  ---
+  duration_ms: 9.712176
+  type: 'test'
+  ...
+# Subtest: failed attestation sends no inference request and has no fallback
+ok 203 - failed attestation sends no inference request and has no fallback
+  ---
+  duration_ms: 2.327538
+  type: 'test'
+  ...
+# Subtest: an abruptly ended stream preserves partial text as interrupted
+ok 204 - an abruptly ended stream preserves partial text as interrupted
+  ---
+  duration_ms: 2.445727
+  type: 'test'
+  ...
+# Subtest: comparison shares verification but not response buffers
+ok 205 - comparison shares verification but not response buffers
+  ---
+  duration_ms: 7.683859
+  type: 'test'
+  ...
+# Subtest: stop preserves partial output and duplicate sends are rejected
+ok 206 - stop preserves partial output and duplicate sends are rejected
+  ---
+  duration_ms: 17.502116
+  type: 'test'
+  ...
+# Subtest: tool-call termination is not silently accepted or executed
+ok 207 - tool-call termination is not silently accepted or executed
+  ---
+  duration_ms: 4.570586
+  type: 'test'
+  ...
+# Subtest: initial disk failure prevents any API call
+ok 208 - initial disk failure prevents any API call
+  ---
+  duration_ms: 1.445346
+  type: 'test'
+  ...
+# Subtest: output-limit endings are complete but visibly annotated
+ok 209 - output-limit endings are complete but visibly annotated
+  ---
+  duration_ms: 3.297947
+  type: 'test'
+  ...
+# Subtest: provider error messages are redacted and never automatically retried
+ok 210 - provider error messages are redacted and never automatically retried
+  ---
+  duration_ms: 2.746692
+  type: 'test'
+  ...
+# Subtest: clearing credentials resets verification without deleting history
+ok 211 - clearing credentials resets verification without deleting history
+  ---
+  duration_ms: 3.050416
+  type: 'test'
+  ...
+# Subtest: unsupported IPC commands cannot become shell or filesystem operations
+ok 212 - unsupported IPC commands cannot become shell or filesystem operations
+  ---
+  duration_ms: 0.995497
+  type: 'test'
+  ...
+# Subtest: oversized responses preserve a bounded, reloadable partial record
+ok 213 - oversized responses preserve a bounded, reloadable partial record
+  ---
+  duration_ms: 16.107826
+  type: 'test'
+  ...
+# Subtest: inline chart removes unused heading/axis-title space without shrinking its data plot
+ok 214 - inline chart removes unused heading/axis-title space without shrinking its data plot
+  ---
+  duration_ms: 24.294022
+  type: 'test'
+  ...
+# Subtest: mobile chart trims empty bands and retains its plot and readable viewBox width
+ok 215 - mobile chart trims empty bands and retains its plot and readable viewBox width
+  ---
+  duration_ms: 0.554779
+  type: 'test'
+  ...
+# Subtest: a real x-axis title keeps its reserved line in tight previews
+ok 216 - a real x-axis title keeps its reserved line in tight previews
+  ---
+  duration_ms: 0.750161
+  type: 'test'
+  ...
+# Subtest: tight is display-only: headed and print chart exports stay byte-identical
+ok 217 - tight is display-only: headed and print chart exports stay byte-identical
+  ---
+  duration_ms: 1.140787
+  type: 'test'
+  ...
+# Subtest: heading-free diagrams use content-sized vertical margins while headed exports stay intact
+ok 218 - heading-free diagrams use content-sized vertical margins while headed exports stay intact
+  ---
+  duration_ms: 1.553828
+  type: 'test'
+  ...
+# Subtest: tool proposal cannot execute before explicit approval
+ok 219 - tool proposal cannot execute before explicit approval
+  ---
+  duration_ms: 33.151016
+  type: 'test'
+  ...
+# Subtest: approved tool result returns in matched protocol history and produces final answer
+ok 220 - approved tool result returns in matched protocol history and produces final answer
+  ---
+  duration_ms: 5.791669
+  type: 'test'
+  ...
+# Subtest: stale and cross-thread approval messages cannot execute
+ok 221 - stale and cross-thread approval messages cannot execute
+  ---
+  duration_ms: 3.404376
+  type: 'test'
+  ...
+# Subtest: stop while awaiting approval cancels without executing
+ok 222 - stop while awaiting approval cancels without executing
+  ---
+  duration_ms: 3.158748
+  type: 'test'
+  ...
+# Subtest: tool capability is not offered when mode is off
+ok 223 - tool capability is not offered when mode is off
+  ---
+  duration_ms: 1.500547
+  type: 'test'
+  ...
+# Subtest: unknown tools and malformed Python are never approved or executed
+ok 224 - unknown tools and malformed Python are never approved or executed
+  ---
+  duration_ms: 3.047928
+  type: 'test'
+  ...
+# Subtest: execution failures are returned to the model without fabricated output
+ok 225 - execution failures are returned to the model without fabricated output
+  ---
+  duration_ms: 3.911048
+  type: 'test'
+  ...
+# Subtest: provider-reported usage is summed across tool rounds
+ok 226 - provider-reported usage is summed across tool rounds
+  ---
+  duration_ms: 3.916753
+  type: 'test'
+  ...
+# Subtest: tool round budget prevents endless approvals
+ok 227 - tool round budget prevents endless approvals
+  ---
+  duration_ms: 14.699698
+  type: 'test'
+  ...
+# Subtest: manual code execution derives exact stored block and does not inject results into model history
+ok 228 - manual code execution derives exact stored block and does not inject results into model history
+  ---
+  duration_ms: 2.814203
+  type: 'test'
+  ...
+# Subtest: snapshot does not expose interpreter path or API secrets
+ok 229 - snapshot does not expose interpreter path or API secrets
+  ---
+  duration_ms: 0.756135
+  type: 'test'
+  ...
+# Subtest: model-provided reasoning is retained independently of tool outputs
+ok 230 - model-provided reasoning is retained independently of tool outputs
+  ---
+  duration_ms: 3.151825
+  type: 'test'
+  ...
+# Subtest: missing interpreter blocks tool-enabled sends before inference or history mutation
+ok 231 - missing interpreter blocks tool-enabled sends before inference or history mutation
+  ---
+  duration_ms: 1.103444
+  type: 'test'
+  ...
+# Subtest: running tool receives cancellation signal and cannot turn cancellation into a completed reply
+ok 232 - running tool receives cancellation signal and cannot turn cancellation into a completed reply
+  ---
+  duration_ms: 6.561855
+  type: 'test'
+  ...
+# Subtest: encrypted vault round-trips without plaintext conversation or credentials
+ok 233 - encrypted vault round-trips without plaintext conversation or credentials
+  ---
+  duration_ms: 19.139249
+  type: 'test'
+  ...
+# Subtest: concurrent vault writes are serialized, with newest snapshot winning
+ok 234 - concurrent vault writes are serialized, with newest snapshot winning
+  ---
+  duration_ms: 24.358695
+  type: 'test'
+  ...
+# Subtest: authenticated encryption rejects modified ciphertext without resetting it
+ok 235 - authenticated encryption rejects modified ciphertext without resetting it
+  ---
+  duration_ms: 6.301889
+  type: 'test'
+  ...
+# Subtest: unavailable OS encryption fails closed
+ok 236 - unavailable OS encryption fails closed
+  ---
+  duration_ms: 5.86776
+  type: 'test'
+  ...
+# Subtest: wrong OS key and malformed vault versions are rejected
+ok 237 - wrong OS key and malformed vault versions are rejected
+  ---
+  duration_ms: 7.209699
+  type: 'test'
+  ...
+# Subtest: visual tools complete an actual model tool loop without Python or approval
+ok 238 - visual tools complete an actual model tool loop without Python or approval
+  ---
+  duration_ms: 27.363154
+  type: 'test'
+  ...
+# Subtest: Python is not exposed or executed through visualization-only mode
+ok 239 - Python is not exposed or executed through visualization-only mode
+  ---
+  duration_ms: 2.684805
+  type: 'test'
+  ...
+# Subtest: unsupported model tool capability disables all tool schemas
+ok 240 - unsupported model tool capability disables all tool schemas
+  ---
+  duration_ms: 1.644115
+  type: 'test'
+  ...
+# Subtest: disable visual tools is enforced at the service boundary
+ok 241 - disable visual tools is enforced at the service boundary
+  ---
+  duration_ms: 2.170291
+  type: 'test'
+  ...
+# Subtest: model can read and revise its returned artifact ID on following tool rounds
+ok 242 - model can read and revise its returned artifact ID on following tool rounds
+  ---
+  duration_ms: 5.889785
+  type: 'test'
+  ...
+# Subtest: artifact scope excludes manual runs, other conversations and unselected comparison replies
+ok 243 - artifact scope excludes manual runs, other conversations and unselected comparison replies
+  ---
+  duration_ms: 3.494262
+  type: 'test'
+  ...
+# Subtest: reasoning settings are not leaked from DeepSeek comparison into Kimi K3
+ok 244 - reasoning settings are not leaked from DeepSeek comparison into Kimi K3
+  ---
+  duration_ms: 2.314332
+  type: 'test'
+  ...
+# Subtest: switching models resets reasoning overrides, not just the displayed control
+ok 245 - switching models resets reasoning overrides, not just the displayed control
+  ---
+  duration_ms: 1.151737
+  type: 'test'
+  ...
+# Subtest: a model-provided arbitrary tool name never reaches a native executor
+ok 246 - a model-provided arbitrary tool name never reaches a native executor
+  ---
+  duration_ms: 3.096712
+  type: 'test'
+  ...
+# Subtest: two lanes of the same model preserve independent effort settings
+ok 247 - two lanes of the same model preserve independent effort settings
+  ---
+  duration_ms: 2.8382
+  type: 'test'
+  ...
+# Subtest: tool rounds retain narrated text and stable inline insertion offsets
+ok 248 - tool rounds retain narrated text and stable inline insertion offsets
+  ---
+  duration_ms: 3.221332
+  type: 'test'
+  ...
+# Subtest: subsequent conversation history does not duplicate preserved narration
+ok 249 - subsequent conversation history does not duplicate preserved narration
+  ---
+  duration_ms: 4.118574
+  type: 'test'
+  ...
+# Subtest: stream phase uses received reasoning or content, not model-name guessing
+ok 250 - stream phase uses received reasoning or content, not model-name guessing
+  ---
+  duration_ms: 1.5976
+  type: 'test'
+  ...
+# Subtest: new visual tools are actual function schemas with distinct registered names
+ok 251 - new visual tools are actual function schemas with distinct registered names
+  ---
+  duration_ms: 1.381461
+  type: 'test'
+  ...
+# Subtest: Tinfoil effort mapping exposes unique actual wire levels
+ok 252 - Tinfoil effort mapping exposes unique actual wire levels
+  ---
+  duration_ms: 1.547911
+  type: 'test'
+  ...
+# Subtest: provider default omits all reasoning parameters
+ok 253 - provider default omits all reasoning parameters
+  ---
+  duration_ms: 0.262698
+  type: 'test'
+  ...
+# Subtest: thinking toggle is independent of effort visibility
+ok 254 - thinking toggle is independent of effort visibility
+  ---
+  duration_ms: 0.262195
+  type: 'test'
+  ...
+# Subtest: unsupported effort is omitted rather than silently mapped
+ok 255 - unsupported effort is omitted rather than silently mapped
+  ---
+  duration_ms: 0.311224
+  type: 'test'
+  ...
+# Subtest: Kimi K3 bundled profile has fixed effort and no guessed toggle
+ok 256 - Kimi K3 bundled profile has fixed effort and no guessed toggle
+  ---
+  duration_ms: 0.402206
+  type: 'test'
+  ...
+# Subtest: DeepSeek V4 fallback is narrow and provider-specific
+ok 257 - DeepSeek V4 fallback is narrow and provider-specific
+  ---
+  duration_ms: 0.677817
+  type: 'test'
+  ...
+# Subtest: live known metadata overrides bundled assumptions
+ok 258 - live known metadata overrides bundled assumptions
+  ---
+  duration_ms: 0.163121
+  type: 'test'
+  ...
+# Subtest: unknown model gets no effort or on/off parameters
+ok 259 - unknown model gets no effort or on/off parameters
+  ---
+  duration_ms: 0.853647
+  type: 'test'
+  ...
+# Subtest: catalog reasoning data cannot override credentials, endpoints, messages or tools
+ok 260 - catalog reasoning data cannot override credentials, endpoints, messages or tools
+  ---
+  duration_ms: 0.484973
+  type: 'test'
+  ...
+# Subtest: prototype keys in metadata cannot pollute object prototypes
+ok 261 - prototype keys in metadata cannot pollute object prototypes
+  ---
+  duration_ms: 0.661045
+  type: 'test'
+  ...
+# Subtest: chart validates matching finite values and bounded arrays
+ok 262 - chart validates matching finite values and bounded arrays
+  ---
+  duration_ms: 0.648249
+  type: 'test'
+  ...
+# Subtest: chart gaps stay gaps and negative bars retain a zero baseline
+ok 263 - chart gaps stay gaps and negative bars retain a zero baseline
+  ---
+  duration_ms: 14.632988
+  type: 'test'
+  ...
+# Subtest: all-hidden and single-point chart states remain finite
+ok 264 - all-hidden and single-point chart states remain finite
+  ---
+  duration_ms: 0.305307
+  type: 'test'
+  ...
+# Subtest: visual labels are escaped, not HTML or JavaScript
+ok 265 - visual labels are escaped, not HTML or JavaScript
+  ---
+  duration_ms: 2.029796
+  type: 'test'
+  ...
+# Subtest: table validates dimensionality, cell values and row budgets
+ok 266 - table validates dimensionality, cell values and row budgets
+  ---
+  duration_ms: 0.937079
+  type: 'test'
+  ...
+# Subtest: table HTML renders data inertly
+ok 267 - table HTML renders data inertly
+  ---
+  duration_ms: 0.158015
+  type: 'test'
+  ...
+# Subtest: diagram rejects missing edge endpoints, duplicate nodes and overlapping positions
+ok 268 - diagram rejects missing edge endpoints, duplicate nodes and overlapping positions
+  ---
+  duration_ms: 0.682249
+  type: 'test'
+  ...
+# Subtest: artifact creation returns an ID and preserves complete source without running code
+ok 269 - artifact creation returns an ID and preserves complete source without running code
+  ---
+  duration_ms: 1.428695
+  type: 'test'
+  ...
+# Subtest: revision creates a new artifact and preserves the parent
+ok 270 - revision creates a new artifact and preserves the parent
+  ---
+  duration_ms: 0.66605
+  type: 'test'
+  ...
+# Subtest: revising a historical revision increments the conversation-wide version
+ok 271 - revising a historical revision increments the conversation-wide version
+  ---
+  duration_ms: 0.319013
+  type: 'test'
+  ...
+# Subtest: artifact source reading is bounded and does not claim pixel inspection
+ok 272 - artifact source reading is bounded and does not claim pixel inspection
+  ---
+  duration_ms: 0.489944
+  type: 'test'
+  ...
+# Subtest: artifact retrieval cannot access missing or arbitrary paths
+ok 273 - artifact retrieval cannot access missing or arbitrary paths
+  ---
+  duration_ms: 0.379835
+  type: 'test'
+  ...
+# Subtest: typed artifact metadata round-trips through encrypted-workspace validation
+ok 274 - typed artifact metadata round-trips through encrypted-workspace validation
+  ---
+  duration_ms: 2.206632
+  type: 'test'
+  ...
+# Subtest: PDF tool uses injected rendering and validates bytes
+ok 275 - PDF tool uses injected rendering and validates bytes
+  ---
+  duration_ms: 0.763573
+  type: 'test'
+  ...
+# Subtest: PDF print document starts with restrictive CSP before any model source
+ok 276 - PDF print document starts with restrictive CSP before any model source
+  ---
+  duration_ms: 0.194726
+  type: 'test'
+  ...
+# Subtest: artifact cancellation is honored before work begins
+ok 277 - artifact cancellation is honored before work begins
+  ---
+  duration_ms: 0.160037
+  type: 'test'
+  ...
+# Subtest: catalog request uses a fixed public endpoint without authorization
+ok 278 - catalog request uses a fixed public endpoint without authorization
+  ---
+  duration_ms: 17.819607
+  type: 'test'
+  ...
+# Subtest: oversized or malformed public catalogs fail closed
+ok 279 - oversized or malformed public catalogs fail closed
+  ---
+  duration_ms: 4.061061
+  type: 'test'
+  ...
+# Subtest: old settings migrate without silently enabling visualization tools
+ok 280 - old settings migrate without silently enabling visualization tools
+  ---
+  duration_ms: 0.204778
+  type: 'test'
+  ...
+# Subtest: selecting a different-model comparison answer resets stale effort
+ok 281 - selecting a different-model comparison answer resets stale effort
+  ---
+  duration_ms: 0.349075
+  type: 'test'
+  ...
+# Subtest: branching into a different model resets stale effort
+ok 282 - branching into a different model resets stale effort
+  ---
+  duration_ms: 0.402562
+  type: 'test'
+  ...
+1..282
+# tests 282
+# suites 0
+# pass 282
+# fail 0
+# cancelled 0
+# skipped 0
+# todo 0
+# duration_ms 5660.495396

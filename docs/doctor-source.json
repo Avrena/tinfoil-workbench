@@ -1,0 +1,71 @@
+{
+  "version": "0.10.0",
+  "mode": "source-only",
+  "platform": "linux",
+  "checks": [
+    {
+      "name": "Node.js",
+      "status": "pass",
+      "detail": "22.16.0; requires 22.12 or newer"
+    },
+    {
+      "name": "Package metadata",
+      "status": "pass",
+      "detail": "Private source package with a fixed desktop entry point"
+    },
+    {
+      "name": "Direct dependency pins",
+      "status": "pass",
+      "detail": "Exact versions required; latest/ranges are not accepted for this handoff"
+    },
+    {
+      "name": "desktop/main.mjs",
+      "status": "pass",
+      "detail": "Required source/build input"
+    },
+    {
+      "name": "desktop/preload.cjs",
+      "status": "pass",
+      "detail": "Required source/build input"
+    },
+    {
+      "name": "desktop/close-coordinator.mjs",
+      "status": "pass",
+      "detail": "Required source/build input"
+    },
+    {
+      "name": "src/renderer/app.ts",
+      "status": "pass",
+      "detail": "Required source/build input"
+    },
+    {
+      "name": "src/renderer/index.html",
+      "status": "pass",
+      "detail": "Required source/build input"
+    },
+    {
+      "name": "assets/icon.ico",
+      "status": "pass",
+      "detail": "Required source/build input"
+    },
+    {
+      "name": "tsconfig.json",
+      "status": "pass",
+      "detail": "Required source/build input"
+    }
+  ],
+  "ok": true,
+  "notChecked": [
+    "Windows DPAPI",
+    "native window lifecycle",
+    "live sign-in and inference",
+    "installer/signature",
+    "physical mobile devices",
+    "transitive dependency security audit"
+  ],
+  "notes": [
+    "Custom system prompt: optional and not required.",
+    "Python is optional for chat and visualization; no interpreter is started by doctor.",
+    "Native and live checks must still run even when all entries pass."
+  ]
+}

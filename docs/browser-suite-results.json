@@ -1,0 +1,57 @@
+[
+  {
+    "suite": "ui-smoke.py",
+    "exit_code": 0,
+    "elapsed_seconds": 8.83
+  },
+  {
+    "suite": "ui-artifacts.py",
+    "exit_code": 0,
+    "elapsed_seconds": 11.46
+  },
+  {
+    "suite": "ui-seamless.py",
+    "exit_code": 0,
+    "elapsed_seconds": 5.34
+  },
+  {
+    "suite": "ui-inline.py",
+    "exit_code": 0,
+    "elapsed_seconds": 9.17
+  },
+  {
+    "suite": "ui-editing.py",
+    "exit_code": 0,
+    "elapsed_seconds": 4.89
+  },
+  {
+    "suite": "ui-responsive.py",
+    "exit_code": 0,
+    "elapsed_seconds": 26.29
+  },
+  {
+    "suite": "ui-spacing.py",
+    "exit_code": 0,
+    "elapsed_seconds": 27.27
+  },
+  {
+    "suite": "ui-activity.py",
+    "exit_code": 0,
+    "elapsed_seconds": 7.51
+  },
+  {
+    "suite": "ui-account.py",
+    "exit_code": 0,
+    "elapsed_seconds": 11.08
+  },
+  {
+    "suite": "pdf-layout.py",
+    "exit_code": 0,
+    "elapsed_seconds": 2.48
+  },
+  {
+    "suite": "ui-handoff.py",
+    "exit_code": 0,
+    "elapsed_seconds": 13.48
+  }
+]

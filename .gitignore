@@ -1,0 +1,16 @@
+node_modules/
+dist/
+release/
+*.log
+.env
+.env.*
+!.env.example
+*.vault
+*.tmp
+*.key
+*.pfx
+*.p12
+coverage/
+test-results/
+.DS_Store
+preview/

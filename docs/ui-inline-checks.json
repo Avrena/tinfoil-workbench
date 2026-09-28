@@ -1,0 +1,28 @@
+{
+  "checks": 20,
+  "passed": [
+    "received reasoning shows a compact animated thinking indicator",
+    "thinking markup is retained across reasoning deltas instead of restarting",
+    "explanation, chart, interpretation, HTML, and final text are interleaved in the response",
+    "visualizations do not open the workspace or displace the composer by default",
+    "area-chart entrance animation preserves translucent fills instead of obscuring other series",
+    "thinking and streaming indicators stop on completion without leaving a fake progress state",
+    "appending answer text preserves original paragraphs, chart nodes, and series visibility",
+    "inline data filtering and numeric source values survive streaming updates",
+    "inline Preview, Data, and Source tabs have keyboard arrow navigation",
+    "each visualization can collapse independently without hiding its surrounding text",
+    "inline HTML opt-in controls retain their state across deltas and have no desktop bridge",
+    "new revisions share a single inline card and do not override the active version",
+    "explicit expansion opens the workspace while the inline HTML session remains intact",
+    "OS reduced-motion preference disables thinking and entry animations",
+    "application reading preferences can independently reduce motion",
+    "stopping preserves the inline artifact and partial text but ends all progress indicators",
+    "new text does not pull the reader away from the top of the conversation",
+    "adding a new turn preserves earlier inline HTML state rather than rebuilding the transcript",
+    "940px compact desktop width and narrower preview widths avoid page-wide horizontal overflow",
+    "inline tests produce no unhandled JavaScript errors or external requests"
+  ],
+  "javascript_errors": [],
+  "external_requests": [],
+  "scope": "production browser renderer with synthetic fixtures; not native Windows, PDF.js, or live provider"
+}

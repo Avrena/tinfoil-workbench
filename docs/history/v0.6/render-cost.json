@@ -1,0 +1,105 @@
+{
+  "current_version": "v0.6.0",
+  "baseline_sha256": "55a5b815bc78565d37223192c440c485024368ddb6c4460582f0d1a0b9eb7b13",
+  "scope": "Synthetic production-renderer fixture: 30 paced appends, five retained math/code sections and charts, collapsed reasoning; setup excluded. Not API latency, Windows, GPU power, or token billing. Times are instrumentation on a shared Linux Chromium host.",
+  "results": {
+    "baseline": {
+      "runs": [
+        {
+          "markdownCalls": 30,
+          "markdownCharacters": 4395,
+          "markdownMs": 2.6999999997206032,
+          "codeLexCalls": 0,
+          "templateCalls": 62,
+          "templateCharacters": 274474,
+          "templateMs": 43.60000000055879,
+          "mounts": 0
+        },
+        {
+          "markdownCalls": 30,
+          "markdownCharacters": 4395,
+          "markdownMs": 2.5999999993946403,
+          "codeLexCalls": 0,
+          "templateCalls": 62,
+          "templateCharacters": 274474,
+          "templateMs": 44.59999999962747,
+          "mounts": 0
+        },
+        {
+          "markdownCalls": 30,
+          "markdownCharacters": 4395,
+          "markdownMs": 3.0999999998603016,
+          "codeLexCalls": 0,
+          "templateCalls": 62,
+          "templateCharacters": 274474,
+          "templateMs": 40.39999999944121,
+          "mounts": 0
+        }
+      ],
+      "median": {
+        "markdownCalls": 30,
+        "markdownCharacters": 4395,
+        "markdownMs": 2.7,
+        "codeLexCalls": 0,
+        "templateCalls": 62,
+        "templateCharacters": 274474,
+        "templateMs": 43.6,
+        "mounts": 0
+      }
+    },
+    "v0.6.0": {
+      "runs": [
+        {
+          "markdownCalls": 30,
+          "markdownCharacters": 4395,
+          "markdownMs": 3.300000000046566,
+          "codeLexCalls": 0,
+          "templateCalls": 62,
+          "templateCharacters": 275176,
+          "templateMs": 41.69999999878928,
+          "mounts": 0
+        },
+        {
+          "markdownCalls": 30,
+          "markdownCharacters": 4395,
+          "markdownMs": 2.7999999998137355,
+          "codeLexCalls": 0,
+          "templateCalls": 62,
+          "templateCharacters": 275176,
+          "templateMs": 39.39999999967404,
+          "mounts": 0
+        },
+        {
+          "markdownCalls": 30,
+          "markdownCharacters": 4395,
+          "markdownMs": 2.200000000651926,
+          "codeLexCalls": 0,
+          "templateCalls": 62,
+          "templateCharacters": 275176,
+          "templateMs": 38.99999999906868,
+          "mounts": 0
+        }
+      ],
+      "median": {
+        "markdownCalls": 30,
+        "markdownCharacters": 4395,
+        "markdownMs": 2.8,
+        "codeLexCalls": 0,
+        "templateCalls": 62,
+        "templateCharacters": 275176,
+        "templateMs": 39.4,
+        "mounts": 0
+      }
+    }
+  },
+  "reductions_percent": {
+    "markdownCharacters": 0.0,
+    "templateCharacters": -0.26,
+    "markdownCalls": 0.0
+  },
+  "budget": {
+    "markdown_growth_max_percent": 10,
+    "template_growth_max_percent": 30,
+    "passed": true
+  }
+}

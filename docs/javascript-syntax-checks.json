@@ -1,0 +1,74 @@
+[
+  {
+    "file": "desktop/account-session.mjs",
+    "exit_code": 0
+  },
+  {
+    "file": "desktop/account-window.mjs",
+    "exit_code": 0
+  },
+  {
+    "file": "desktop/close-coordinator.mjs",
+    "exit_code": 0
+  },
+  {
+    "file": "desktop/main.mjs",
+    "exit_code": 0
+  },
+  {
+    "file": "desktop/model-catalog.mjs",
+    "exit_code": 0
+  },
+  {
+    "file": "desktop/pdf-renderer.mjs",
+    "exit_code": 0
+  },
+  {
+    "file": "desktop/preload.cjs",
+    "exit_code": 0
+  },
+  {
+    "file": "desktop/provider.mjs",
+    "exit_code": 0
+  },
+  {
+    "file": "desktop/python-runner.mjs",
+    "exit_code": 0
+  },
+  {
+    "file": "desktop/service.mjs",
+    "exit_code": 0
+  },
+  {
+    "file": "desktop/vault.mjs",
+    "exit_code": 0
+  },
+  {
+    "file": "desktop/visual-runtime.mjs",
+    "exit_code": 0
+  },
+  {
+    "file": "scripts/bootstrap.mjs",
+    "exit_code": 0
+  },
+  {
+    "file": "scripts/build-preview.mjs",
+    "exit_code": 0
+  },
+  {
+    "file": "scripts/build.mjs",
+    "exit_code": 0
+  },
+  {
+    "file": "scripts/doctor.mjs",
+    "exit_code": 0
+  },
+  {
+    "file": "scripts/preview-bridge.mjs",
+    "exit_code": 0
+  },
+  {
+    "file": "scripts/preview.mjs",
+    "exit_code": 0
+  }
+]

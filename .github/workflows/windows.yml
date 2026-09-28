@@ -1,0 +1,38 @@
+name: Windows client
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: windows-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  test-and-package:
+    runs-on: windows-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+      - name: Require reviewed dependency lockfile
+        shell: pwsh
+        run: |
+          if (!(Test-Path package-lock.json)) { throw 'Bootstrap dependencies and commit package-lock.json first.' }
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - run: npm ci
+      - run: npm run doctor
+      - run: npm test
+      - name: Native Windows, DPAPI and PDF print/view smoke test
+        run: npm run smoke:desktop
+      - name: Package Windows x64
+        run: npx --no-install electron-builder --win --x64 --publish never
+      - uses: actions/upload-artifact@v4
+        with:
+          name: Tinfoil-Workbench-Windows-x64
+          path: release/*.exe
+          if-no-files-found: error
+          retention-days: 14

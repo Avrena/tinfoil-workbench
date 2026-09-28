@@ -1,0 +1,29 @@
+{
+  "checks": 21,
+  "passed": [
+    "artifact workspace is hidden initially and available through keyboard navigation",
+    "visual artifacts render inline; expansion is explicit and tool details remain collapsed",
+    "chart series visibility survives streamed workspace snapshots",
+    "chart underlying data are searchable and sortable without executing model code",
+    "source and rendered output remain separate views of the same artifact",
+    "expanded artifact view can return to the same split conversation",
+    "typed table artifacts sort numerical values rather than lexical strings",
+    "diagram preview and directed-edge data are both available",
+    "HTML is static until explicit per-preview opt-in, after which inline controls actually run",
+    "interactive child has an opaque origin, no desktop bridge and no parent DOM or localStorage access",
+    "interactive state survives conversation snapshots and Stop interaction removes executable content",
+    "arrival of a revision preserves the reader\u2019s current version and exposes both source revisions",
+    "closing the panel is respected by later snapshots in the same turn",
+    "changing conversations clears the previous artifact selector without sharing artifacts across threads",
+    "DeepSeek V4 profile exposes only its Tinfoil high/max effort choices and provider default",
+    "Kimi K3 profile hides unsupported generation controls and model switching clears earlier effort overrides",
+    "pending advanced edits cannot silently change the quick effort control",
+    "offline fixtures do not pretend to save files or produce native PDFs",
+    "missing PDF.js fails visibly instead of claiming a rendered PDF (real library not tested here)",
+    "focus mode still leaves the composer visible after artifact use",
+    "visualization tests produced no unhandled JavaScript errors or external requests"
+  ],
+  "javascript_errors": [],
+  "external_requests": [],
+  "scope": "synthetic browser renderer; not live inference, Windows, native printing, or real PDF.js"
+}

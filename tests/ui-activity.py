@@ -1,0 +1,63 @@
+"""v0.8 production renderer: synthetic snapshots, never live requests or approvals."""
+import argparse,json
+from pathlib import Path
+from playwright.sync_api import sync_playwright,expect
+parser=argparse.ArgumentParser();parser.add_argument('--chromium',default='/usr/bin/chromium');args=parser.parse_args()
+root=Path(__file__).resolve().parents[1];html=(root/'preview/index.html').read_text();checks=[];errors=[];requests=[]
+marker='const pause = ms => new Promise(r => setTimeout(r, ms));'
+fixture=r'''
+window.__activitySeed=(mode='approval')=>{
+ const t=workspace.threads.find(t=>t.id===workspace.activeId);t.title='Tool activity · synthetic demonstration';
+ const base=(id,name,status)=>({id,callId:id,name,arguments:'{}',origin:'model',status,stdout:'',stderr:'',exitCode:null,elapsedMs:1500,artifacts:[],truncated:false});
+ const a=base('check','read_artifact','complete');a.arguments=JSON.stringify({artifact_id:'sample'});a.stdout='{"rows": 3}';
+ const d=base('delegate','delegate_task',mode==='approval'?'awaiting_approval':mode==='running'?'running':'complete');d.arguments=JSON.stringify({task:'Review only the three supplied values: 142, 180 and 218 seconds.'});d.delegate={task:'Review only the three supplied values: 142, 180 and 218 seconds.',model:'demo/writer',content:mode==='approval'?'':'The mean is **180 seconds**.\n\n$$\\bar{x}=180$$',reasoning:mode==='approval'?'':'Synthetic child reasoning: separate arithmetic from the decision.',phase:'answering',usage:{input:45,output:36}};
+ const third=base('third','python',mode==='complete'?'denied':'queued');third.arguments=JSON.stringify({code:'print(sum([142,180,218])/3)'});if(mode==='complete')third.stderr='The user declined this local run.';
+ const search=base('search','search','complete');Object.assign(search,{origin:'provider',arguments:'{"query":"sample documentation"}',provider:{itemId:'provider-fixture',round:0,family:'web_search',sources:[{url:'https://docs.tinfoil.sh',title:'Tinfoil documentation'}]},stdout:'Synthetic provider result, not a network response.'});
+ [a,d,third].forEach((x,i)=>Object.assign(x,{batchId:'batch-fixture',batchIndex:i,batchSize:3}));
+ const r={id:'activity-reply',model:'demo/writer',content:'These actions are shown as a single batch. Each action keeps its own result and approval.\n\nThis is a **synthetic fixture**, not a live provider request.',reasoning:'Main model reasoning fixture.',status:mode==='complete'?'complete':mode==='approval'?'awaiting_approval':'executing',phase:'answering',error:null,elapsedMs:2000,usage:{input:128,output:64},tools:[a,d,third,search]};
+ t.turns=[{id:'activity-turn',prompt:'Inspect the measurements with a second analysis, and show the actions.',createdAt:1,attachments:[],selectedReplyId:r.id,replies:[r]}];busy=mode==='complete'?null:t.id;emit();
+ window.__activityReply=()=>r;
+ window.__activityPatch=(id,patch)=>{Object.assign(r.tools.find(x=>x.id===id),patch);emit();};
+ window.__activityView=patch=>{workspace.view=require('/core/preferences.js').viewPreferences({...workspace.view,...patch});emit();};
+};
+window.__activityWorkspace=()=>structuredClone(workspace);
+'''
+assert marker in html;html=html.replace(marker,marker+fixture,1)
+with sync_playwright() as p:
+ browser=p.chromium.launch(executable_path=args.chromium,headless=True,args=['--no-sandbox'])
+ page=browser.new_page(viewport={'width':1440,'height':1000});page.on('pageerror',lambda e:errors.append(str(e)));page.on('request',lambda r:requests.append(r.url));page.set_content(html);page.wait_for_selector('#prompt');page.evaluate('window.__activitySeed()')
+ expect(page.locator('.batch-heading')).to_contain_text('Batch · 3 actions');expect(page.locator('.batch-heading')).to_contain_text('1 done');expect(page.locator('.batch-heading')).to_contain_text('1 queued');expect(page.locator('.batch-execution')).to_contain_text('Sequential execution');checks.append('same-round actions are grouped with honest queued, completed and approval counts')
+ expect(page.locator('[data-tool-id=delegate] .approval-warning')).to_contain_text('Additional inference usage');expect(page.locator('[data-tool-id=delegate] .approval-warning')).not_to_contain_text('Python');expect(page.locator('[data-tool-id=delegate] pre')).to_contain_text('142, 180 and 218');checks.append('approval shows the exact task, extra usage and context scope without a misleading Python warning')
+ assert page.locator('[data-action=approve-tool]').count()==1;assert page.locator('[data-action=deny-tool]').count()==1;assert page.locator('[data-action=approve-all]').count()==0;checks.append('only the active protected action is approvable; queued items do not gain approve-all controls')
+ page.evaluate("window.__activityView({reasoning:'hidden'})");expect(page.locator('.reasoning')).to_have_count(0);expect(page.locator('[data-action=approve-tool]')).to_be_visible();checks.append('hiding model reasoning never hides protected-action approval')
+ assert page.locator('[data-tool-id=third] [data-activity-body]').inner_html()=='';checks.append('closed queued detail islands do not build source or output content')
+ page.locator('[data-action=approve-tool]').click();expect(page.locator('#toast')).to_contain_text('Offline preview');expect(page.locator('[data-tool-id=delegate]')).to_have_attribute('data-state','awaiting_approval');checks.append('the offline preview refuses execution instead of simulating approval success')
+ page.evaluate("window.__activitySeed('running');window.__activityView({reasoning:'collapsed'})")
+ expect(page.locator('.response-activity')).to_contain_text('Sub-agent working');expect(page.locator('[data-action=cancel-delegate]')).to_be_visible();assert page.locator('[data-tool-id=delegate] [data-activity-body]').inner_html()=='';checks.append('running delegated work has its own stop action and lazy live-result disclosure')
+ page.locator('[data-tool-id=delegate] .activity-item-details > summary').click();expect(page.locator('.delegate-answer')).to_contain_text('180 seconds');assert page.locator('.delegate-answer strong').count()==1;assert page.locator('.delegate-answer math').count()==1;expect(page.locator('.delegate-usage')).to_contain_text('45 in · 36 out');checks.append('delegated answers render Markdown and mathematics with separately reported usage')
+ assert page.locator('[data-child-reasoning]').inner_html()=='';page.locator('.delegate-thinking > summary').click();expect(page.locator('[data-child-reasoning]')).to_contain_text('Synthetic child reasoning');checks.append('child reasoning is separate, explicitly provider-returned, and only rendered when requested')
+ page.evaluate("window.__activityReply().tools.find(t=>t.id==='delegate').delegate.content+=' Updated finding.';window.__activityPatch('delegate',{});")
+ expect(page.locator('.delegate-answer')).to_contain_text('Updated finding.');assert page.locator('[data-tool-id=delegate] .activity-item-details').get_attribute('open') is not None;assert page.locator('.delegate-thinking').get_attribute('open') is not None;checks.append('stream updates retain opened child answer and reasoning disclosures')
+ page.emulate_media(reduced_motion='reduce');assert page.locator('.activity-state.running').evaluate('e=>getComputedStyle(e).animationName')=='none';checks.append('running activity honors the system reduced-motion preference')
+ page.evaluate("window.__activitySeed('complete')");expect(page.locator('.batch-active')).to_have_count(0);group=page.locator('details.batch-activity');assert group.get_attribute('open') is None;expect(group.locator('> summary')).to_contain_text('2 done');expect(group.locator('> summary')).to_contain_text('1 declined');checks.append('completed batches collapse with accurate mixed-result counts')
+ group.locator('> summary').click();expect(group.locator('.batch-execution')).to_contain_text('3 matched tool results');page.locator('[data-tool-id=third] .activity-item-details > summary').click();expect(page.locator('[data-tool-id=third] .tool-stderr')).to_contain_text('declined');checks.append('every batch result remains inspectable, including denied actions')
+ history=page.locator('[data-key=tool-history]');history.locator('> summary').click();expect(page.locator('[data-tool-id=search] .tool-run-header')).to_contain_text('Tinfoil-managed MCP');expect(page.locator('.activity-origin')).to_contain_text('did not execute it locally');assert page.locator('[data-tool-id=search] [data-action=approve-tool]').count()==0;checks.append('provider MCP activity is labelled as an observation and cannot invoke local approval or execution')
+ page.locator('.activity-sources button').click();expect(page.locator('#toast')).to_contain_text('does not open external links');checks.append('provider sources use the guarded URL path, and the preview blocks external navigation')
+ page.evaluate("window.__activityPatch('third',{status:'error',stderr:'A failed action fixture.'})");expect(group.locator('> summary')).to_contain_text('1 failed');checks.append('failure updates preserve the batch disclosure and replace stale outcome counts')
+ page.evaluate("window.__activityView({reasoning:'hidden'})");assert page.locator('.delegate-thinking').count()==0;checks.append('global reasoning visibility also covers child reasoning without discarding the saved text')
+ page.keyboard.press('Control+n');page.locator('[data-action=inspector]').first.click();expect(page.locator('#web-search')).not_to_be_checked();expect(page.locator('#delegate-mode')).to_have_value('off');checks.append('new threads start with hosted search and delegated inference disabled')
+ page.locator('#web-search').check();page.locator('#delegate-mode').select_option('ask');stored=page.evaluate('window.__activityWorkspace().threads.find(t=>t.id===window.__activityWorkspace().activeId).settings');assert stored['webSearch'] is False and stored['delegateMode']=='off';page.locator('#apply-settings').click();stored=page.evaluate('window.__activityWorkspace().threads.find(t=>t.id===window.__activityWorkspace().activeId).settings');assert stored['webSearch'] is True and stored['delegateMode']=='ask';checks.append('tool permissions are saved only by an explicit Apply settings action')
+ page.close()
+ for width,height,touch in [(320,740,True),(390,844,True),(820,1180,True),(1280,900,False)]:
+  context=browser.new_context(viewport={'width':width,'height':height},has_touch=touch,is_mobile=touch,device_scale_factor=1);page=context.new_page();page.on('pageerror',lambda e:errors.append(str(e)));page.set_content(html);page.evaluate("window.__activitySeed('approval')");expect(page.locator('[data-action=approve-tool]')).to_be_visible();assert page.evaluate('document.documentElement.scrollWidth<=innerWidth+1');assert page.locator('.batch-activity').evaluate('e=>e.getBoundingClientRect().right<=innerWidth');checks.append(f'{width}px: batch and approval text fit without page-level horizontal overflow')
+  buttons=page.locator('.approval-actions button');boxes=[buttons.nth(i).bounding_box() for i in range(buttons.count())]
+  if width<=780:assert all(b['height']>=44 for b in boxes)
+  a,b=boxes;assert a['x']+a['width']<=b['x']+1 or b['x']+b['width']<=a['x']+1 or a['y']+a['height']<=b['y']+1 or b['y']+b['height']<=a['y']+1;checks.append(f'{width}px: approval actions remain distinct and touch controls meet the compact-layout target')
+  page.evaluate("window.__activitySeed('running')");item=page.locator('[data-tool-id=delegate] .activity-item-details > summary');(item.tap if touch else item.click)();expect(page.locator('.delegate-answer')).to_be_visible();assert page.evaluate('document.documentElement.scrollWidth<=innerWidth+1');checks.append(f'{width}px: live child disclosures open with real pointer or tap input and fit their column')
+  page.evaluate("window.__activitySeed('complete');window.__activityView({reasoning:'collapsed'})");page.locator('details.batch-activity > summary').click();page.locator('[data-tool-id=delegate] .activity-item-details > summary').click();page.locator('#transcript').evaluate('e=>e.scrollTop=0');page.wait_for_timeout(120)
+  if width in [390,820,1280]:page.screenshot(path=str(root/'docs'/f'activity-{width}.png'))
+  context.close()
+ assert not errors,errors;assert not [u for u in requests if u.startswith(('http:','https:'))],requests;checks.append('activity checks produced no unhandled JavaScript errors or external requests')
+ browser.close()
+report={'checks':len(checks),'passed':checks,'javascript_errors':errors,'scope':'Linux Chromium with synthetic snapshots; emulated touch; no live MCP, sub-agent, API billing or native approval execution.'}
+(root/'docs/ui-activity-checks.json').write_text(json.dumps(report,indent=2));print(json.dumps(report,indent=2))

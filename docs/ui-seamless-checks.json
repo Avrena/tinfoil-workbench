@@ -1,0 +1,23 @@
+{
+  "checks": 17,
+  "passed": [
+    "figures have transparent backgrounds and no enclosing border, shadow, or navy canvas",
+    "title and optional controls share one compact baseline instead of two card headers",
+    "initially collapsed reasoning is not Markdown-parsed or materialized",
+    "an answer delta parses only its changed text segment and does not remount charts",
+    "opening reasoning renders the latest text; closed updates do no parsing",
+    "series toggles reconcile the SVG and preserve unchanged series nodes",
+    "Preview, Data and Source reuse at most three retained views including filter and series state",
+    "active-view clicks and collapsing static figures do not rebuild their content",
+    "the composited HTML canvas matches the neutral transcript rather than turning white",
+    "HTML defaults to transparent and leaving an interactive preview actually terminates its frame",
+    "modal controls remain usable above lazy frames while transcript updates wait until dismissal",
+    "hidden-window transcript rendering is deferred and catches up to the latest snapshot on visibility",
+    "coalesced streaming preserves final and cancellation states without dropping text",
+    "a long reply defers initial mounts of figures outside the viewport preload margin",
+    "scrolling to a deferred visualization mounts it on demand without eagerly drawing the entire history",
+    "quiet inline controls remain keyboard accessible",
+    "neutral inline layout fits a narrow window without external requests or JavaScript errors"
+  ],
+  "errors": []
+}

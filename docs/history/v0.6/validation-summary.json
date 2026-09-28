@@ -1,0 +1,35 @@
+{
+  "version": "0.6.0",
+  "prepared_date": "2026-09-27",
+  "strict_typescript_build": "passed",
+  "node_tests": {
+    "passed": 180,
+    "failed": 0,
+    "skipped": 0
+  },
+  "browser_checks": {
+    "passed": 188,
+    "suites": {
+      "ui-checks.json": 22,
+      "ui-artifact-checks.json": 21,
+      "ui-inline-checks.json": 20,
+      "ui-seamless-checks.json": 17,
+      "ui-editing-checks.json": 19,
+      "ui-responsive-checks.json": 89
+    }
+  },
+  "browser_environment": "Chromium 144.0.7559.96 built on Debian GNU/Linux 13 (trixie)",
+  "responsive_scope": "Chromium Linux touch/viewport emulation only; keyboard height simulated; no physical phones, tablets, iOS Safari, Android Chrome, native mobile shell or live provider",
+  "render_benchmark": "Three runs/version against authentic v0.5 preview; unchanged Markdown work, template input +0.26%",
+  "known_issue": "Intermittent direct Reading-checkbox click miss on rapid native modal reopen during Chromium stress reruns. Final six-suite run passed; root cause not proven.",
+  "not_executed": [
+    "Native Windows Electron/DPAPI/PDF.js/installer",
+    "Live Tinfoil attestation/inference",
+    "Physical phone/tablet testing",
+    "iOS Safari or Android Chrome",
+    "Real on-screen keyboard",
+    "Native mobile application or PWA",
+    "GitHub create/push/remote CI",
+    "PDF layout rerun for v0.6"
+  ]
+}

@@ -1,0 +1,35 @@
+{
+  "version": "0.7.0",
+  "prepared_date": "2026-09-28",
+  "strict_typescript_build": "passed",
+  "node_tests": {
+    "passed": 185,
+    "failed": 0,
+    "skipped": 0
+  },
+  "browser_checks": {
+    "passed": 291,
+    "suites": {
+      "ui-checks.json": 22,
+      "ui-artifact-checks.json": 21,
+      "ui-inline-checks.json": 20,
+      "ui-seamless-checks.json": 17,
+      "ui-editing-checks.json": 19,
+      "ui-responsive-checks.json": 89,
+      "ui-spacing-checks.json": 103
+    }
+  },
+  "browser_environment": "Chromium 144.0.7559.96 built on Debian GNU/Linux 13 (trixie)",
+  "scope": "Linux Chromium + synthetic preview fixtures; viewport/touch/keyboard-height emulation only",
+  "render_benchmark": "Three runs/version against supplied 0.6 preview; unchanged Markdown/template character counts; zero measured-phase artifact remounts",
+  "known_issue": "An earlier smoke run missed a Run Python click after rapid focus/sidebar shortcuts. Instrumented and final unmodified reruns passed. The older rapid-modal checkbox hit-test issue remains unproven as fixed.",
+  "not_executed": [
+    "Native Windows Electron/DPAPI/PDF.js/installer",
+    "Live Tinfoil attestation/inference",
+    "Physical phone/tablet or real keyboard testing",
+    "iOS Safari or Android Chrome",
+    "Remote GitHub push/CI",
+    "New PDF print-layout integration run"
+  ],
+  "standalone_preview": "Direct file:// navigation blocked by the test browser administrator policy; no direct-file success claimed. Bundled HTML exercised via page.set_content in the seven UI suites."
+}
