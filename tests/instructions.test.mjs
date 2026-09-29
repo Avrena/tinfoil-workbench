@@ -21,6 +21,18 @@ test('starter instructions are valid, distinct and never selected by default', (
   assert.deepEqual(activeInstructions(newWorkspace().threads[0].settings, []), { kind: 'none' });
 });
 
+test('the Visual explainer starter names only the real visual tools and holds back when they are off', async () => {
+  const { VISUAL_TOOLS } = await import('../dist/core/visual-tools.js');
+  const visual = STARTER_INSTRUCTIONS.find(p => p.id === 'starter-visual'), offered = new Set(VISUAL_TOOLS.map(t => t.function.name));
+  const named = new Set([...visual.text.matchAll(/\b(render_[a-z_]+|create_artifact|update_artifact|read_artifact)\b/g)].map(m => m[1]));
+  for (const name of named) assert.ok(offered.has(name), `${name} is not a visual tool`);
+  for (const name of ['render_chart', 'render_stat_cards', 'render_timeline', 'render_table', 'render_diagram', 'create_artifact', 'update_artifact']) assert.ok(named.has(name), name);
+  assert.match(visual.text, /^Show, don't just tell\. When visual tools are available,/);
+  assert.equal(STARTER_INSTRUCTIONS[0].id, 'starter-concise', 'the first starter stays Concise');
+  // It follows the fixed tool guide in the system message, which keeps its prefix-cacheable position.
+  assert.ok(visual.text.length < 1600, `${visual.text.length} characters`);
+});
+
 test('settings migrate without a name and never keep a name for blank instructions', () => {
   const { systemPromptName, ...old } = defaults;
   assert.equal(settings(old).systemPromptName, '');
