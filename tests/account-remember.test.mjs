@@ -85,12 +85,12 @@ test('a page that never becomes ready restores nothing, so the saved sign-in can
   await w.clear(); assert.ok(e.windows[0].scripts.some(s => s.includes('session.end')), 'signing out still ends the session');
 });
 
-function fixture({ saved = record(), restored = () => raw(), fetcher = async () => tokenResponse() } = {}) {
+function fixture({ saved = record(), restored = () => raw(), fetcher = async () => tokenResponse(), timing = {} } = {}) {
   let stored = saved ? savedAccount(saved) : null, clock = T0; const writes = [], clears = [], restores = [];
   const store = { read: async () => stored, write: async r => { writes.push(r); stored = savedAccount(r); }, clear: async () => { stored = null; clears.push(clock); } };
   const adapter = { login: async () => raw(), readSession: async () => raw(), identity: async () => ({ sessionUserId: 'user_test', sessionId: 'sess_test' }), manage: async () => {},
     restore: async s => { restores.push(s); return restored(); }, cookies: async () => [storableCookie(cookie('__client', 'clerk.tinfoil.sh'))], clear: async (options = {}) => { clears.push(options.end === false ? 'page-kept' : 'page-ended'); } };
-  const account = new AccountSession(adapter, () => {}, { store, now: () => clock, fetcher, timing: { ...TIMING, persistDelay: 5 } });
+  const account = new AccountSession(adapter, () => {}, { store, now: () => clock, fetcher, timing: { ...TIMING, persistDelay: 5, ...timing } });
   return { account, store, writes, clears, restores, get stored() { return stored; }, tick: ms => { clock += ms; } };
 }
 
@@ -141,6 +141,58 @@ test('offline at launch keeps the saved sign-in and retries it when Chat access 
   assert.equal(f.account.snapshot().status, 'signed-in'); assert.equal(f.restores.length, 2);
   // Quitting while a restore is still pending keeps the saved sign-in too.
   const g = fixture({ restored: () => null }); await g.account.restore(); await g.account.shutdown(); assert.ok(g.stored); assert.deepEqual(g.clears, ['page-kept']);
+});
+
+const sleep = ms => new Promise(r => setTimeout(r, ms));
+const until = async (ready, ms = 3000) => { const end = Date.now() + ms; while (!ready()) { if (Date.now() > end) assert.fail('timed out'); await sleep(5); } };
+
+test('a saved sign-in that could not reach Tinfoil is tried again on a timer until it is restored', async () => {
+  let online = false; const f = fixture({ restored: () => online ? raw() : null, timing: { restoreRetry: [20, 40] } }), statuses = [];
+  f.account.onChange = s => statuses.push(s.status);
+  assert.equal(await f.account.restore(), false);
+  assert.match(f.account.snapshot().message, /tries again automatically/); assert.ok(f.account.retryTimer);
+  await until(() => f.restores.length === 2); assert.equal(f.account.snapshot().status, 'expired'); assert.ok(f.stored);
+  online = true;
+  await until(() => f.account.snapshot().status === 'signed-in');
+  assert.equal(f.restores.length, 3); assert.equal(f.account.retryTimer, null);
+  assert.ok(statuses.includes('restoring') && statuses.at(-1) === 'signed-in');
+  await sleep(100); assert.equal(f.restores.length, 3, 'no retry after it was restored');
+  // Signing out, turning the option off, or quitting stops the retries.
+  for (const stop of [a => a.signOut(), a => a.setRemember(false), a => a.shutdown()]) {
+    const g = fixture({ restored: () => null, timing: { restoreRetry: [20] } });
+    await g.account.restore(); await stop(g.account); await sleep(60);
+    assert.equal(g.restores.length, 1); assert.equal(g.account.retryTimer, null);
+  }
+  // A saved sign-in that has ended when a retry reaches Tinfoil is deleted, and the retries stop.
+  let ended = false; const h = fixture({ restored: () => ended ? { signedOut: true } : null, timing: { restoreRetry: [20] } });
+  await h.account.restore(); ended = true;
+  await until(() => h.account.snapshot().status === 'signed-out');
+  assert.equal(h.stored, null); assert.equal(h.account.retryTimer, null);
+});
+
+test('Reconnect tries the saved sign-in again before a new sign-in', async () => {
+  let reach = 'offline'; const results = { offline: () => null, online: () => raw(), ended: () => ({ signedOut: true }) };
+  const f = fixture({ restored: () => results[reach](), timing: { restoreRetry: [60_000] } });
+  await f.account.restore();
+  // Still offline: the saved sign-in is kept, and the message says so.
+  await assert.rejects(f.account.reconnect(), /still cannot reach Tinfoil.*kept/); assert.ok(f.stored); assert.equal(f.account.snapshot().status, 'expired');
+  reach = 'online';
+  assert.equal(await f.account.reconnect(), true); assert.equal(f.account.snapshot().status, 'signed-in'); assert.equal(f.restores.length, 3);
+  assert.deepEqual(f.clears, [], 'no session was ended and nothing was deleted');
+  // Ended: the saved sign-in is deleted and the caller goes on to a new sign-in.
+  const g = fixture({ restored: () => results[reach](), timing: { restoreRetry: [60_000] } }); reach = 'offline'; await g.account.restore(); reach = 'ended';
+  assert.equal(await g.account.reconnect(), false); assert.equal(g.stored, null); assert.equal(g.account.snapshot().status, 'signed-out');
+  // Nothing pending: Reconnect leaves it to a new sign-in.
+  const h = fixture({ saved: null }); assert.equal(await h.account.reconnect(), false); assert.equal(h.restores.length, 0);
+  await Promise.all([f, g].map(x => x.account.shutdown()));
+});
+
+test('waking from sleep retries a pending saved sign-in at the first delay', async () => {
+  const f = fixture({ restored: () => null, timing: { restoreRetry: [20, 60_000] } });
+  await f.account.restore(); await until(() => f.restores.length === 2 && f.account.retries === 2);
+  f.account.resume(); assert.equal(f.account.retries, 1, 'the backoff starts over');
+  await until(() => f.restores.length === 3);
+  await f.account.shutdown();
 });
 
 test('turning staying signed in off deletes the saved session, and quitting then signs out', async () => {

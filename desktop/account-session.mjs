@@ -12,6 +12,9 @@ export const TIMING = Object.freeze({
   refreshSpacing: 30_000,   // between explicit refreshes during a cooldown
   timeout: 15_000, maxBytes: 65_536,
   persistDelay: 2_000,       // a remembered session is saved this long after its cookies last changed (Clerk rotates them)
+  // A saved sign-in that could not reach Tinfoil at launch is tried again after these delays, then at the last one until
+  // it is restored or ends: after a power cut or a cold start, the network or a proxy often comes up after the app.
+  restoreRetry: Object.freeze([15_000, 30_000, 60_000, 120_000]),
 });
 // An HTTP-date is always GMT. Retry-After is either an HTTP-date or a delay in seconds.
 const httpDate = value => { if (typeof value !== 'string' || value.length > 40 || !/ GMT$/.test(value)) return null; const t = Date.parse(value); return Number.isFinite(t) ? t : null; };
@@ -29,13 +32,13 @@ export class AccountSession {
     this.adapter=adapter;this.onChange=onChange;this.fetcher=fetcher;this.now=now;this.timing=timing;
     this.state=signedOutAccount();this.binding=null;this.key=null;this.keyDeadline=0;this.cooldownUntil=0;this.lastAttempt=0;
     this.epoch=0;this.flight=null;this.abort=null;this.clearing=null;
-    this.store=store;this.remembering=!!store;this.restorePending=null;this.persistTimer=null;
+    this.store=store;this.remembering=!!store;this.restorePending=null;this.persistTimer=null;this.retryTimer=null;this.retries=0;
   }
   snapshot(){return structuredClone(this.state);}
   emit(){this.onChange(this.snapshot());}
   forget(){this.key=null;this.keyDeadline=0;}
   invalidate(message='Your Tinfoil session expired. Sign in again.'){
-    this.epoch++;this.abort?.abort();this.forget();this.binding=null;this.flight=null;this.restorePending=null;void this.store?.clear().catch(()=>{});
+    this.epoch++;this.abort?.abort();this.forget();this.binding=null;this.flight=null;this.restorePending=null;this.cancelRestore();void this.store?.clear().catch(()=>{});
     this.state={...this.state,status:'expired',entitlement:'unknown',usage:null,tokenExpiresAt:null,message};this.emit();
   }
   /** Accepts a website session read. Sign-in binds its user and Clerk session; every later read must match both. */
@@ -176,11 +179,15 @@ export class AccountSession {
     this.state={...this.state,message:`The sign-in page tried to open ${site}, which Workbench does not open in its sign-in window. Try another sign-in method.`};this.emit();
   }
   /** After system sleep: drop a key that has expired or is about to, without a network request. */
-  resume(){if(this.key&&this.keyDeadline-this.now()<=this.timing.refreshMargin){this.forget();this.state={...this.state,tokenExpiresAt:null};this.emit();}}
+  resume(){
+    if(this.key&&this.keyDeadline-this.now()<=this.timing.refreshMargin){this.forget();this.state={...this.state,tokenExpiresAt:null};this.emit();}
+    // After sleep the network is usually back: a pending saved sign-in is tried again at the first delay.
+    if(this.restorePending&&this.state.status==='expired'){this.retries=0;this.scheduleRestore();}
+  }
   async manage(){if(this.state.status!=='signed-in'||!this.binding)throw new InputError('Sign in before managing your profile.');await this.adapter.manage(this.binding);}
   async signOut(){
     if(this.clearing)return this.clearing;
-    this.epoch++;this.abort?.abort();this.forget();this.binding=null;this.cooldownUntil=0;this.flight=null;this.restorePending=null;this.cancelPersist();this.state=signedOutAccount();this.emit();
+    this.epoch++;this.abort?.abort();this.forget();this.binding=null;this.cooldownUntil=0;this.flight=null;this.restorePending=null;this.cancelPersist();this.cancelRestore();this.state=signedOutAccount();this.emit();
     // Signing out ends the Clerk session and deletes a saved one; one failing does not keep the other from happening.
     const cleanup=Promise.allSettled([Promise.resolve().then(()=>this.adapter.clear()),this.store?.clear()]).then(([page])=>{if(page.status==='rejected')throw page.reason;});this.clearing=cleanup;
     try{await cleanup;}finally{if(this.clearing===cleanup)this.clearing=null;}
@@ -188,7 +195,7 @@ export class AccountSession {
   /** Staying signed in on this device. Turning it off deletes the saved session; turning it on saves the current one. */
   async setRemember(enabled){
     this.remembering=!!enabled&&!!this.store;if(!this.store)return;
-    if(!this.remembering){this.restorePending=null;this.cancelPersist();await this.store.clear();return;}
+    if(!this.remembering){this.restorePending=null;this.cancelPersist();this.cancelRestore();await this.store.clear();return;}
     if(this.state.status==='signed-in')await this.persist();
   }
   /** The page's Tinfoil cookies changed. Clerk rotates its client cookie, so a saved copy is refreshed shortly after,
@@ -209,7 +216,7 @@ export class AccountSession {
   }
   /** At launch: restores a saved sign-in without showing Tinfoil's page. The session read must belong to the saved user
    * and Clerk session; an ended or changed one deletes the saved sign-in. If Tinfoil cannot be reached, it is kept and
-   * tried again when Chat access is next needed. */
+   * tried again: on a timer (TIMING.restoreRetry), after sleep, on Reconnect and when Chat access is next needed. */
   async restore(){
     if(!this.store||!this.remembering||!['signed-out','expired'].includes(this.state.status))return false;
     if(this.clearing)await this.clearing;
@@ -218,23 +225,41 @@ export class AccountSession {
     this.state={...signedOutAccount(),status:'restoring',profile:normalizeProfile(saved.profile)};this.emit();
     let raw;try{raw=await this.adapter.restore(saved);}catch{raw=null;}
     if(epoch!==this.epoch)return false;
-    if(!raw){this.restorePending=saved;this.state={...this.state,status:'expired',message:'Workbench could not reach Tinfoil to restore your sign-in. It tries again when you next use your account.'};this.emit();return false;}
-    this.restorePending=null;
+    if(!raw){this.restorePending=saved;this.state={...this.state,status:'expired',message:'Workbench could not reach Tinfoil to restore your sign-in. Your saved sign-in is kept, and Workbench tries again automatically.'};this.emit();this.scheduleRestore();return false;}
+    this.restorePending=null;this.cancelRestore();
     if(raw.signedOut||raw.changed||raw.sessionUserId!==saved.binding.user||raw.sessionId!==saved.binding.session){await this.discard('Your saved Tinfoil sign-in has ended. Sign in again.');return false;}
     try{this.accept(raw);}catch{await this.discard('Your saved Tinfoil sign-in could not be used. Sign in again.');return false;}
     this.emit();
     try{await this.getCredential(true);}catch{}
     await this.persist();return this.state.status==='signed-in';
   }
+  scheduleRestore(){
+    if(!this.store||!this.remembering||!this.restorePending)return;
+    const delays=this.timing.restoreRetry??TIMING.restoreRetry,delay=delays[Math.min(this.retries,delays.length-1)];this.retries++;
+    clearTimeout(this.retryTimer);
+    this.retryTimer=setTimeout(()=>{this.retryTimer=null;if(this.restorePending&&this.state.status==='expired')void this.restore().catch(()=>{});},delay);
+    this.retryTimer.unref?.();
+  }
+  cancelRestore(){clearTimeout(this.retryTimer);this.retryTimer=null;this.retries=0;}
+  /** Reconnect in the Account view. A saved sign-in that could not reach Tinfoil is tried again first, so a slow network
+   * at launch never costs the saved sign-in: true when it is restored, false when there is none or it has ended (then a
+   * new sign-in follows). While Tinfoil is still unreachable it stays saved and this reports that. */
+  async reconnect(){
+    if(!this.restorePending||this.state.status!=='expired')return false;
+    this.cancelRestore();
+    if(await this.restore())return true;
+    if(this.restorePending&&this.state.status==='expired')throw new InputError('Workbench still cannot reach Tinfoil. Your saved sign-in is kept and tried again automatically; check your connection.');
+    return this.state.status==='signed-in';
+  }
   /** Drops a saved sign-in that can no longer be used, and its page, without ending a session this app does not hold. */
   async discard(message){
-    this.epoch++;this.forget();this.binding=null;this.restorePending=null;this.cancelPersist();this.state={...signedOutAccount(),message};this.emit();
+    this.epoch++;this.forget();this.binding=null;this.restorePending=null;this.cancelPersist();this.cancelRestore();this.state={...signedOutAccount(),message};this.emit();
     await Promise.allSettled([this.store?.clear(),Promise.resolve().then(()=>this.adapter.clear({end:false}))]);
   }
   /** Quitting keeps a saved sign-in and the Clerk session it belongs to; otherwise it signs out as before. */
   async shutdown(){
     const keep=this.store&&this.remembering&&(['signed-in','restoring'].includes(this.state.status)||this.restorePending);
-    this.cancelPersist();if(!keep)return this.signOut();
+    this.cancelPersist();this.cancelRestore();if(!keep)return this.signOut();
     if(this.state.status==='signed-in')await this.persist();
     this.epoch++;this.abort?.abort();this.forget();this.flight=null;
     await this.adapter.clear({end:false});

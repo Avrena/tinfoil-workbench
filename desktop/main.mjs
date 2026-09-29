@@ -182,6 +182,8 @@ async function command(input) {
       if(accountFlow)throw new InputError('Sign-in is already open.');
       if(account.snapshot().status==='signed-in')throw new InputError('Sign out before connecting another account.');
       if(account.snapshot().status==='restoring')throw new InputError('Workbench is restoring your saved sign-in. Wait a moment.');
+      // Reconnect tries a saved sign-in that could not reach Tinfoil first; only an ended one needs a new sign-in.
+      if(account.snapshot().status==='expired'&&await account.reconnect())break;
       const flow=(async()=>{
         if(['expired','error'].includes(account.snapshot().status))await account.signOut();
         await service.execute({type:'connection.mode',mode:'chat-account'});
