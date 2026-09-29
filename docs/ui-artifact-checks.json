@@ -1,5 +1,5 @@
 {
-  "checks": 21,
+  "checks": 22,
   "passed": [
     "artifact workspace is hidden initially and available through keyboard navigation",
     "visual artifacts render inline; expansion is explicit and tool details remain collapsed",
@@ -20,6 +20,7 @@
     "pending advanced edits cannot silently change the quick effort control",
     "offline fixtures do not pretend to save files or produce native PDFs",
     "missing PDF.js fails visibly instead of claiming a rendered PDF (real library not tested here)",
+    "a browser engine older than PDF.js supports is named instead of reported as a missing PDF.js",
     "focus mode still leaves the composer visible after artifact use",
     "visualization tests produced no unhandled JavaScript errors or external requests"
   ],

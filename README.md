@@ -88,7 +88,7 @@ Tool batches execute sequentially with per-action approvals. Tinfoil-managed MCP
 
 Conversations are stored only on the device, in an encrypted workspace:
 
-- **Windows:** the key is protected for the Windows user, so copying `workspace.vault` alone is not a portable backup.
+- **Windows:** the key is protected for the Windows user, so copying `workspace.vault` alone is not a portable backup. Uninstalling keeps the workspace in `%APPDATA%\Tinfoil Workbench`; delete that folder to remove it.
 - **Android:** the key never leaves the device's Keystore, and Android backup and device transfer are disabled for the app. Uninstalling the app deletes its conversations.
 
 Use **Export** for plaintext copies, and store exports privately. Back up before upgrading, and avoid opening an updated workspace in an older build.
@@ -103,6 +103,8 @@ Keyboard shortcuts on Windows: Ctrl+N new thread; Ctrl+K commands; Ctrl+F conver
 - **Tinfoil cloud chats (Windows):** Workbench lists your 300 most recent cloud chats and does not download their images, so when you continue a chat the model does not see earlier images. Of Tinfoil Chat's widgets, charts, timelines and stat cards are drawn; the others are listed as not displayed. Visuals made in Workbench are not written back, so Tinfoil Chat shows those answers as text. Cloud projects are managed in Tinfoil Chat.
 - **Sign-in methods:** Chat sign-in has been checked on Windows and Android. Additional sign-in methods have not been tried.
 - **Python** (Windows) runs with your user account's permissions. It is not a sandbox.
+- **Android, replies in progress:** leaving the app while a reply is being written interrupts it, because Android pauses the app, and Workbench then says that Tinfoil could not be reached. Ask again with Retry.
+- **Models:** a model can fail to follow the tool guide. GLM-5.3 Flash has written a chart call into its answer as text instead of making the call, and Workbench then shows that text; Kimi K3 and GLM-5.3 made the calls in earlier tests with the same guide.
 
 ## Verification
 
