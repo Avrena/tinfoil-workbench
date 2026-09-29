@@ -1,6 +1,6 @@
 import { randomUUID } from 'node:crypto';
 import { InputError, text, identifier, validateArtifact } from '../dist/core/validation.js';
-import { visualArguments, chartSpec, chartSVG, tableSpec, tableHTML, diagramSpec, diagramSVG, timelineSpec, timelineHTML, statsSpec, statsHTML, artifactSource, artifactFileName, RENDER_KINDS } from '../dist/core/visual-tools.js';
+import { visualArguments, structuredVisual, artifactSource, artifactFileName, RENDER_KINDS } from '../dist/core/visual-tools.js';
 
 /** Pure artifact production except for an injected, script-free PDF renderer.
  * No model-selected filesystem paths, network destinations or code execution. */
@@ -30,12 +30,7 @@ export async function executeVisual(name, raw, { artifacts = [], pdfRenderer = n
   let data,mime,ext;
   if(Object.values(RENDER_KINDS).includes(kind)) {
     let spec;try{spec=JSON.parse(source);}catch{throw new InputError('This artifact requires a JSON specification.');}
-    spec={...spec,title,description};
-    if(kind==='chart'){spec=chartSpec(spec);data=chartSVG(spec);mime='image/svg+xml';ext='svg';}
-    else if(kind==='diagram'){spec=diagramSpec(spec);data=diagramSVG(spec);mime='image/svg+xml';ext='svg';}
-    else if(kind==='timeline'){spec=timelineSpec(spec);data=timelineHTML(spec);mime='text/html';ext='html';}
-    else if(kind==='stats'){spec=statsSpec(spec);data=statsHTML(spec);mime='text/html';ext='html';}
-    else{spec=tableSpec(spec);data=tableHTML(spec);mime='text/html';ext='html';}
+    ({spec,data,mime,ext}=structuredVisual(kind,{...spec,title,description}));
     source=JSON.stringify(spec);
   } else if(kind==='pdf') {
     if(!pdfRenderer)throw new InputError('PDF creation requires the desktop PDF renderer. No file was created.');

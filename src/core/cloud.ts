@@ -1,14 +1,18 @@
 /** Tinfoil cloud chats and projects: the parts that need no network or cryptography. The formats follow Tinfoil's
  * own client (docs/CLOUD.md). Remote plaintext is untrusted input; everything taken from it is length-limited. */
-import type { Attachment, Project, Reply, Thread, Turn } from './types.js';
-import { LIMITS } from './validation.js';
+import type { Attachment, Project, Reply, Thread, ToolRun, Turn } from './types.js';
+import { InputError, LIMITS, validateArtifact } from './validation.js';
 import { defaults, uid } from './workspace.js';
 import { escapePromptContent } from './prompt.js';
+import { RENDER_KINDS, artifactFileName, structuredVisual, visualArguments } from './visual-tools.js';
 
 /** A conversation that is also a Tinfoil cloud chat. `turns` is how many turns came from the cloud at the last sync:
  * later turns are Workbench's own until they are written back. `loaded` is false for a listed chat whose messages
- * have not been fetched yet. */
-export interface CloudChatLink { id: string; etag: string; project: string | null; turns: number; loaded: boolean; dirty: boolean; syncedAt: number }
+ * have not been fetched yet. `format` is the CLOUD_FORMAT its messages were read with; absent before 2. */
+export interface CloudChatLink { id: string; etag: string; project: string | null; turns: number; loaded: boolean; dirty: boolean; syncedAt: number; format?: number }
+/** How much of a cloud chat's messages Workbench reads: 2 added Tinfoil Chat's widgets. A loaded chat read with an
+ * older format is read again at the next sync. */
+export const CLOUD_FORMAT = 2;
 export interface CloudDocument { id: string; etag: string; name: string; type: string; content: string }
 export interface CloudProjectLink { id: string; etag: string; description: string; instructions: string; color: string; documents: CloudDocument[]; syncedAt: number }
 
@@ -67,6 +71,69 @@ function cloudAttachments(message: Json | null): Attachment[] {
   return files;
 }
 
+/** UTF-8 text as base64 without Node's Buffer, since this module also runs in the renderer. */
+function base64(text: string): string {
+  const bytes = new TextEncoder().encode(text); let binary = '';
+  for (let i = 0; i < bytes.length; i += 0x8000) binary += String.fromCharCode(...bytes.subarray(i, i + 0x8000));
+  return btoa(binary);
+}
+/** Tinfoil Chat widgets that Workbench does not display: they load remote content or need Tinfoil's services. */
+const OTHER_WIDGETS: Record<string, string> = { render_image: 'an image', render_link_preview: 'a link preview', render_map: 'a map', render_clock: 'a clock',
+  render_recipe_card: 'a recipe card', render_message_compose: 'a message draft', render_sports_data: 'sports scores', render_artifact_preview: 'an artifact preview' };
+const DEFAULT_TITLES: Record<string, string> = { render_chart: 'Chart', render_timeline: 'Timeline', render_stat_cards: 'Key figures', render_table: 'Table', render_diagram: 'Diagram' };
+/** Tinfoil Chat's widgets also accept a nested list sent as JSON text. */
+const list = (v: unknown): unknown[] => {
+  if (Array.isArray(v)) return v;
+  if (typeof v === 'string') try { const parsed: unknown = JSON.parse(v); if (Array.isArray(parsed)) return parsed; } catch { /* not a list */ }
+  return [];
+};
+const numeric = (v: unknown): number | null => { const n = typeof v === 'number' ? v : typeof v === 'string' && v.trim() ? Number(v) : NaN; return Number.isFinite(n) ? n : null; };
+/** A widget's arguments in the shape of Workbench's tool of the same name. Tinfoil Chat's chart is one series of rows,
+ * named by `xKey` and `yKey` or else by the first text field and the first numeric one; its pie becomes bars outside
+ * the two to six parts Workbench draws as a pie. Timelines and stat cards already share Workbench's shape. */
+function widgetArguments(name: string, args: Json): Json {
+  const title = typeof args.title === 'string' && args.title.trim() ? args.title : DEFAULT_TITLES[name];
+  if (name !== 'render_chart') return { ...args, title, ...(name === 'render_timeline' ? { events: list(args.events) } : name === 'render_stat_cards' ? { stats: list(args.stats) } : {}) };
+  const rows = list(args.data).map(obj).filter((r): r is Json => r !== null), first = rows[0] ?? {}, keys = Object.keys(first);
+  const x = typeof args.xKey === 'string' && keys.includes(args.xKey) ? args.xKey : keys.find(k => typeof first[k] === 'string') ?? keys[0] ?? '';
+  const y = typeof args.yKey === 'string' && keys.includes(args.yKey) && args.yKey !== x ? args.yKey : keys.find(k => k !== x && numeric(first[k]) !== null) ?? '';
+  const labels = rows.map(r => String(r[x] ?? '')), type = ['bar', 'line', 'pie'].includes(String(args.type)) ? String(args.type) : 'bar';
+  return { title, type: type === 'pie' && (labels.length < 2 || labels.length > 6) ? 'bar' : type, labels, series: [{ name: y || 'Value', values: rows.map(r => numeric(r[y])) }] };
+}
+function widgetRun(callId: string, name: string, args: string, at: number): ToolRun {
+  const run: ToolRun = { id: uid(), callId: callId || uid(), name: plainName(name, 80) || 'widget', arguments: args, origin: 'model', status: 'complete',
+    stdout: '', stderr: '', exitCode: null, elapsedMs: 0, artifacts: [], truncated: false, contentOffset: at };
+  const kind = Object.hasOwn(RENDER_KINDS, name) ? RENDER_KINDS[name]! : null;
+  if (!kind) { run.stdout = `Tinfoil Chat showed ${OTHER_WIDGETS[name] ?? 'a widget'} here, which Workbench does not display.`; return run; }
+  try {
+    const { spec, data, mime, ext } = structuredVisual(kind, widgetArguments(name, visualArguments(args)));
+    const { title, description } = spec as { title: string; description: string }, id = uid();
+    run.artifacts = [validateArtifact({ id, title, name: artifactFileName(title, ext), mime, kind, source: JSON.stringify(spec), description, data: base64(data), version: 1, rootId: id })];
+  } catch (error) {
+    run.status = 'error';
+    run.stderr = `This ${DEFAULT_TITLES[name]!.toLowerCase()} from Tinfoil Chat could not be drawn: ${error instanceof InputError ? error.message : 'its arguments are invalid.'}`;
+  }
+  return run;
+}
+/** The widgets of a Tinfoil Chat answer as tool runs, each where Tinfoil Chat shows it. The answer's `timeline` holds
+ * its text and widget calls in order, and its `content` is that text joined; if the two disagree, or only the
+ * `toolCalls` list is there, the widgets follow the text. Charts, timelines and stat cards are drawn by Workbench's
+ * own renderers from validated arguments; other widgets are listed and not shown. Nothing is fetched or run. */
+export function cloudWidgets(message: Json | null, content: string): ToolRun[] {
+  const calls: { id: string; name: string; args: string; at: number }[] = [];
+  let text = '';
+  for (const item of Array.isArray(message?.timeline) ? message!.timeline as unknown[] : []) {
+    const block = obj(item);
+    if (block?.type === 'content' && typeof block.content === 'string') text += block.content;
+    else if (block?.type === 'tool_call' && typeof block.name === 'string') calls.push({ id: str(block.toolCallId, 200), name: block.name, args: str(block.arguments, 120000), at: text.length });
+  }
+  if (!calls.length && Array.isArray(message?.toolCalls)) for (const item of message!.toolCalls as unknown[]) {
+    const call = obj(item);
+    if (typeof call?.name === 'string') calls.push({ id: str(call.id, 200), name: call.name, args: str(call.arguments, 120000), at: content.length });
+  }
+  return calls.slice(0, 32).map(c => widgetRun(c.id, c.name, c.args, text === content ? c.at : content.length));
+}
+
 /** Maps a cloud chat's plaintext onto a conversation. `existing` keeps the local conversation's identity and
  * settings; replies get fresh IDs because Tinfoil's messages have none. */
 export function threadFromCloud(plain: Json, link: Omit<CloudChatLink, 'turns' | 'loaded' | 'dirty' | 'syncedAt'>, projectId: string | null, now: number, existing?: Thread, loaded = true): Thread {
@@ -75,14 +142,16 @@ export function threadFromCloud(plain: Json, link: Omit<CloudChatLink, 'turns' |
   const model = str(plain.model, 200);
   const turns: Turn[] = loaded ? groupMessages(messages).slice(0, LIMITS.turns).map(g => {
     const user = g.user === null ? null : obj(messages[g.user]), answer = g.assistant === null ? null : obj(messages[g.assistant]);
-    const replies: Reply[] = [{ id: uid(), model: str(answer?.modelDisplayName, 200) || model || 'Tinfoil Chat', content: str(answer?.content, LIMITS.response),
+    const content = str(answer?.content, LIMITS.response), tools = cloudWidgets(answer, content);
+    const replies: Reply[] = [{ id: uid(), model: str(answer?.modelDisplayName, 200) || model || 'Tinfoil Chat', content, ...(tools.length ? { tools } : {}),
       reasoning: str(answer?.thoughts, LIMITS.response), status: answer ? (answer.isError === true ? 'error' : 'complete') : 'interrupted',
       finishReason: null, error: answer?.isError === true ? 'The reply failed in Tinfoil Chat.' : answer ? null : 'No reply was saved in Tinfoil Chat.', usage: null, elapsedMs: 0 }];
     return { id: uid(), prompt: str(user?.content, LIMITS.prompt), attachments: cloudAttachments(user), createdAt: time(user?.timestamp, created), replies, selectedReplyId: replies[0]!.id };
   }) : [];
   const base = existing ?? { id: uid(), pinned: false, draft: '', draftAttachments: [], settings: { ...defaults, model } };
   return { ...base, title: cloudTitle(plain.title), createdAt: created, updatedAt: updated, turns: loaded ? turns : existing?.turns ?? [],
-    projectId, cloud: { ...link, turns: loaded ? turns.length : existing?.cloud?.turns ?? 0, loaded: loaded || !!existing?.cloud?.loaded, dirty: false, syncedAt: now } } as Thread;
+    projectId, cloud: { ...link, turns: loaded ? turns.length : existing?.cloud?.turns ?? 0, loaded: loaded || !!existing?.cloud?.loaded, dirty: false, syncedAt: now,
+      ...(loaded ? { format: CLOUD_FORMAT } : existing?.cloud?.format ? { format: existing.cloud.format } : {}) } } as Thread;
 }
 
 const selected = (turn: Turn): Reply | undefined => turn.replies.find(r => r.id === turn.selectedReplyId);

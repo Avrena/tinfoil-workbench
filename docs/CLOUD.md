@@ -34,6 +34,8 @@ The protocol follows Tinfoil Chat's open-source web client (`tinfoilsh/tinfoil-w
 
 Images in cloud chats are not downloaded: Workbench shows the text of a chat and of its document attachments, which it also sends as reference files when you continue the chat. When you continue a cloud chat in Workbench, the model therefore does not see images from earlier turns.
 
+**Widgets.** A Tinfoil Chat answer can contain widgets that its model called, kept in the message's timeline between its paragraphs. Workbench draws charts, timelines and stat cards itself, from the widgets' arguments and with the same renderers and checks as its own visual tools, where Tinfoil Chat shows them; they can be expanded, and their data viewed and saved, like Workbench's own. Tinfoil Chat's chart is one series of rows, so it is drawn as one series; a pie of more than six parts is drawn as bars. Other widgets (image, link preview, map, clock, recipe card, message draft, sports scores, artifact preview) load remote content or need Tinfoil's services; the answer's tool runs list them as not displayed. Nothing in a widget is fetched or run, and when you continue the chat the model sees the answer's text, not the widget calls. Chats opened with an earlier version of Workbench are read again once at the next sync, unless they hold changes not yet written.
+
 ## What is stored
 
 - The chat key, its key ID and the Tinfoil user it belongs to are kept in the encrypted workspace, like a saved API key. Snapshots, logs and exports never contain the key.

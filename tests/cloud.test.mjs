@@ -47,7 +47,7 @@ test('a cloud chat maps onto a conversation: prompts, answers, reasoning, docume
   assert.deepEqual([first.content, first.reasoning, first.model, first.status], ['Try Lisbon.', 'Coastal and mild.', 'Kimi K3', 'complete']);
   assert.deepEqual(t.turns[0].attachments, [{ name: 'notes.txt', content: 'Prefer the coast.' }], 'documents become reference files; images are not sent');
   assert.equal(t.turns[2].replies[0].status, 'interrupted');
-  assert.deepEqual(t.cloud, { ...link, turns: 3, loaded: true, dirty: false, syncedAt: NOW });
+  assert.deepEqual(t.cloud, { ...link, turns: 3, loaded: true, dirty: false, syncedAt: NOW, format: 2 });
   assert.doesNotThrow(() => validateThread(t));
   // A listed chat that is not loaded keeps no turns; loading it later keeps the local identity and settings.
   const stub = threadFromCloud(plain, link, null, NOW, undefined, false);
@@ -123,7 +123,8 @@ test('a cloud project maps onto a project, and its context follows Tinfoil\'s la
 test('cloud links and settings are validated when the workspace is opened', () => {
   const good = { id: '8200000000000_chat', etag: '4', project: null, turns: 2, loaded: true, dirty: false, syncedAt: NOW };
   assert.deepEqual(cloudChatLink(good), good);
-  for (const bad of [{ ...good, id: 'x/y' }, { ...good, etag: 'W/"4"' }, { ...good, turns: 1.5 }, { ...good, loaded: 'yes' }]) assert.throws(() => cloudChatLink(bad));
+  assert.deepEqual(cloudChatLink({ ...good, format: 2 }), { ...good, format: 2 });
+  for (const bad of [{ ...good, id: 'x/y' }, { ...good, etag: 'W/"4"' }, { ...good, turns: 1.5 }, { ...good, loaded: 'yes' }, { ...good, format: 0 }, { ...good, format: '2' }]) assert.throws(() => cloudChatLink(bad));
   const w = newWorkspace();
   w.cloud = { key: KEY, keyId: '0123456789abcdef0123456789abcdef', user: 'user_test', writer: 'workbench.test', clock: 3 };
   assert.deepEqual(validateWorkspace(structuredClone(w)).cloud, w.cloud);

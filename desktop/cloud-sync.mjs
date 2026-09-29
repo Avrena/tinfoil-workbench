@@ -1,5 +1,5 @@
 import { randomUUID } from 'node:crypto';
-import { parseCloudKey, threadFromCloud, cloudPatch, newCloudChat, projectFromCloud } from '../dist/core/cloud.js';
+import { parseCloudKey, threadFromCloud, cloudPatch, newCloudChat, projectFromCloud, CLOUD_FORMAT } from '../dist/core/cloud.js';
 import { InputError, LIMITS } from '../dist/core/validation.js';
 import { findThread } from '../dist/core/workspace.js';
 import { CloudError, cloudKeyId } from './cloud-client.mjs';
@@ -138,7 +138,9 @@ export class CloudSync {
     const ws = this.ws, now = this.now(), { rows, deletes, more } = await this.list('chat', LIMITS.cloudChats);
     const listed = new Map(rows.filter(r => typeof r.id === 'string' && /^[A-Za-z0-9_.:-]{1,200}$/.test(r.id)).map(r => [r.id, r]));
     const local = new Map(ws.threads.filter(t => t.cloud).map(t => [t.cloud.id, t]));
-    const stale = [...listed.values()].filter(r => local.get(r.id)?.cloud.etag !== r.etag).map(r => r.id);
+    // A loaded chat read by an older format is read again once, unless it holds changes still to be written.
+    const outdated = t => t.cloud.loaded && !t.cloud.dirty && (t.cloud.format ?? 1) < CLOUD_FORMAT;
+    const stale = [...listed.values()].filter(r => { const t = local.get(r.id); return t?.cloud.etag !== r.etag || outdated(t); }).map(r => r.id);
     const pulled = await this.pullMany('chat', stale, key);
     for (const [id, item] of pulled) {
       const plain = decode(item); if (!plainObject(plain)) continue;

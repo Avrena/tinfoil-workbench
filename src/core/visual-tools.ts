@@ -137,6 +137,15 @@ export function artifactFileName(title:string,ext:string):string {
   return (base||'artifact')+'.'+ext;
 }
 export function tableHTML(spec:TableSpec):string {return `<table><caption>${escape(spec.title)}</caption><thead><tr>${spec.columns.map(c=>`<th scope="col">${escape(c)}</th>`).join('')}</tr></thead><tbody>${spec.rows.map(r=>`<tr>${r.map(c=>`<td>${escape(c===null?'—':String(c))}</td>`).join('')}</tr>`).join('')}</tbody></table>`;}
+/** A structured artifact's normalized specification and its drawing: SVG for charts and diagrams, script-free HTML
+ * for the others. Throws InputError for a specification it cannot draw. */
+export function structuredVisual(kind:typeof STRUCTURED_KINDS[number],value:unknown):{spec:object;data:string;mime:'image/svg+xml'|'text/html';ext:'svg'|'html'} {
+  if(kind==='chart'){const spec=chartSpec(value);return {spec,data:chartSVG(spec),mime:'image/svg+xml',ext:'svg'};}
+  if(kind==='diagram'){const spec=diagramSpec(value);return {spec,data:diagramSVG(spec),mime:'image/svg+xml',ext:'svg'};}
+  if(kind==='timeline'){const spec=timelineSpec(value);return {spec,data:timelineHTML(spec),mime:'text/html',ext:'html'};}
+  if(kind==='stats'){const spec=statsSpec(value);return {spec,data:statsHTML(spec),mime:'text/html',ext:'html'};}
+  const spec=tableSpec(value);return {spec,data:tableHTML(spec),mime:'text/html',ext:'html'};
+}
 /** Categorical series colors: the dark steps of the dataviz reference palette, validated on the app's #1e1e1e and
  * #252526 surfaces (lightness band, chroma floor, adjacent CVD and normal-vision separation, 3:1 contrast). Fixed order,
  * never cycled: a series keeps its color when others are hidden. */

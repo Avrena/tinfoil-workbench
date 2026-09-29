@@ -95,6 +95,28 @@ test('syncing lists cloud chats by title, maps projects and documents, and loads
   assert.equal(server.calls.filter(c => c[0] === 'pull').length, pulls);
 });
 
+test('chats loaded before widgets were read are read again once, unless they hold changes still to be written', async () => {
+  const widget = { type: 'tool_call', id: 'b1', toolCallId: 'call_1', name: 'render_timeline', arguments: JSON.stringify({ events: [{ date: '1969', title: 'Apollo 11' }] }) };
+  const withWidget = title => { const c = chat(title, 1); c.messages[1].timeline = [{ type: 'content', id: 'c1', content: c.messages[1].content }, widget]; return c; };
+  const server = enclave(); server.seed('chat', 'c1', withWidget('Apollo')); server.seed('chat', 'c2', withWidget('Gemini'));
+  const { sync, ws } = setup({ server });
+  await sync.connect(KEY);
+  const apollo = byCloud(ws, 'c1'), gemini = byCloud(ws, 'c2');
+  await sync.load(apollo.id); await sync.load(gemini.id);
+  assert.equal(apollo.turns[0].replies[0].tools[0].artifacts[0].kind, 'timeline');
+  // As 0.17.2 left them: loaded, without a format and without widgets. The second has an edit not yet written.
+  for (const t of [apollo, gemini]) { delete t.cloud.format; delete t.turns[0].replies[0].tools; }
+  gemini.cloud.dirty = true;
+  const pulls = () => server.calls.filter(c => c[0] === 'pull').length, before = pulls();
+  await sync.sync();
+  assert.equal(pulls() - before, 1);
+  assert.deepEqual(server.calls.filter(c => c[0] === 'pull').at(-1), ['pull', 'chat', 1], 'only the clean chat is pulled');
+  assert.deepEqual([apollo.cloud.format, apollo.turns[0].replies[0].tools?.length], [2, 1]);
+  assert.deepEqual([gemini.cloud.format, gemini.turns[0].replies[0].tools, gemini.cloud.dirty], [undefined, undefined, true]);
+  await sync.sync();
+  assert.equal(pulls() - before, 1, 'and only once');
+});
+
 test('continuing or renaming a cloud chat writes it back against the version it was pulled at, keeping unknown fields', async () => {
   const server = enclave(); server.seed('chat', 'c1', chat('Trip', 1)); server.seed('chat', 'c2', chat('Other', 1));
   const { sync, ws } = setup({ server });

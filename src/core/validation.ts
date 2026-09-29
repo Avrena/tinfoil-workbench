@@ -99,7 +99,7 @@ export function cloudChatLink(value: unknown): CloudChatLink {
   const v = record(value);
   if (typeof v.loaded !== 'boolean' || typeof v.dirty !== 'boolean' || !Number.isInteger(v.turns)) throw new InputError('Invalid cloud chat link.');
   return { id: cloudId(v.id), etag: cloudVersion(v.etag), project: v.project === null ? null : cloudId(v.project), turns: numeric(v.turns, 0, LIMITS.turns),
-    loaded: v.loaded, dirty: v.dirty, syncedAt: stamp(v.syncedAt) };
+    loaded: v.loaded, dirty: v.dirty, syncedAt: stamp(v.syncedAt), ...(v.format === undefined ? {} : { format: integer(v.format, 1, 1000) }) };
 }
 export function cloudProjectLink(value: unknown): CloudProjectLink {
   const v = record(value);
