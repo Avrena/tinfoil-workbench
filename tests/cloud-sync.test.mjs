@@ -2,10 +2,11 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { webcrypto } from 'node:crypto';
 import { CloudSync } from '../desktop/cloud-sync.mjs';
-import { CloudClient, CloudError, cloudKeyId, SYNC_URL } from '../desktop/cloud-client.mjs';
+import { CloudClient, CloudError, cloudKeyId, cloudChatId, SYNC_URL } from '../desktop/cloud-client.mjs';
 import { parseCloudKey } from '../dist/core/cloud.js';
 import { newWorkspace, addThread } from '../dist/core/workspace.js';
 import { validateWorkspace } from '../dist/core/validation.js';
+import { publicError } from '../dist/core/security.js';
 
 const CHARS = 'abcdefghijklmnopqrstuvwxyz0123456789';
 const encode = bytes => 'key_' + [...bytes].map(b => CHARS[Math.floor(b / 36)] + CHARS[b % 36]).join('');
@@ -203,7 +204,7 @@ test('the client speaks the enclave protocol over the attested channel only', as
   const requests = [], tokens = [];
   let reply = (url, init) => new Response(JSON.stringify({ key_id: KEY_ID.toUpperCase(), has_data: true }), { status: 200 });
   const secure = { ready: async () => {}, fetch: async (url, init) => { requests.push([url, init]); return reply(url, init); } };
-  const client = new CloudClient({ secureClient: () => secure, token: async force => { tokens.push(force); return 'clerk-test-only'; }, fetcher: async () => { throw new Error('no plain fetch to the enclave'); } });
+  const client = new CloudClient({ secureClient: () => secure, token: async force => { tokens.push(force); return 'clerk-test-only'; } });
   assert.deepEqual(await client.keyCurrent(), { keyId: KEY_ID.toUpperCase(), hasData: true });
   const [url, init] = requests[0];
   assert.equal(url, SYNC_URL + '/v1/key/current'); assert.equal(init.method, 'POST');
@@ -218,11 +219,27 @@ test('the client speaks the enclave protocol over the attested channel only', as
   assert.deepEqual(JSON.parse(Buffer.from(sent.plaintext, 'base64').toString('utf8')), { title: 'ü' }); assert.match(sent.idempotency_key, /^[0-9a-f-]{36}$/);
   reply = () => new Response(JSON.stringify({ error: 'stale', code: 'SYNC_CONFLICT' }), { status: 409 });
   await assert.rejects(client.push('chat', 'c1', key, {}, '4'), e => e instanceof CloudError && e.status === 409 && e.code === 'SYNC_CONFLICT' && !e.message.includes(key.b64));
+  // A refusal is reported as the sync service's, with its code, not as a model provider's rejection.
+  reply = () => new Response(JSON.stringify({ error: 'bad', code: 'BAD_REQUEST' }), { status: 400 });
+  const refused = await client.push('chat', 'c1', key, {}, '4').catch(e => e);
+  assert.equal(publicError(refused), 'Tinfoil cloud sync refused the request (BAD_REQUEST).');
+  assert.equal(publicError(new CloudError('Tinfoil cloud sync did not answer in time.', null, 'TIMEOUT')), 'Tinfoil cloud sync did not answer in time.');
   reply = () => new Response(JSON.stringify({ ok: true, etag: 'W/"x"' }), { status: 200 });
   await assert.rejects(client.push('chat', 'c1', key, {}, '4'), /invalid version/);
   reply = () => new Response('x'.repeat(100), { status: 200 });
   const small = new CloudClient({ secureClient: () => secure, token: async () => 't', timing: { ready: 1000, request: 1000, maxBytes: 10 } });
   await assert.rejects(small.keyCurrent(), /size limit/);
+});
+
+test('new chat IDs follow Tinfoil Chat\'s reverse-timestamp format and need no request', () => {
+  const created = Date.UTC(2026, 8, 29, 1, 7, 26, 147), id = cloudChatId(created);
+  assert.match(id, /^\d{13}_[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/);
+  assert.equal(9999999999999 - Number(id.slice(0, 13)), created);
+  assert.notEqual(cloudChatId(created), id);
+  // Newer chats sort first, as in Tinfoil Chat's listing.
+  assert.ok(cloudChatId(created + 1) < id);
+  const client = new CloudClient({ secureClient: () => { throw new Error('no enclave for an ID'); }, token: async () => { throw new Error('no token for an ID'); } });
+  assert.equal(9999999999999 - Number(client.newChatId(created).slice(0, 13)), created);
 });
 
 test('the key ID matches the WebCrypto derivation Tinfoil uses', async () => {

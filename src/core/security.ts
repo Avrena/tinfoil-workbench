@@ -16,6 +16,9 @@ export function resourcePath(url: string): string | null {
 }
 export function publicError(error: unknown): string {
   if (error instanceof InputError) return error.message;
+  // Cloud sync errors say what failed and name at most a status code, never data. Their HTTP status is the sync
+  // service's, not a model provider's, so the provider messages below would misname them.
+  if (error instanceof Error && error.name === 'CloudError') return error.message;
   const status = error && typeof error === 'object' ? (error as Record<string, unknown>).status : undefined;
   if (status === 401 || status === 403) return 'API authentication was rejected. Check your Tinfoil API key and API access.';
   if (status === 402) return 'API credit or billing is required. Check the Tinfoil dashboard.';

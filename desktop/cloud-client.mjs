@@ -2,12 +2,16 @@ import { hkdfSync, randomUUID } from 'node:crypto';
 
 /** Tinfoil's cloud sync service (docs/CLOUD.md). The enclave at SYNC_URL seals and unseals chats with the user's chat
  * key; it is reached only through the SDK's attested client, verified against SYNC_REPO, so the key never leaves an
- * attested channel. The ID service at API_URL receives only the account's session token. */
-export const SYNC_URL = 'https://sync.tinfoil.sh', SYNC_REPO = 'tinfoilsh/confidential-sync', API_URL = 'https://api.tinfoil.sh';
+ * attested channel. New chat IDs are made locally, as Tinfoil Chat makes them. */
+export const SYNC_URL = 'https://sync.tinfoil.sh', SYNC_REPO = 'tinfoilsh/confidential-sync';
 export const CLOUD_TIMING = Object.freeze({ ready: 45_000, request: 60_000, maxBytes: 48 * 1024 * 1024 });
 
 /** Tinfoil's key ID: HKDF-SHA256 of the chat key with an empty salt and the info "tinfoil-key-id-v1", 16 bytes, hex. */
 export function cloudKeyId(bytes) { return Buffer.from(hkdfSync('sha256', Buffer.from(bytes), Buffer.alloc(0), 'tinfoil-key-id-v1', 16)).toString('hex'); }
+
+/** A chat ID in Tinfoil Chat's format: the reverse timestamp (9999999999999 minus the creation time in ms, 13 digits,
+ * so newer chats sort first), an underscore and a random UUID. Tinfoil Chat makes its IDs this way, without a request. */
+export function cloudChatId(createdAt = Date.now()) { return String(9999999999999 - Math.trunc(createdAt)).padStart(13, '0') + '_' + randomUUID(); }
 
 export class CloudError extends Error {
   constructor(message, status = null, code = null) { super(message); this.name = 'CloudError'; this.status = status; this.code = code; }
@@ -27,7 +31,7 @@ const reason = (data, status) => {
 
 export class CloudClient {
   /** `secureClient()` builds the SDK's SecureClient for the enclave; `token(force)` returns the Clerk session token. */
-  constructor({ secureClient, token, fetcher = globalThis.fetch, timing = CLOUD_TIMING }) { this.secureClient = secureClient; this.token = token; this.fetcher = fetcher; this.timing = timing; this.verified = null; }
+  constructor({ secureClient, token, timing = CLOUD_TIMING }) { this.secureClient = secureClient; this.token = token; this.timing = timing; this.verified = null; }
   enclave() {
     if (!this.verified) this.verified = (async () => { const client = await this.secureClient(); await bounded(client.ready(), this.timing.ready, 'The Tinfoil sync enclave could not be verified in time.'); return client; })();
     return this.verified.catch(error => { this.verified = null; throw error; });
@@ -61,17 +65,6 @@ export class CloudClient {
     return r.etag;
   }
   async remove(scope, id, key, ifMatch) { await this.call('/v1/sync/delete', { scope, id, if_match: ifMatch, idempotency_key: randomUUID(), key: key.b64 }); }
-  /** A new chat ID from Tinfoil's ID service; it sees only the session token. */
-  async newChatId() {
-    const send = async force => bounded(this.fetcher(API_URL + '/api/chats/generate-id', { method: 'POST', redirect: 'error', cache: 'no-store',
-      headers: { Accept: 'application/json', 'Content-Type': 'application/json', Authorization: `Bearer ${await this.token(force)}` }, body: JSON.stringify({ timestamp: new Date().toISOString() }) }),
-      this.timing.request, 'Tinfoil did not issue a chat ID in time.');
-    let response = await send(false);
-    if (response.status === 401) response = await send(true);
-    const data = await body(response, 65536);
-    if (!response.ok) { const r = reason(data, response.status); throw new CloudError(r.message, response.status, r.code); }
-    const id = data?.conversationId;
-    if (typeof id !== 'string' || !/^[A-Za-z0-9_.:-]{1,200}$/.test(id)) throw new CloudError('Tinfoil returned an invalid chat ID.', null, 'BAD_RESPONSE');
-    return id;
-  }
+  /** A new chat ID for a conversation created at `createdAt`. */
+  newChatId(createdAt) { return cloudChatId(createdAt); }
 }

@@ -240,7 +240,7 @@ export class CloudSync {
       throw new InputError('This conversation is in a local project. Move it out of the project, or into a cloud project, before moving it to Tinfoil cloud.');
     if (this.ws.threads.filter(x => x.cloud).length >= LIMITS.cloudChats) throw new InputError('Too many cloud chats on this device. Delete some first.');
     await this.assertAccount();
-    const key = this.key(), project = cloudProjectOf(this.ws, t.projectId), chatId = await this.client.newChatId();
+    const key = this.key(), project = cloudProjectOf(this.ws, t.projectId), chatId = await this.client.newChatId(t.createdAt);
     const clock = this.nextClock(0), body = newCloudChat(t, project, { ...clock, version: 1 }, this.now());
     const etag = await this.client.push('chat', chatId, key, body, '0', { messageCount: body.messages.length, projectId: project });
     const current = this.ws.threads.find(x => x.id === id);
