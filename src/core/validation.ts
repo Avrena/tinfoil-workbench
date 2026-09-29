@@ -225,7 +225,7 @@ export function validateTool(value: unknown): ToolRun {
     ...(v.batchId === undefined ? {} : {batchId:identifier(v.batchId), batchIndex:integer(v.batchIndex,0,3),batchSize:integer(v.batchSize,1,4)}),
     ...(v.delegate === undefined ? {} : {delegate:validateDelegate(v.delegate)}),
     ...(v.provider === undefined ? {} : {provider:validateProvider(v.provider)}),
-    arguments: text(v.arguments, 'Tool arguments', 128000), origin: v.origin === 'provider' ? 'provider' : v.origin === 'model' ? 'model' : 'manual', status: v.status as ToolRun['status'],
+    arguments: text(v.arguments, 'Tool arguments', 128000), origin: v.origin === 'provider' ? 'provider' : v.origin === 'model' ? 'model' : v.origin === 'text' ? 'text' : 'manual', status: v.status as ToolRun['status'],
     stdout: text(v.stdout, 'Tool stdout', 100000), stderr: text(v.stderr, 'Tool stderr', 100000),
     exitCode: v.exitCode === null ? null : numeric(v.exitCode, -2147483648, 4294967295), elapsedMs: numeric(v.elapsedMs, 0, 1e12),
     artifacts: list(v.artifacts ?? [], 8).map(validateArtifact), truncated: v.truncated === true };

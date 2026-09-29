@@ -48,3 +48,39 @@ export class ToolCallAccumulator {
     return calls;
   }
 }
+
+/** A tool call that a model wrote into its answer as text (`render_chart{…}` or `render_chart({…})`) instead of making
+ * the call. `start` and `end` cover the call, and a code fence when the fence holds nothing else. */
+export interface TextToolCall { name: string; arguments: string; start: number; end: number }
+/** Finds calls to the named tools written as text, in order. The arguments must be one JSON object; anything else is
+ * left alone. Only side-effect-free tools should be named. */
+export function findTextToolCalls(text: string, names: ReadonlySet<string>, limit = 4): TextToolCall[] {
+  const found: TextToolCall[] = [], pattern = /\b([a-z_]+)[ \t]*(\([ \t]*)?\{/g;
+  let m: RegExpExecArray | null;
+  while (found.length < limit && (m = pattern.exec(text))) {
+    const name = m[1]!;
+    if (!names.has(name)) continue;
+    const open = m.index + m[0].length - 1, close = jsonObjectEnd(text, open);
+    if (close < 0) continue;
+    let value: unknown;
+    try { value = JSON.parse(text.slice(open, close + 1)); } catch { continue; }
+    if (!value || typeof value !== 'object' || Array.isArray(value)) continue;
+    let start = m.index, end = close + 1;
+    if (m[2]) { const paren = /^[ \t]*\)/.exec(text.slice(end)); if (!paren) continue; end += paren[0].length; }
+    const fenceOpen = /```[\w-]*[ \t]*\r?\n[ \t]*$/.exec(text.slice(0, start)), fenceClose = /^[ \t]*\r?\n?[ \t]*```/.exec(text.slice(end));
+    if (fenceOpen && fenceClose) { start -= fenceOpen[0].length; end += fenceClose[0].length; }
+    found.push({ name, arguments: JSON.stringify(value), start, end });
+    pattern.lastIndex = end;
+  }
+  return found;
+}
+/** Index of the brace that closes the JSON object opening at `open`, or -1; braces inside strings do not count. */
+function jsonObjectEnd(text: string, open: number): number {
+  let depth = 0, inString = false, escaped = false;
+  for (let i = open; i < text.length && i < open + 128000; i++) {
+    const c = text[i];
+    if (inString) { if (escaped) escaped = false; else if (c === '\\') escaped = true; else if (c === '"') inString = false; continue; }
+    if (c === '"') inString = true; else if (c === '{') depth++; else if (c === '}' && --depth === 0) return i;
+  }
+  return -1;
+}

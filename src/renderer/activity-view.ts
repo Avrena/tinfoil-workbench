@@ -5,7 +5,7 @@ import type { ViewPreferences } from '../core/preferences.js';
 import { RichTextRenderer } from './rich-text.js';
 import { updateMarkup } from './dom.js';
 
-const provenance=(tool:ToolRun):string=>tool.origin==='provider'?'Tinfoil-managed MCP':tool.name==='delegate_task'?'Client sub-agent':tool.name==='python'?'Local Python':'Client tool';
+const provenance=(tool:ToolRun):string=>tool.origin==='provider'?'Tinfoil-managed MCP':tool.origin==='text'?'Written as text by the model; drawn by Workbench':tool.name==='delegate_task'?'Client sub-agent':tool.name==='python'?'Local Python':'Client tool';
 const label=(tool:ToolRun):string=>tool.name==='delegate_task'?'Delegated analysis':tool.name;
 function entry(tool:ToolRun,nested=false):string {
   const pending=tool.status==='awaiting_approval',delegated=tool.name==='delegate_task',running=tool.status==='running';

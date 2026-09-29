@@ -41,7 +41,8 @@ export interface ToolRun {
   provider?: ProviderActivity;
   contentOffset?: number;
   id: string; callId: string; name: string; arguments: string;
-  origin: 'model' | 'manual' | 'provider'; status: 'queued' | 'awaiting_approval' | 'running' | 'complete' | 'error' | 'denied' | 'cancelled';
+  /** 'text': a drawing call the model wrote into its answer as text, which Workbench drew (see recoverTextCalls). */
+  origin: 'model' | 'manual' | 'provider' | 'text'; status: 'queued' | 'awaiting_approval' | 'running' | 'complete' | 'error' | 'denied' | 'cancelled';
   stdout: string; stderr: string; exitCode: number | null; elapsedMs: number;
   artifacts: Artifact[]; truncated: boolean;
 }

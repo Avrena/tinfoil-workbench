@@ -5,8 +5,8 @@ import { InputError, record, text, identifier, settings, attachments, validateWo
 import { newWorkspace, findThread, addThread, beginTurn, chooseReply, forkThread, recoverInterrupted, importThread, outputLimitNotice } from '../dist/core/workspace.js';
 import { viewPreferences } from '../dist/core/preferences.js';
 import { extractCodeBlocks } from '../dist/core/markdown.js';
-import { ToolCallAccumulator, PYTHON_TOOL, pythonArguments } from '../dist/core/tools.js';
-import { VISUAL_TOOLS, VISUAL_TOOL_NAMES } from '../dist/core/visual-tools.js';
+import { ToolCallAccumulator, PYTHON_TOOL, pythonArguments, findTextToolCalls } from '../dist/core/tools.js';
+import { VISUAL_TOOLS, VISUAL_TOOL_NAMES, RENDER_KINDS } from '../dist/core/visual-tools.js';
 import { toolGuide, withToolGuide } from '../dist/core/prompt.js';
 import { capabilityFor, reasoningParameters, normalizeCapability } from '../dist/core/capabilities.js';
 import { executeVisual } from './visual-runtime.mjs';
@@ -494,11 +494,7 @@ export class WorkbenchService {
             else if(VISUAL_TOOL_NAMES.has(tool.name)) await this.runVisualTool(job.threadId,reply,tool,ctrl);
             else if(tool.name==='delegate_task') await this.runDelegate(job,reply,tool,ctrl,client);
             else await this.runTool(job.threadId, reply, tool, ctrl, true);
-            const result = { role: 'tool', tool_call_id: call.id, content: JSON.stringify({
-              status: tool.status, stdout: tool.stdout, stderr: tool.stderr, exit_code: tool.exitCode,
-              ...(tool.delegate?{model:tool.delegate.model,usage:tool.delegate.usage,orchestration:'client',context:'explicit task only'}:{}),
-              artifacts: tool.artifacts.map(a => ({ artifact_id:a.id, name: a.name, mime: a.mime, kind:a.kind, version:a.version })), truncated: tool.truncated,
-            }) };
+            const result = this.toolResult(call.id, tool);
             messages.push(result); reply.toolMessages.push(structuredClone(result));
           }
           if (reply.reasoning) reply.reasoning += '\n\n';
@@ -506,6 +502,7 @@ export class WorkbenchService {
         }
         if (calls.length) throw new InputError('The provider returned tool calls without the expected completion marker. Nothing was executed.');
         if (['stop','length','content_filter'].includes(finish)) {
+          if (finish === 'stop') await this.recoverTextCalls(job, reply, offeredTools, ctrl, 8 - executed);
           reply.status = 'complete';
           if (finish === 'length') reply.error = outputLimitNotice(reply.content, reply.reasoning, job.settings.maxTokens);
           if (finish === 'content_filter') reply.error = 'The provider filtered part of this answer.';
@@ -647,6 +644,39 @@ export class WorkbenchService {
     return findThread(this.workspace,threadId).turns.flatMap(turn=>turn.replies
       .filter(r=>r.id===currentReply?.id||r.id===turn.selectedReplyId)
       .flatMap(r=>(r.tools??[]).filter(t=>t.origin==='model').flatMap(t=>t.artifacts)));
+  }
+  /** The tool message that answers a call, as the model sees it in later requests. */
+  toolResult(callId, tool) {
+    return { role: 'tool', tool_call_id: callId, content: JSON.stringify({
+      status: tool.status, stdout: tool.stdout, stderr: tool.stderr, exit_code: tool.exitCode,
+      ...(tool.delegate?{model:tool.delegate.model,usage:tool.delegate.usage,orchestration:'client',context:'explicit task only'}:{}),
+      artifacts: tool.artifacts.map(a => ({ artifact_id:a.id, name: a.name, mime: a.mime, kind:a.kind, version:a.version })), truncated: tool.truncated,
+    }) };
+  }
+  /** Some models write a drawing call into their answer as text (`render_chart{…}`) instead of making it. Drawing has no
+   * side effects, so each such call in the final round is validated and drawn like a real one, in its place; its text
+   * is removed and a paired call and result are recorded in the reply's history, so later turns see a real call. A call
+   * that fails validation stays text. Python, delegation and artifacts never run this way. */
+  async recoverTextCalls(job, reply, offeredTools, ctrl, budget) {
+    const names = new Set(offeredTools.map(t => t.function.name).filter(name => Object.hasOwn(RENDER_KINDS, name)));
+    const base = reply.finalContentOffset ?? 0, round = reply.content.slice(base);
+    const found = names.size && budget > 0 ? findTextToolCalls(round, names, Math.min(4, budget)) : [];
+    if (!found.length) return;
+    let content = reply.content.slice(0, base), segment = '', cursor = 0, finalOffset = null;
+    for (const item of found) {
+      if (ctrl.signal.aborted) break;
+      segment += round.slice(cursor, item.start); cursor = item.end;
+      const call = { id: 'text_' + randomUUID(), type: 'function', function: { name: item.name, arguments: item.arguments } };
+      const tool = this.newTool(call, 'text'); tool.contentOffset = (content + segment).trimEnd().length; reply.tools.push(tool);
+      await this.runVisualTool(job.threadId, reply, tool, ctrl);
+      if (tool.status !== 'complete') { reply.tools.splice(reply.tools.indexOf(tool), 1); segment += round.slice(item.start, item.end); continue; }
+      reply.toolMessages.push({ role: 'assistant', content: segment.trim(), tool_calls: [call] }, this.toolResult(call.id, tool));
+      content = (content + segment).trimEnd(); segment = ''; finalOffset = content.length;
+    }
+    let rest = segment + round.slice(cursor);
+    if (finalOffset !== null) { rest = rest.trimStart(); if (rest) { rest = '\n\n' + rest; finalOffset += 2; } reply.finalContentOffset = finalOffset; }
+    reply.content = content + rest;
+    await this.save(); this.emit();
   }
   async runVisualTool(threadId,reply,tool,ctrl) {
     const started=Date.now();tool.status='running';reply.status='executing';this.emit();
