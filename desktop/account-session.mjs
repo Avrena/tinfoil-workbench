@@ -75,6 +75,14 @@ export class AccountSession {
     try{await this.getCredential(true);}catch(error){if(!['subscription-required','rate-limited'].includes(this.state.entitlement))throw error;}
   }
   credential(expected){return {key:this.key,owner:expected.user,session:expected.session,expiresAt:this.state.tokenExpiresAt};}
+  /** The website session's identity token for Tinfoil's own services (cloud sync), read from the bound session each
+   * time and never kept here. `user` is the account it belongs to, so a caller can refuse another account's data. */
+  async sessionToken(force=false){
+    if(this.state.status!=='signed-in'||!this.binding)throw new InputError('Sign in to Tinfoil Chat to use cloud sync.');
+    const epoch=this.epoch,expected={...this.binding};
+    const bearer=this.accept(await this.adapter.readSession(force,expected),expected);this.assert(epoch);
+    return {bearer,user:expected.user};
+  }
   async getCredential(force=false){
     // A saved sign-in that could not be restored at launch (for example offline) is tried again first.
     if(this.restorePending&&this.state.status==='expired')await this.restore();

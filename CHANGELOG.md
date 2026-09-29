@@ -1,5 +1,12 @@
 # Changelog
 
+## Unreleased
+
+- Windows: two-way sync with Tinfoil Chat's cloud chats and projects. Add your chat key (the `key_…` string or the key file from Tinfoil Chat) under Account → Tinfoil cloud chats; Workbench checks it against your account's current key and keeps it encrypted. Your 300 most recent cloud chats appear in the sidebar and load their messages when opened; cloud projects appear with their instructions and documents, which are added to requests in their chats as Tinfoil Chat does. Continuing, renaming, editing, moving between cloud projects or deleting a cloud chat changes it in your Tinfoil account; a conversation in a cloud project, or one you move with *Move to Tinfoil cloud*, becomes a cloud chat. Local conversations stay local. Sync runs after sign-in, every ten minutes and on *Sync now*.
+- Writes name the version they were made against and change only what Workbench changed; every field Workbench does not use is kept. If a chat changed in Tinfoil meanwhile, the cloud version wins and Workbench's version is kept as "… (Workbench copy)". The key reaches only Tinfoil's attested sync enclave. See `docs/CLOUD.md`.
+- Conversations are limited to 800 on a device (was 300), to leave room for cloud chats.
+- Add `tests/cloud.test.mjs` (9 tests), `tests/cloud-sync.test.mjs` (12 tests), the browser suite `tests/ui-cloud.py` and the manual live check `tests/cloud-live.mjs`.
+
 ## 0.14.0 — stay signed in on Windows
 
 - Windows: stay signed in to Tinfoil Chat across restarts and updates. While *Stay signed in on this PC* is on (the default, under Account & connection → Session & local workspace), Workbench saves Tinfoil's website session: the persistent cookies of tinfoil.sh and its subdomains, sealed with your Windows account (DPAPI) in `account-session.bin`. At the next launch it restores the session in a hidden window and uses it only if it still belongs to the same user and Clerk session. Quitting no longer ends the session while it is saved. Signing out, turning the option off, or an ended or rejected session deletes the saved copy. Offline at launch, the saved sign-in is kept and retried when Chat access is next needed. Android still asks you to sign in after the app restarts.

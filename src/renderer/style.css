@@ -273,6 +273,9 @@ dialog::backdrop{background:#0008}
 .toggle-row{display:flex;align-items:center;justify-content:space-between;margin:0;padding:15px 0;border-bottom:1px solid #373c44;font-size:12px}
 .toggle-row input{width:16px;height:16px;accent-color:#528fc4}
 .toggle-row kbd{margin-left:7px}
+.cloud-section input{display:block;width:100%;box-sizing:border-box}
+.cloud-state{color:var(--text)}
+.cloud-loading h1{font-size:18px;font-weight:500}
 .account-remember{display:flex;align-items:center;justify-content:space-between;width:100%;text-align:left;background:transparent;border:1px solid #414141;border-radius:8px;color:var(--text);font-size:12px}
 .account-remember::after{content:'';flex:none;width:30px;height:16px;border-radius:8px;background:#4a4f57 radial-gradient(circle at 8px 8px,#c8ccd2 5px,transparent 5.5px)}
 .account-remember[aria-checked=true]::after{background:#528fc4 radial-gradient(circle at 22px 8px,#fff 5px,transparent 5.5px)}

@@ -1,6 +1,7 @@
 import type { AccountSnapshot, ConnectionMode } from './account.js';
 import type { ModelCapability, ThinkingMode } from './capabilities.js';
 import type { ViewPreferences } from './preferences.js';
+import type { CloudChatLink, CloudProjectLink } from './cloud.js';
 export type ReplyStatus = 'queued' | 'streaming' | 'complete' | 'stopped' | 'error' | 'interrupted' | 'awaiting_approval' | 'executing';
 export interface GenerationSettings {
   toolsMode: 'off' | 'ask';
@@ -46,7 +47,7 @@ export interface ToolRun {
 }
 export interface ToolCall { id: string; type: 'function'; function: { name: string; arguments: string } }
 export interface ReplyEdit { originalContent: string; originalReasoning: string; contentEdited: boolean; reasoningEdited: boolean; historyRewritten?: boolean; editedAt: number }
-export interface Project { id: string; name: string; createdAt: number }
+export interface Project { id: string; name: string; createdAt: number; /** Set for a Tinfoil cloud project. */ cloud?: CloudProjectLink }
 /** Reusable system instructions. Selecting one copies its text into a thread's settings,
  * so later edits or deletion never change an existing conversation. */
 export interface InstructionPreset { id: string; name: string; text: string; createdAt: number; updatedAt: number }
@@ -72,6 +73,8 @@ export interface Thread {
   connectionOwner?: string;
   projectId?: string | null;
   branchOf?: string;
+  /** Set for a Tinfoil cloud chat (docs/CLOUD.md). */
+  cloud?: CloudChatLink;
   id: string; title: string; pinned: boolean; createdAt: number; updatedAt: number;
   settings: GenerationSettings; turns: Turn[]; draft: string;
   /** Unsent reference files, encrypted with the draft and never sent until Send. */
@@ -79,7 +82,16 @@ export interface Thread {
 }
 export interface Workspace {
   version: 1; activeId: string; threads: Thread[]; projects: Project[]; instructionPresets: InstructionPreset[];
-  connectionMode?: ConnectionMode; /** false turns staying signed in off; absent means on. */ rememberAccount?: false; apiKey: string; cacheSecret: string; view: ViewPreferences; pythonPath: string;
+  connectionMode?: ConnectionMode; /** false turns staying signed in off; absent means on. */ rememberAccount?: false;
+  /** Tinfoil cloud sync: the chat key (`key_…`), its key ID and the Tinfoil user it belongs to. Never in snapshots. */
+  cloud?: CloudConfig; apiKey: string; cacheSecret: string; view: ViewPreferences; pythonPath: string;
+}
+/** `writer` and `clock` are this installation's edit clock for Tinfoil's conflict order (docs/CLOUD.md). */
+export interface CloudConfig { key: string; keyId: string; user: string; writer: string; clock: number }
+/** Cloud sync as the renderer sees it; the key itself is never included. */
+export interface CloudStatus {
+  state: 'off' | 'checking' | 'ready' | 'syncing' | 'error'; keyId: string | null; user: string | null;
+  lastSyncAt: number | null; message: string | null; chats: number; projects: number; older: number;
 }
 export interface Verification {
   state: 'idle' | 'checking' | 'verified' | 'failed';
@@ -88,7 +100,9 @@ export interface Verification {
 export interface Snapshot {
   sequence: number;
   workspace: Omit<Workspace, 'apiKey' | 'cacheSecret' | 'pythonPath'>;
-  account?: AccountSnapshot; connectionMode?: ConnectionMode; rememberAccount?: boolean;
+  account?: AccountSnapshot; connectionMode?: ConnectionMode; rememberAccount?: boolean; cloud?: CloudStatus;
+  /** Cloud chats whose messages are being fetched. */
+  cloudLoading?: string[];
   hasKey: boolean; models: string[]; capabilities?: ModelCapability[]; verification: Verification;
   /** Tinfoil's public model catalog, loaded without credentials when the model picker needs it. */
   modelCatalog?: 'idle' | 'loading' | 'ready' | 'failed';
@@ -107,6 +121,7 @@ export interface GenerationJob {
 export type Command =
   | { type: 'account.login' | 'account.cancel' | 'account.refresh' | 'account.manage' | 'account.signout' }
   | { type: 'account.remember'; enabled: boolean }
+  | { type: 'cloud.connect'; key: string } | { type: 'cloud.key.file' | 'cloud.sync' | 'cloud.disconnect' } | { type: 'thread.cloud.upload'; id: string }
   | { type: 'connection.mode'; mode: ConnectionMode }
   | { type: 'thread.authorize-account'; id: string }
   | { type: 'thread.new'; projectId?: string | null }

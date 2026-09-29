@@ -62,6 +62,9 @@ with sync_playwright() as pw:
         last=page.locator('#account-body > :last-child');last.scroll_into_view_if_needed();expect(last).to_be_in_viewport();check(f'{width}px: the last account section remains reachable at the end of the panel')
         page.evaluate("window.__accountPatch({profile:{...window.__accountState().account.profile,name:'A very long profile name for checking wrapping on a small display',email:'averylongmailboxaddress012345678901234567890123456789@example.invalid'}})");assert page.evaluate('document.documentElement.scrollWidth<=innerWidth+1');assert body.evaluate('e=>e.scrollWidth<=e.clientWidth+1');check(f'{width}px: long account names and emails wrap within the dialog')
         close.tap();expect(dialog).not_to_be_visible();assert page.locator('.titlebar').bounding_box()['y']>=-1;check(f'{width}px: tapping close does not scroll the app titlebar out of view')
+        # Where the dialog's close button covers the menu button, an immediate second tap there is a double tap,
+        # which the renderer drops by design (see the click guard in app.ts); pause as a person would.
+        page.wait_for_timeout(700)
         open_account(page,True);page.evaluate("window.__accountPatch({profile:{...window.__accountState().account.profile,name:'Sample Account',email:'sample@example.invalid'}})");body.evaluate('e=>e.scrollTop=0');page.locator('#toast').evaluate("e=>e.classList.add('hidden')")
         # Rotation keeps the visible panel and the existing disclosure state.
         page.set_viewport_size({'width':height,'height':width});expect(dialog).to_be_visible();assert page.evaluate('document.documentElement.scrollWidth<=innerWidth+1');check(f'{width}px: rotation preserves the account dialog without horizontal overflow')

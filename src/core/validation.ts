@@ -1,8 +1,9 @@
 import { viewPreferences } from './preferences.js';
-import type { ReplyEdit, ApiMessage, Artifact, Attachment, GenerationSettings, InstructionPreset, Reply, Thread, ToolRun, Workspace } from './types.js';
+import type { ReplyEdit, ApiMessage, Artifact, Attachment, CloudConfig, GenerationSettings, InstructionPreset, Reply, Thread, ToolRun, Workspace } from './types.js';
+import type { CloudChatLink, CloudProjectLink } from './cloud.js';
 export const LIMITS = Object.freeze({
   prompt: 160_000, attachment: 200_000, attachments: 8,
-  context: 800_000, response: 2_000_000, threads: 300, turns: 400,
+  context: 800_000, response: 2_000_000, threads: 800, cloudChats: 300, turns: 400,
   instructions: 40_000, instructionName: 80, instructionPresets: 50,
   importBytes: 24 * 1024 * 1024, workspaceBytes: 64 * 1024 * 1024,
 });
@@ -83,6 +84,36 @@ function list(value: unknown, max: number): unknown[] {
   return value;
 }
 function stamp(value: unknown): number { return numeric(value, 0, 9e15); }
+// Tinfoil cloud links (docs/CLOUD.md). Identifiers and versions come from Tinfoil's servers, so they are checked too.
+function cloudId(value: unknown): string {
+  const result = text(value, 'Cloud identifier', 200, true);
+  if (!/^[A-Za-z0-9_.:-]+$/.test(result)) throw new InputError('Invalid cloud identifier.');
+  return result;
+}
+function cloudVersion(value: unknown): string {
+  const result = text(value, 'Cloud version', 20, true);
+  if (!/^\d{1,20}$/.test(result)) throw new InputError('Invalid cloud version.');
+  return result;
+}
+export function cloudChatLink(value: unknown): CloudChatLink {
+  const v = record(value);
+  if (typeof v.loaded !== 'boolean' || typeof v.dirty !== 'boolean' || !Number.isInteger(v.turns)) throw new InputError('Invalid cloud chat link.');
+  return { id: cloudId(v.id), etag: cloudVersion(v.etag), project: v.project === null ? null : cloudId(v.project), turns: numeric(v.turns, 0, LIMITS.turns),
+    loaded: v.loaded, dirty: v.dirty, syncedAt: stamp(v.syncedAt) };
+}
+export function cloudProjectLink(value: unknown): CloudProjectLink {
+  const v = record(value);
+  const documents = list(v.documents ?? [], 100).map(item => { const d = record(item);
+    return { id: cloudId(d.id), etag: cloudVersion(d.etag), name: text(d.name, 'Document name', 200), type: text(d.type, 'Document type', 100), content: text(d.content, 'Document', 500_000) }; });
+  return { id: cloudId(v.id), etag: cloudVersion(v.etag), description: text(v.description, 'Project description', 4000), instructions: text(v.instructions, 'Project instructions', LIMITS.instructions),
+    color: text(v.color, 'Project color', 40), documents, syncedAt: stamp(v.syncedAt) };
+}
+function cloudConfig(value: unknown): CloudConfig {
+  const v = record(value), key = text(v.key, 'Cloud key', 68, true), keyId = text(v.keyId, 'Cloud key ID', 32, true), user = text(v.user, 'Cloud user', 200, true), writer = text(v.writer, 'Cloud writer', 100, true);
+  if (!/^key_[a-z0-9]{64}$/.test(key) || !/^[0-9a-f]{32}$/.test(keyId) || !/^user_[A-Za-z0-9_-]+$/.test(user) || !/^[A-Za-z0-9._-]+$/.test(writer) || !Number.isSafeInteger(v.clock) || (v.clock as number) < 0)
+    throw new InputError('Invalid cloud sync settings.');
+  return { key, keyId, user, writer, clock: v.clock as number };
+}
 function validateEdit(value: unknown, content: unknown, reasoning: unknown): ReplyEdit {
   const e = record(value);
   const originalContent=text(e.originalContent,'Original reply',LIMITS.response);
@@ -134,6 +165,7 @@ export function validateThread(value: unknown): Thread {
     id: identifier(v.id), title: text(v.title, 'Title', 120, true), pinned: v.pinned,
     projectId: v.projectId == null ? null : identifier(v.projectId),
     ...(v.branchOf === undefined ? {} : {branchOf:identifier(v.branchOf)}),
+    ...(v.cloud === undefined ? {} : {cloud:cloudChatLink(v.cloud)}),
     ...(v.connectionOwner === undefined ? {} : {connectionOwner:text(v.connectionOwner,'Connection owner',250,true)}),
     createdAt: stamp(v.createdAt), updatedAt: stamp(v.updatedAt), settings: settings(v.settings),
     draft: text(v.draft, 'Draft', LIMITS.prompt), draftAttachments: attachments(v.draftAttachments ?? []), turns,
@@ -146,7 +178,7 @@ export function validateWorkspace(value: unknown): Workspace {
   if(v.rememberAccount!==undefined&&v.rememberAccount!==false)throw new InputError('Invalid sign-in preference.');
   const threads = list(v.threads, LIMITS.threads).map(validateThread);
   if (!threads.length || new Set(threads.map(t => t.id)).size !== threads.length) throw new InputError('Invalid workspace conversations.');
-  const projects = list(v.projects ?? [], 100).map(item => {const p=record(item);return {id:identifier(p.id),name:text(p.name,'Project name',80,true).trim(),createdAt:stamp(p.createdAt)};});
+  const projects = list(v.projects ?? [], 200).map(item => {const p=record(item);return {id:identifier(p.id),name:text(p.name,'Project name',80,true).trim(),createdAt:stamp(p.createdAt),...(p.cloud===undefined?{}:{cloud:cloudProjectLink(p.cloud)})};});
   if(new Set(projects.map(p=>p.id)).size!==projects.length) throw new InputError('Duplicate project identifiers.');
   for(const thread of threads) if(thread.projectId && !projects.some(p=>p.id===thread.projectId)) throw new InputError('Thread project does not exist.');
   const instructionPresets = list(v.instructionPresets ?? [], LIMITS.instructionPresets).map(instructionPreset);
@@ -154,7 +186,7 @@ export function validateWorkspace(value: unknown): Workspace {
   const activeId = identifier(v.activeId);
   if (!threads.some(t => t.id === activeId)) throw new InputError('Active conversation is missing.');
   return {
-    version: 1, activeId, threads, projects, instructionPresets, ...(v.connectionMode?{connectionMode:v.connectionMode as Workspace['connectionMode']}:{}), ...(v.rememberAccount===false?{rememberAccount:false as const}:{}), view: viewPreferences(v.view), pythonPath: text(v.pythonPath ?? '', 'Python interpreter path', 4096),
+    version: 1, activeId, threads, projects, instructionPresets, ...(v.connectionMode?{connectionMode:v.connectionMode as Workspace['connectionMode']}:{}), ...(v.rememberAccount===false?{rememberAccount:false as const}:{}), ...(v.cloud===undefined?{}:{cloud:cloudConfig(v.cloud)}), view: viewPreferences(v.view), pythonPath: text(v.pythonPath ?? '', 'Python interpreter path', 4096),
     apiKey: text(v.apiKey, 'API key', 4096), cacheSecret: text(v.cacheSecret, 'Cache secret', 200, true),
   };
 }

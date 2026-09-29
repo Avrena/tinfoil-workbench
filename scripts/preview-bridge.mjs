@@ -8,9 +8,11 @@ import { viewPreferences } from '/core/preferences.js';
 import {newWorkspace,findThread,addThread,beginTurn,chooseReply,forkThread} from '/core/workspace.js';
 import {settings,attachments,InputError} from '/core/validation.js';
 let previewAccount=signedOutAccount(),previewMode='api-key',previewRemember=true;
+// Cloud sync is shown with synthetic state only; the preview never connects to Tinfoil cloud.
+let previewCloud={state:'off',keyId:null,user:null,lastSyncAt:null,message:null,chats:0,projects:0,older:0},previewLoading=[];
 const workspace=newWorkspace(),listeners=new Set();let sequence=0,busy=null,stopped=false;
 Object.assign(workspace.threads[0].settings,{model:'demo/writer',compareModel:'demo/analyst'});
-const snapshot=()=>({sequence:++sequence,account:structuredClone(previewAccount),connectionMode:previewMode,rememberAccount:previewRemember,workspace:structuredClone({version:workspace.version,activeId:workspace.activeId,threads:workspace.threads,projects:workspace.projects,instructionPresets:workspace.instructionPresets,view:workspace.view}),pythonConfigured:false,hasKey:false,models:['demo/writer','demo/analyst','deepseek-v4-pro','kimi-k3'],capabilities:structuredClone(previewCatalog),modelCatalog:'ready',verification:{state:'idle',checkedAt:null,steps:[]},busyThreadId:busy,storage:'preview',notice:'OFFLINE PREVIEW · Synthetic responses · No API connection or local persistence'});
+const snapshot=()=>({sequence:++sequence,account:structuredClone(previewAccount),connectionMode:previewMode,rememberAccount:previewRemember,cloud:structuredClone(previewCloud),cloudLoading:[...previewLoading],workspace:structuredClone({version:workspace.version,activeId:workspace.activeId,threads:workspace.threads,projects:workspace.projects,instructionPresets:workspace.instructionPresets,view:workspace.view}),pythonConfigured:false,hasKey:false,models:['demo/writer','demo/analyst','deepseek-v4-pro','kimi-k3'],capabilities:structuredClone(previewCatalog),modelCatalog:'ready',verification:{state:'idle',checkedAt:null,steps:[]},busyThreadId:busy,storage:'preview',notice:'OFFLINE PREVIEW · Synthetic responses · No API connection or local persistence'});
 const emit=()=>{const s=snapshot();for(const fn of listeners)fn(s);};
 // Synthetic picker metadata. Display-only (`known: false`), so the bundled reasoning profiles still apply.
 function previewModel(id,display){return {id,label:display.name,known:false,source:'unknown',reasoning:false,effort:[],toggle:false,defaultEnabled:true,enable:{},disable:{},toolCalling:null,
@@ -106,6 +108,7 @@ window.tinfoil=Object.freeze({
       case 'account.login':case 'account.cancel':case 'account.refresh':case 'account.manage':case 'account.signout':case 'thread.authorize-account':throw new InputError('Offline preview cannot sign in, accept account credentials, or modify a real profile. Use the desktop app.');
       case 'connection.mode':if(!['chat-account','api-key'].includes(c.mode))throw new InputError('Invalid mode.');previewMode=c.mode;break;
       case 'account.remember':previewRemember=c.enabled===true;break;
+      case 'cloud.connect':case 'cloud.key.file':case 'cloud.sync':case 'cloud.disconnect':case 'thread.cloud.upload':throw new InputError('Offline preview cannot connect to Tinfoil cloud.');
       case 'view.set':workspace.view=viewPreferences(c.view);break;
       case 'tool.cancel':case 'tool.approve':throw new InputError('Offline preview does not execute Python, contact MCP servers or run sub-agents. Use the desktop app.');
       case 'artifact.pdf':case 'artifact.open':case 'python.pick':case 'code.run':case 'artifact.save':throw new InputError('Offline preview does not execute Python or create files. Use the desktop app.');

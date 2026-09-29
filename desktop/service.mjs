@@ -14,6 +14,8 @@ import { RouterEventParser, TINFOIL_EVENT_HEADERS } from '../dist/core/provider-
 import { randomUUID } from 'node:crypto';
 import { signedOutAccount } from '../dist/core/account.js';
 import { publicError, networkFailure, moduleFailure } from '../dist/core/security.js';
+import { projectContext } from '../dist/core/cloud.js';
+import { CloudSync } from './cloud-sync.mjs';
 const idleVerification = () => ({ state: 'idle', checkedAt: null, steps: [] });
 const bounded = (v, max = 100) => typeof v === 'string' ? v.slice(0, max) : '';
 const stepList = steps => Object.entries(steps ?? {}).slice(0, 20).map(([name, step]) => ({ name: bounded(name), status: bounded(step?.status) }));
@@ -41,7 +43,16 @@ export class WorkbenchService {
     // The public catalog outlives connections; `listed` is the verified endpoint's own list.
     this.catalog = []; this.listed = []; this.catalogState = 'idle'; this.catalogFlight = null; this.catalogFailedAt = 0;
     this.controllers = new Map(); this.tasks = new Set(); this.notice = null; this.storageFailed = false; this.emitter = null;
+    // Tinfoil cloud chats and projects (docs/CLOUD.md), when the host provides the attested sync client.
+    this.cloud = options.cloudClient ? new CloudSync({ client: options.cloudClient, account: options.account, host: { workspace: () => this.workspace,
+      save: () => this.save(), emit: () => this.emit(), notice: message => { this.notice = message; }, ensureActive: () => this.ensureActive() } }) : null;
   }
+  ensureActive() {
+    if (!this.workspace.threads.length) addThread(this.workspace);
+    if (!this.workspace.threads.some(t => t.id === this.workspace.activeId)) this.workspace.activeId = this.workspace.threads[0].id;
+  }
+  /** A cloud sync that runs by itself (after sign-in or on a timer) reports problems in the cloud status only. */
+  syncCloud() { if (this.cloud && this.workspace?.cloud && this.options.account?.snapshot().status === 'signed-in') void this.cloud.sync().catch(() => {}); }
   async initialize() {
     const stored = await this.vault.read();
     this.workspace = stored === null ? newWorkspace() : validateWorkspace(stored);
@@ -54,6 +65,7 @@ export class WorkbenchService {
     return { sequence: ++this.sequence, workspace: structuredClone({ version, activeId, threads, projects, instructionPresets, view }), hasKey: !!this.workspace.apiKey,
       pythonConfigured: !!this.workspace.pythonPath, models: [...this.models], capabilities: structuredClone(this.capabilities), modelCatalog: this.catalogState, verification: structuredClone(this.verification),
       account: this.options.account?.snapshot()??signedOutAccount(), connectionMode:this.workspace.connectionMode??'api-key', rememberAccount:this.workspace.rememberAccount!==false,
+      cloud: this.cloud?.snapshot() ?? { state: 'off', keyId: null, user: null, lastSyncAt: null, message: null, chats: 0, projects: 0, older: 0 }, cloudLoading: this.cloud ? [...this.cloud.loading] : [],
       busyThreadId: this.busyThreadId, storage: 'os-encrypted', notice: this.notice };
   }
   emit() { this.onChange(this.snapshot()); }
@@ -80,6 +92,9 @@ export class WorkbenchService {
     this.verification=idleVerification();this.notice=null;
   }
   accountChanged() {
+    const status = this.options.account?.snapshot().status;
+    if (status === 'signed-in' && this.lastAccountStatus !== 'signed-in') this.syncCloud();
+    this.lastAccountStatus = status;
     if(this.workspace?.connectionMode==='chat-account' && this.options.account?.snapshot().status!=='signed-in'){
       for(const ctrl of this.controllers.values())ctrl.abort();
       this.resetConnection();
@@ -231,7 +246,16 @@ export class WorkbenchService {
   }
   async execute(input) {
     const c = record(input), type = text(c.type, 'Command', 80, true);
+    let cloudChanged = null;
     switch (type) {
+      case 'cloud.connect': if (!this.cloud) throw new InputError('Cloud sync is not available here.'); await this.cloud.connect(text(c.key, 'Chat key', 4096, true)); return this.snapshot();
+      case 'cloud.sync': if (!this.cloud) throw new InputError('Cloud sync is not available here.'); await this.cloud.sync(); return this.snapshot();
+      case 'cloud.disconnect': if (this.busyThreadId) throw new InputError('Stop the response before removing the chat key.'); await this.cloud?.disconnect(); return this.snapshot();
+      case 'thread.cloud.upload': {
+        if (!this.cloud) throw new InputError('Cloud sync is not available here.');
+        if (this.busyThreadId === c.id) throw new InputError('Wait for the response to finish first.');
+        await this.cloud.upload(identifier(c.id)); return this.snapshot();
+      }
       case 'connection.mode': {
         if(this.busyThreadId||this.connection)throw new InputError('Stop the response or wait for verification before changing connections.');
         if(!['api-key','chat-account'].includes(c.mode))throw new InputError('Invalid connection mode.');
@@ -253,19 +277,29 @@ export class WorkbenchService {
       case 'code.run': return this.manualRun(identifier(c.id), identifier(c.replyId), c.index);
       case 'thread.new': newProjectThread(this.workspace, c.projectId == null ? c.projectId : identifier(c.projectId)); break;
       case 'project.create': createProject(this.workspace,c.name); break;
-      case 'project.rename': renameProject(this.workspace,identifier(c.id),c.name); break;
-      case 'project.delete': removeProject(this.workspace,identifier(c.id)); break;
-      case 'thread.move': moveThread(this.workspace,identifier(c.id),c.projectId===null?null:identifier(c.projectId)); break;
+      case 'project.rename': this.localProject(c.id, 'Rename'); renameProject(this.workspace,identifier(c.id),c.name); break;
+      case 'project.delete': this.localProject(c.id, 'Delete'); removeProject(this.workspace,identifier(c.id)); break;
+      case 'thread.move': {
+        const id = identifier(c.id), projectId = c.projectId === null ? null : identifier(c.projectId);
+        if (this.cloud?.move(id, projectId)) cloudChanged = id; else moveThread(this.workspace, id, projectId);
+        break;
+      }
       // Library changes never alter a thread's copied instructions or any request in flight.
       case 'instructions.save': saveInstructionPreset(this.workspace,c.id==null?undefined:identifier(c.id),c.name,c.text); break;
       case 'instructions.delete': deleteInstructionPreset(this.workspace,identifier(c.id)); break;
-      case 'prompt.edit': {this.editable(c.id);editPrompt(this.workspace,c.id,identifier(c.turnId),c.content,c.expectedContent);break;}
-      case 'reply.edit': {this.editable(c.id);editReply(this.workspace,c.id,{turnId:identifier(c.turnId),replyId:identifier(c.replyId),content:c.content,reasoning:c.reasoning,expectedContent:c.expectedContent,expectedReasoning:c.expectedReasoning});break;}
-      case 'thread.select': findThread(this.workspace, identifier(c.id)); this.workspace.activeId = c.id; break;
-      case 'thread.rename': this.editable(c.id).title = text(c.title, 'Title', 120, true).trim(); break;
+      case 'prompt.edit': {this.editable(c.id);cloudChanged=c.id;editPrompt(this.workspace,c.id,identifier(c.turnId),c.content,c.expectedContent);break;}
+      case 'reply.edit': {this.editable(c.id);cloudChanged=c.id;editReply(this.workspace,c.id,{turnId:identifier(c.turnId),replyId:identifier(c.replyId),content:c.content,reasoning:c.reasoning,expectedContent:c.expectedContent,expectedReasoning:c.expectedReasoning});break;}
+      case 'thread.select': {
+        const t = findThread(this.workspace, identifier(c.id)); this.workspace.activeId = c.id;
+        // A listed cloud chat fetches its messages when it is opened.
+        if (t.cloud && !t.cloud.loaded) void this.cloud?.load(t.id).catch(error => { this.notice = error.message; this.emit(); });
+        break;
+      }
+      case 'thread.rename': this.editable(c.id).title = text(c.title, 'Title', 120, true).trim(); cloudChanged = c.id; break;
       case 'thread.pin': { const t = findThread(this.workspace, identifier(c.id)); t.pinned = !t.pinned; break; }
       case 'thread.delete': {
-        this.editable(c.id);
+        // A cloud chat is deleted in Tinfoil first; the host has already asked about that.
+        if (this.editable(c.id).cloud) { if (!this.cloud) throw new InputError('Cloud sync is not available here.'); await this.cloud.remove(c.id); return this.snapshot(); }
         this.workspace.threads = this.workspace.threads.filter(t => t.id !== c.id);
         if (!this.workspace.threads.length) addThread(this.workspace);
         if (this.workspace.activeId === c.id) this.workspace.activeId = this.workspace.threads[0].id;
@@ -289,7 +323,7 @@ export class WorkbenchService {
         if (typeof c.before !== 'boolean') throw new InputError('Invalid branch mode.');
         forkThread(this.workspace, c.id, identifier(c.turnId), c.before, c.replyId === undefined ? undefined : identifier(c.replyId)); break;
       }
-      case 'reply.select': chooseReply(this.editable(c.id), identifier(c.turnId), identifier(c.replyId)); break;
+      case 'reply.select': chooseReply(this.editable(c.id), identifier(c.turnId), identifier(c.replyId)); cloudChanged = c.id; break;
       case 'credentials.set':
       case 'credentials.clear': {
         if (this.busyThreadId || this.connection) throw new InputError('Wait for verification or stop the response before changing credentials.');
@@ -307,7 +341,13 @@ export class WorkbenchService {
       }
       default: throw new InputError('Unsupported command.');
     }
-    await this.save(); this.emit(); return this.snapshot();
+    await this.save(); this.emit();
+    if (cloudChanged && this.cloud) void this.cloud.changed(cloudChanged);
+    return this.snapshot();
+  }
+  /** Cloud projects are managed in Tinfoil Chat; Workbench reads them and files chats into them. */
+  localProject(id, action) {
+    if (this.workspace.projects.find(p => p.id === id)?.cloud) throw new InputError(`${action} Tinfoil cloud projects in Tinfoil Chat.`);
   }
   async send(threadId, prompt, files) {
     if (this.storageFailed) throw new InputError(this.notice);
@@ -316,8 +356,10 @@ export class WorkbenchService {
     const owner=this.activeOwner();
     if(this.needsAuthorization(threadId))throw new InputError('Review and allow this existing thread for the selected account before sending.');
     const thread = findThread(this.workspace, threadId);
+    if (thread.cloud && !thread.cloud.loaded) throw new InputError('This chat is still loading from Tinfoil cloud. Wait a moment, then send.');
     if (thread.settings.toolsMode === 'ask' && (!this.toolExecutor || !this.workspace.pythonPath)) throw new InputError('Choose an installed Python interpreter in Settings → Execution before enabling model-requested Python.');
-    const jobs = beginTurn(thread, prompt, files);
+    const project = thread.projectId ? this.workspace.projects.find(p => p.id === thread.projectId) : null;
+    const jobs = beginTurn(thread, prompt, files, project ? projectContext(project) : '');
     thread.connectionOwner=owner;for(const job of jobs)job.owner=owner;
     this.busyThreadId = threadId; this.delegationCount = 0;
     // Install controllers before the first await, so even a stop during disk IO is effective.
@@ -332,6 +374,10 @@ export class WorkbenchService {
       finally {
         this.busyThreadId = null; this.controllers.clear();
         await this.save().catch(() => {}); this.emit();
+        // A cloud chat is written back after each turn; a conversation in a cloud project becomes a cloud chat.
+        const done = this.workspace.threads.find(t => t.id === threadId);
+        if (done?.cloud) void this.cloud?.changed(threadId);
+        else if (done && this.cloud && this.workspace.projects.find(p => p.id === done.projectId)?.cloud) void this.cloud.upload(threadId).catch(error => { this.notice = error.message; this.emit(); });
       }
     })();
     this.tasks.add(task); task.finally(() => this.tasks.delete(task));
@@ -612,6 +658,8 @@ export class WorkbenchService {
   async shutdown() {
     for (const ctrl of this.controllers.values()) ctrl.abort();
     await Promise.allSettled([...this.tasks]);
+    // Cloud writes in flight finish or fail; a chat that was not written stays marked and is written next time.
+    await Promise.allSettled([...(this.cloud?.writes.values() ?? [])]);
     await this.vault.flush();
     clearTimeout(this.emitter);
   }

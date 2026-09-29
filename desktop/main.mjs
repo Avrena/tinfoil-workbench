@@ -15,6 +15,7 @@ import { runPython } from './python-runner.mjs';
 import { safeExternalURL } from '../dist/core/markdown.js';
 import { pythonArguments } from '../dist/core/tools.js';
 import { createProvider } from './provider.mjs';
+import { CloudClient, SYNC_URL, SYNC_REPO } from './cloud-client.mjs';
 import { CloseCoordinator, persistCloseDecision } from './close-coordinator.mjs';
 import { AccountSession } from './account-session.mjs';
 import { AccountWindow } from './account-window.mjs';
@@ -52,8 +53,14 @@ async function launch() {
   powerMonitor.on('resume',()=>account?.resume());
   service = new WorkbenchService(vault, createProvider, snapshot => {
     if (window && !window.isDestroyed()) window.webContents.send('workbench:changed', snapshot);
-  }, runPython, {pdfRenderer:renderPDF,capabilityLoader:loadModelCapabilities,account});
+  }, runPython, {pdfRenderer:renderPDF,capabilityLoader:loadModelCapabilities,account,cloudClient:new CloudClient({
+    // Tinfoil's sync enclave, attested like inference; the SDK is loaded only when cloud sync is used.
+    secureClient: async () => { const { SecureClient } = await import('tinfoil'); return new SecureClient({ enclaveURL: SYNC_URL, configRepo: SYNC_REPO, userCacheSecret: service.workspace.cacheSecret }); },
+    token: async force => (await account.sessionToken(force)).bearer,
+  })});
   await service.initialize();
+  // Cloud chats sync after sign-in and then every ten minutes while the app is open.
+  if (!smoke) setInterval(() => service.syncCloud(), 600_000).unref?.();
   await account.setRemember(service.workspace.rememberAccount!==false);
   // Restores in the background; the account view shows "Restoring" until it finishes.
   void account.restore();
@@ -316,11 +323,28 @@ async function command(input) {
       break;
     }
     case 'open.docs': await shell.openExternal('https://docs.tinfoil.sh/get-api-key'); break;
+    case 'cloud.key.file': {
+      // The key file is read here, so the key does not pass through the page.
+      const picked = await dialog.showOpenDialog(window, { properties: ['openFile'], title: 'Open your Tinfoil chat key file', filters: [{ name: 'Tinfoil chat key', extensions: ['pem', 'txt'] }] });
+      if (picked.canceled || !picked.filePaths[0]) break;
+      if ((await stat(picked.filePaths[0])).size > 4096) throw new InputError('That file is too large to be a Tinfoil chat key.');
+      await service.execute({ type: 'cloud.connect', key: await readFile(picked.filePaths[0], 'utf8') });
+      break;
+    }
+    case 'cloud.disconnect': {
+      const result = await dialog.showMessageBox(window, { type: 'question', buttons: ['Cancel', 'Remove chat key'], defaultId: 0, cancelId: 0,
+        message: 'Remove your Tinfoil chat key from Workbench?', detail: 'Cloud chats and projects are removed from this PC and stay in your Tinfoil account. A chat with changes that were not written yet is kept here as a local conversation.' });
+      if (result.response === 1) await service.execute(c);
+      break;
+    }
     case 'thread.delete': {
       const thread = findThread(service.workspace, identifier(c.id));
       if (service.busyThreadId === c.id) throw new InputError('Stop the active response before deleting.');
-      const result = await dialog.showMessageBox(window, { type: 'warning', buttons: ['Cancel', 'Delete conversation'], defaultId: 0, cancelId: 0,
-        message: `Delete “${thread.title}”?`, detail: 'This removes the local conversation. There is no undo; exported copies and filesystem backups are not erased.' });
+      const result = await dialog.showMessageBox(window, thread.cloud
+        ? { type: 'warning', buttons: ['Cancel', 'Delete from Tinfoil cloud'], defaultId: 0, cancelId: 0, message: `Delete “${thread.title}” from Tinfoil cloud?`,
+          detail: 'This deletes the chat from your Tinfoil account, so it also disappears from Tinfoil Chat on your other devices. There is no undo.' }
+        : { type: 'warning', buttons: ['Cancel', 'Delete conversation'], defaultId: 0, cancelId: 0,
+          message: `Delete “${thread.title}”?`, detail: 'This removes the local conversation. There is no undo; exported copies and filesystem backups are not erased.' });
       if (result.response === 1) await service.execute(c);
       break;
     }

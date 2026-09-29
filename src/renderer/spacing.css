@@ -391,6 +391,7 @@ dialog:not(.message-editor) .modal-body { padding: 8px 20px 20px; }
 .account-state{font-size:12px;color:#999}.account-state[data-state=signed-in]{color:#aec7b1}.account-state[data-state=signing-in]{color:#c6c6c6}
 .account-actions{display:flex;gap:8px;flex-wrap:wrap}.account-actions button{min-height:36px}
 .account-remember{gap:12px;padding:10px 12px;margin-top:4px;min-height:40px}
+.cloud-key-label{display:block;margin:10px 0 6px}.cloud-section input{padding:8px 10px;margin-bottom:10px}
 .account-section{margin-top:24px}.account-section h3{font-size:13px;font-weight:600;margin:0 0 12px}
 .account-modes{display:grid;grid-template-columns:1fr 1fr;gap:8px}
 .account-modes button{display:flex;flex-direction:column;gap:5px;text-align:left;padding:12px;white-space:normal;border:1px solid #414141;background:#252525}
