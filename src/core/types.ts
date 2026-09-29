@@ -76,6 +76,8 @@ export interface Thread {
   branchOf?: string;
   /** Set for a Tinfoil cloud chat (docs/CLOUD.md). */
   cloud?: CloudChatLink;
+  /** Started from the Cloud list: becomes a cloud chat after its first reply, like a conversation in a cloud project. */
+  cloudPending?: true;
   id: string; title: string; pinned: boolean; createdAt: number; updatedAt: number;
   settings: GenerationSettings; turns: Turn[]; draft: string;
   /** Unsent reference files, encrypted with the draft and never sent until Send. */
@@ -125,7 +127,7 @@ export type Command =
   | { type: 'cloud.connect'; key: string } | { type: 'cloud.key.file' | 'cloud.sync' | 'cloud.disconnect' } | { type: 'thread.cloud.upload'; id: string }
   | { type: 'connection.mode'; mode: ConnectionMode }
   | { type: 'thread.authorize-account'; id: string }
-  | { type: 'thread.new'; projectId?: string | null }
+  | { type: 'thread.new'; projectId?: string | null; cloud?: boolean }
   | { type: 'project.create'; name: string }
   | { type: 'project.rename'; id: string; name: string }
   | { type: 'project.delete'; id: string }

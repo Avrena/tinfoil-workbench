@@ -166,6 +166,7 @@ export function validateThread(value: unknown): Thread {
     projectId: v.projectId == null ? null : identifier(v.projectId),
     ...(v.branchOf === undefined ? {} : {branchOf:identifier(v.branchOf)}),
     ...(v.cloud === undefined ? {} : {cloud:cloudChatLink(v.cloud)}),
+    ...(v.cloudPending === true && v.cloud === undefined ? {cloudPending:true as const} : {}),
     ...(v.connectionOwner === undefined ? {} : {connectionOwner:text(v.connectionOwner,'Connection owner',250,true)}),
     createdAt: stamp(v.createdAt), updatedAt: stamp(v.updatedAt), settings: settings(v.settings),
     draft: text(v.draft, 'Draft', LIMITS.prompt), draftAttachments: attachments(v.draftAttachments ?? []), turns,

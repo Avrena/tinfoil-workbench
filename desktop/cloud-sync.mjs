@@ -246,7 +246,7 @@ export class CloudSync {
     const clock = this.nextClock(0), body = newCloudChat(t, project, { ...clock, version: 1 }, this.now());
     const etag = await this.client.push('chat', chatId, key, body, '0', { messageCount: body.messages.length, projectId: project });
     const current = this.ws.threads.find(x => x.id === id);
-    if (current) current.cloud = { id: chatId, etag, project, turns: current.turns.length, loaded: true, dirty: false, syncedAt: this.now() };
+    if (current) { current.cloud = { id: chatId, etag, project, turns: current.turns.length, loaded: true, dirty: false, syncedAt: this.now() }; delete current.cloudPending; }
     await this.host.save(); this.host.emit();
   }
   /** Deletes a cloud chat in Tinfoil, then here. */

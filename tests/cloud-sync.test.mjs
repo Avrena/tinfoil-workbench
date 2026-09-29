@@ -328,3 +328,29 @@ test('the Android worker bundle leaves cloud sync out', () => {
   assert.ok(reached.includes('desktop/service.mjs'), 'the walk reaches the shared service');
   assert.deepEqual(reached.filter(f => /desktop\/cloud-(sync|client)\.mjs$/.test(f)), []);
 });
+test('a thread started from the Cloud list becomes a cloud chat after its first reply, and only then', async () => {
+  const { WorkbenchService } = await import('../desktop/service.mjs');
+  const server = enclave();
+  let stored = null; const vault = { read: async () => stored, write: async v => { stored = structuredClone(v); }, flush: async () => {} };
+  const account = { snapshot: () => ({ status: 'signed-in', profile: { id: 'user_test' } }), sessionToken: async () => ({ bearer: 'clerk-test-only', user: 'user_test' }) };
+  const client = { ready: async () => {}, getVerificationDocument: async () => ({ securityVerified: true, steps: { verifyCode: { status: 'success' } } }), models: { list: async () => ({ data: [{ id: 'a' }] }) },
+    chat: { completions: { create: async () => (async function* () { yield { choices: [{ delta: { content: 'Hello' } }] }; yield { choices: [{ delta: {}, finish_reason: 'stop' }] }; })() } } };
+  const s = new WorkbenchService(vault, async () => client, () => {}, null, { account, cloud: host => new CloudSync({ client: server, account, host }) }); await s.initialize();
+  const active = () => s.workspace.threads.find(t => t.id === s.workspace.activeId);
+  await s.execute({ type: 'thread.new', cloud: true });
+  assert.equal(active().cloudPending, undefined, 'without a chat key the Cloud list is not offered');
+  await s.execute({ type: 'cloud.connect', key: KEY });
+  await s.execute({ type: 'thread.new', cloud: true });
+  const fresh = active(); assert.equal(fresh.cloudPending, true); assert.equal(fresh.cloud, undefined);
+  assert.equal(validateWorkspace(structuredClone(s.workspace)).threads.find(t => t.id === fresh.id).cloudPending, true, 'the mark is saved');
+  await s.execute({ type: 'credentials.set', key: 'test-only-not-real' }); fresh.settings.model = 'a';
+  await s.execute({ type: 'send', id: fresh.id, text: 'Hi', attachments: [] });
+  await until(() => !!s.workspace.threads.find(t => t.id === fresh.id).cloud);
+  const uploaded = s.workspace.threads.find(t => t.id === fresh.id);
+  assert.equal(uploaded.cloudPending, undefined); assert.equal(server.rows.chat.get(uploaded.cloud.id).plain.messages.length, 2);
+  await s.execute({ type: 'thread.new', cloud: true }); const moved = active();
+  await s.execute({ type: 'project.create', name: 'Local' }); const local = s.workspace.projects.find(p => !p.cloud);
+  await s.execute({ type: 'thread.move', id: moved.id, projectId: local.id });
+  assert.equal(s.workspace.threads.find(t => t.id === moved.id).cloudPending, undefined, 'a local project never uploads');
+  await s.shutdown();
+});

@@ -507,3 +507,32 @@ dialog:not(.message-editor) .modal-body { padding: 8px 20px 20px; }
   .title-trailing{justify-self:end;margin-left:0}
   .focus-mode .title-search{width:auto}
 }
+
+/* Sidebar headings: the count and the Threads heading's Sync button are right-aligned, so Sync sits in the same column
+   as the Projects heading's + button. */
+.nav-section-heading > span, .nav-section-heading > .icon-button { margin-left: auto; }
+.nav-section-heading > span + .icon-button { margin-left: 6px; }
+.nav-section-heading .cloud-sync.syncing svg { animation: sync-spin 1s linear infinite; }
+@keyframes sync-spin { to { transform: rotate(360deg); } }
+@media (prefers-reduced-motion: reduce) { .nav-section-heading .cloud-sync.syncing svg { animation: none; } }
+
+/* Cloud/Local list toggle under the Threads heading while Tinfoil cloud chats are connected. */
+.thread-tabs { display: flex; gap: 4px; margin: 0 7px 6px; padding: 2px; border-radius: 7px; background: #1f2023; }
+.thread-tabs button { flex: 1; display: flex; align-items: center; justify-content: center; gap: 6px; height: 26px; border-radius: 5px; font-size: 11px; color: #9a9ca1; }
+.thread-tabs button svg { width: 13px; height: 13px; }
+.thread-tabs button[aria-pressed="true"] { background: #2d2f33; color: #e6e6e6; }
+
+/* Thread rows: Move to cloud and Delete appear on hover or keyboard focus, beside the row's own button. */
+.thread-row { position: relative; }
+.thread-actions { position: absolute; top: 50%; right: 6px; transform: translateY(-50%); display: none; gap: 2px; }
+.thread-row:hover .thread-actions, .thread-row:focus-within .thread-actions { display: flex; }
+.thread-row:hover .thread, .thread-row:focus-within .thread { padding-right: 64px; }
+.thread-row:hover .thread:not(.selected) { background: #252525; }
+.thread-actions .icon-button { width: 26px; height: 26px; padding: 5px; border-radius: 5px; color: #9a9ca1; }
+.thread-actions .icon-button:hover { background: #ffffff14; color: #e0e0e0; }
+.thread-actions [data-action="row-delete"]:hover { color: #f28b82; }
+/* Without hover (touch screens) the conversation menu keeps these actions; nothing appears on a tap. */
+@media (hover: none) {
+  .thread-row .thread-actions { display: none; }
+  .thread-row:hover .thread, .thread-row:focus-within .thread { padding-right: 9px; }
+}

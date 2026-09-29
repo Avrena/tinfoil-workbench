@@ -288,13 +288,19 @@ export class WorkbenchService {
         this.approvals.delete(c.toolId); pending.resolve(c.approve); return this.snapshot();
       }
       case 'code.run': return this.manualRun(identifier(c.id), identifier(c.replyId), c.index);
-      case 'thread.new': newProjectThread(this.workspace, c.projectId == null ? c.projectId : identifier(c.projectId)); break;
+      case 'thread.new': {
+        const t = newProjectThread(this.workspace, c.projectId == null ? c.projectId : identifier(c.projectId));
+        // Started from the Cloud list, a conversation becomes a cloud chat after its first reply, as Tinfoil Chat's do.
+        if (c.cloud === true && this.cloudReady() && t.projectId == null) t.cloudPending = true;
+        break;
+      }
       case 'project.create': createProject(this.workspace,c.name); break;
       case 'project.rename': this.localProject(c.id, 'Rename'); renameProject(this.workspace,identifier(c.id),c.name); break;
       case 'project.delete': this.localProject(c.id, 'Delete'); removeProject(this.workspace,identifier(c.id)); break;
       case 'thread.move': {
         const id = identifier(c.id), projectId = c.projectId === null ? null : identifier(c.projectId);
         if (this.cloud?.move(id, projectId)) cloudChanged = id; else moveThread(this.workspace, id, projectId);
+        if (projectId != null) delete findThread(this.workspace, id).cloudPending;
         break;
       }
       // Library changes never alter a thread's copied instructions or any request in flight.
@@ -388,10 +394,11 @@ export class WorkbenchService {
       finally {
         this.busyThreadId = null; this.controllers.clear();
         await this.save().catch(() => {}); this.emit();
-        // A cloud chat is written back after each turn; a conversation in a cloud project becomes a cloud chat.
+        // A cloud chat is written back after each turn; a conversation in a cloud project, or one started from the Cloud
+        // list, becomes a cloud chat.
         const done = this.workspace.threads.find(t => t.id === threadId);
         if (done?.cloud) void this.cloud?.changed(threadId);
-        else if (done && this.cloud && this.workspace.projects.find(p => p.id === done.projectId)?.cloud) void this.cloud.upload(threadId).catch(error => { this.notice = error.message; this.emit(); });
+        else if (done && this.cloudReady() && (done.cloudPending || this.workspace.projects.find(p => p.id === done.projectId)?.cloud)) void this.cloud.upload(threadId).catch(error => { this.notice = error.message; this.emit(); });
       }
     })();
     this.tasks.add(task); task.finally(() => this.tasks.delete(task));
@@ -645,6 +652,8 @@ export class WorkbenchService {
       .filter(r=>r.id===currentReply?.id||r.id===turn.selectedReplyId)
       .flatMap(r=>(r.tools??[]).filter(t=>t.origin==='model').flatMap(t=>t.artifacts)));
   }
+  /** Tinfoil cloud chats are connected: a chat key is set and sync is not off. */
+  cloudReady() { return !!this.cloud && this.cloud.snapshot().state !== 'off'; }
   /** The tool message that answers a call, as the model sees it in later requests. */
   toolResult(callId, tool) {
     return { role: 'tool', tool_call_id: callId, content: JSON.stringify({

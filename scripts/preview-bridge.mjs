@@ -113,7 +113,7 @@ window.tinfoil=Object.freeze({
       case 'tool.cancel':case 'tool.approve':throw new InputError('Offline preview does not execute Python, contact MCP servers or run sub-agents. Use the desktop app.');
       case 'artifact.pdf':case 'artifact.open':case 'python.pick':case 'code.run':case 'artifact.save':throw new InputError('Offline preview does not execute Python or create files. Use the desktop app.');
       case 'open.url':throw new InputError('Offline preview does not open external links.');
-      case 'thread.new':newProjectThread(workspace,c.projectId);break;
+      case 'thread.new':{const t=newProjectThread(workspace,c.projectId);if(c.cloud===true&&previewCloud.state!=='off'&&t.projectId==null)t.cloudPending=true;break;}
       case 'project.create':createProject(workspace,c.name);break;
       case 'project.rename':renameProject(workspace,c.id,c.name);break;
       case 'project.delete':removeProject(workspace,c.id);break;

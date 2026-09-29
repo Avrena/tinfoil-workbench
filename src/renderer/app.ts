@@ -187,21 +187,29 @@ function renderAccount():void {
 }
 function showAccount():void {dismiss();showDialog('account-dialog');renderAccount();}
 let navigationSignature='';
+/** Tinfoil cloud chats are connected (Windows): the sidebar offers Sync, the Cloud/Local list and moving a thread. */
+function cloudConnected():boolean { return !!state.cloud&&state.cloud.state!=='off'; }
 function renderSidebar():void {
   const filter=$<HTMLInputElement>('search').value.toLowerCase();
-  const signature=JSON.stringify([filter,state.workspace.activeId,state.busyThreadId,state.workspace.projects,[...collapsedProjects],state.cloudLoading,state.workspace.threads.map(t=>[t.id,t.title,t.projectId,t.pinned,t.updatedAt,t.turns.length,t.cloud?.loaded,filter?t.turns.map(turn=>[turn.prompt,...turn.replies.map(r=>r.content)]):null])]);
+  const signature=JSON.stringify([filter,state.workspace.activeId,state.busyThreadId,state.workspace.projects,[...collapsedProjects],state.cloudLoading,state.cloud?.state,state.workspace.view.threadTab,state.workspace.threads.map(t=>[t.id,t.title,t.projectId,t.pinned,t.updatedAt,t.turns.length,t.cloud?.loaded,t.cloudPending,filter?t.turns.map(turn=>[turn.prompt,...turn.replies.map(r=>r.content)]):null])]);
   if(signature===navigationSignature)return;navigationSignature=signature;
   const threads=[...state.workspace.threads].sort((a,b)=>Number(b.pinned)-Number(a.pinned)||b.updatedAt-a.updatedAt).filter(t=>t.title.toLowerCase().includes(filter)||state.workspace.projects?.find(p=>p.id===t.projectId)?.name.toLowerCase().includes(filter)||t.turns.some(turn=>turn.prompt.toLowerCase().includes(filter)||turn.replies.some(r=>r.content.toLowerCase().includes(filter))));
-  const item=(t:Thread)=>`<button class="thread ${t.id===state.workspace.activeId?'selected':''}${t.cloud?' cloud':''}" data-thread="${e(t.id)}" aria-current="${t.id===state.workspace.activeId?'page':'false'}" title="${e(t.title)}${t.cloud?' (Tinfoil cloud)':''}">${icon(t.pinned?'pin':t.cloud?'cloud':'chat')}<span class="thread-copy"><strong>${e(t.title)}</strong><small>${t.cloud&&!t.cloud.loaded?(state.cloudLoading?.includes(t.id)?'Loading from Tinfoil cloud':'Tinfoil cloud'):`${t.turns.length} ${t.turns.length===1?'turn':'turns'}`} · ${t.id===state.busyThreadId?'Generating':new Date(t.updatedAt).toLocaleDateString(undefined,{month:'short',day:'numeric'})}</small></span></button>`;
+  const cloudOn=cloudConnected(),tab=state.workspace.view.threadTab,syncing=state.cloud?.state==='syncing';
+  // Hover actions sit beside the row's button, not inside it: a button cannot contain buttons.
+  const actions=(t:Thread)=>`<span class="thread-actions">${cloudOn&&!t.cloud&&!t.cloudPending&&!t.projectId&&t.turns.length?button('row-cloud-upload',`Move “${e(t.title)}” to Tinfoil cloud`,'upload',`class="icon-button" data-row="${e(t.id)}"${state.busyThreadId?' disabled':''}`):''}${button('row-delete',`Delete “${e(t.title)}”`,'trash',`class="icon-button" data-row="${e(t.id)}"`)}</span>`;
+  const item=(t:Thread)=>`<div class="thread-row"><button class="thread ${t.id===state.workspace.activeId?'selected':''}${t.cloud?' cloud':''}" data-thread="${e(t.id)}" aria-current="${t.id===state.workspace.activeId?'page':'false'}" title="${e(t.title)}${t.cloud?' (Tinfoil cloud)':''}">${icon(t.pinned?'pin':t.cloud?'cloud':'chat')}<span class="thread-copy"><strong>${e(t.title)}</strong><small>${t.cloud&&!t.cloud.loaded?(state.cloudLoading?.includes(t.id)?'Loading from Tinfoil cloud':'Tinfoil cloud'):`${t.turns.length} ${t.turns.length===1?'turn':'turns'}`} · ${t.id===state.busyThreadId?'Generating':new Date(t.updatedAt).toLocaleDateString(undefined,{month:'short',day:'numeric'})}</small></span></button>${actions(t)}</div>`;
   const projects=(state.workspace.projects??[]).map(project=>{
     const children=threads.filter(t=>t.projectId===project.id);if(filter&&!children.length&&!project.name.toLowerCase().includes(filter))return '';
     const collapsed=collapsedProjects.has(project.id)&&!filter;
     return `<section class="project-group" aria-label="${e(project.name)}"><div class="project-group-heading"><button class="project-toggle" data-action="project-toggle" data-project="${e(project.id)}" aria-expanded="${!collapsed}" aria-controls="project-${e(project.id)}"${project.cloud?' title="Tinfoil cloud project"':''}>${icon(project.cloud?'cloud':'folder')}<span>${e(project.name)}</span><small>${children.length}</small></button>${button('new-project-thread','New thread in '+e(project.name),'plus',`class="icon-button" data-project="${e(project.id)}"`)}${project.cloud?'':button('project-manage','Manage '+e(project.name),'more',`class="icon-button" data-project="${e(project.id)}"`)}</div><div id="project-${e(project.id)}" ${collapsed?'hidden':''}>${children.map(item).join('')||'<p class="nav-empty">No threads yet</p>'}</div></section>`;
   }).join('');
-  const loose=threads.filter(t=>!t.projectId),pinned=loose.filter(t=>t.pinned),recent=loose.filter(t=>!t.pinned);
+  // While cloud chats are connected the list shows either cloud or local threads, as Tinfoil Chat's sidebar does.
+  const loose=threads.filter(t=>!t.projectId).filter(t=>!cloudOn||(tab==='cloud')===!!(t.cloud||t.cloudPending)),pinned=loose.filter(t=>t.pinned),recent=loose.filter(t=>!t.pinned);
   const day=new Date();day.setHours(0,0,0,0);const today=recent.filter(t=>t.updatedAt>=+day),earlier=recent.filter(t=>t.updatedAt<+day);
   const group=(name:string,list:Thread[])=>list.length?`<section class="thread-group" aria-label="${name}"><h3>${name}</h3>${list.map(item).join('')}</section>`:'';
-  setMarkup($('thread-list'),(projects||'<p class="nav-empty">Keep related threads together.</p>')+`<div class="nav-section-heading"><h2>Threads</h2><span>${loose.length}</span></div>`+group('Pinned',pinned)+group('Today',today)+group('Earlier',earlier)+(!loose.length?'<p class="nav-empty">No unfiled threads</p>':''));
+  setMarkup($('thread-list'),(projects||'<p class="nav-empty">Keep related threads together.</p>')+`<div class="nav-section-heading"><h2>Threads</h2><span>${loose.length}</span>${cloudOn?button('cloud-sync',syncing?'Syncing Tinfoil cloud chats':'Sync Tinfoil cloud chats','sync',`class="icon-button cloud-sync${syncing?' syncing':''}"${syncing?' disabled':''}`):''}</div>`
+    +(cloudOn?`<div class="thread-tabs" role="group" aria-label="Threads to show">${(['cloud','local'] as const).map(name=>`<button type="button" data-action="thread-tab" data-tab="${name}" aria-pressed="${tab===name}">${icon(name==='cloud'?'cloud':'lock')}<span>${name==='cloud'?'Cloud':'Local'}</span></button>`).join('')}</div>`:'')
+    +group('Pinned',pinned)+group('Today',today)+group('Earlier',earlier)+(!loose.length?`<p class="nav-empty">${!cloudOn?'No unfiled threads':tab==='cloud'?'No cloud chats':'No local threads'}</p>`:''));
 }
 function welcomeModel():PickerModel|null { const id=current().settings.model; return id?pickerModel(id,state.capabilities):null; }
 function welcome():string {
@@ -577,7 +585,7 @@ async function action(name:string, target?:HTMLElement):Promise<void> {
     case 'confirm-close':await answerClose(true);break;
     case 'apply-pending':if(!$<HTMLFormElement>('config-form').checkValidity()){await action('show-inspector');}$<HTMLFormElement>('config-form').requestSubmit();break;
     case 'discard-pending':configDrafts.delete(thread.id);configDirty=false;renderConfiguration(true);pendingSettings();break;
-    case 'new': if(!await flushDraft())break; await dispatch({type:'thread.new'}); if(responsive.compact)responsive.close();$('prompt').focus();break;
+    case 'new': if(!await flushDraft())break; await dispatch({type:'thread.new',...(cloudConnected()&&state.workspace.view.threadTab==='cloud'?{cloud:true}:{})}); if(responsive.compact)responsive.close();$('prompt').focus();break;
     case 'close-drawers':responsive.close();break;
     case 'new-project-thread':if(!await flushDraft())break;await dispatch({type:'thread.new',projectId:target?.dataset.project??null});if(responsive.compact)responsive.close();break;
     case 'project-toggle':if(target?.dataset.project){const id=target.dataset.project;collapsedProjects.has(id)?collapsedProjects.delete(id):collapsedProjects.add(id);renderSidebar();}break;
@@ -603,6 +611,9 @@ async function action(name:string, target?:HTMLElement):Promise<void> {
     case 'cloud-sync':await dispatch({type:'cloud.sync'});break;
     case 'cloud-disconnect':await dispatch({type:'cloud.disconnect'});break;
     case 'cloud-upload':await dispatch({type:'thread.cloud.upload',id:thread.id});break;
+    case 'row-cloud-upload':if(target?.dataset.row)await dispatch({type:'thread.cloud.upload',id:target.dataset.row});break;
+    case 'row-delete':if(target?.dataset.row)await dispatch({type:'thread.delete',id:target.dataset.row});break;
+    case 'thread-tab':if(target?.dataset.tab==='cloud'||target?.dataset.tab==='local')await setView({threadTab:target.dataset.tab});break;
     case 'account-remember':await dispatch({type:'account.remember',enabled:state.rememberAccount===false});break;
     case 'account-mode-chat':await dispatch({type:'connection.mode',mode:'chat-account'});break;
     case 'account-mode-api':await dispatch({type:'connection.mode',mode:'api-key'});break;

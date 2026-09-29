@@ -14,6 +14,8 @@ window.__cloudChats=()=>{
     {...structuredClone(base),id:'cloudpaper',title:'Cloud paper',projectId:'cloudproj',pinned:false,updatedAt:now+1,cloud:{id:'8199999999999_b',etag:'1',project:'8199999999999_p',turns:base.turns.length,loaded:true,dirty:false,syncedAt:now}});
   previewLoading=['cloudstub'];emit();};
 window.__cloudThread=t=>{workspace.threads.push(t);workspace.activeId=t.id;emit();};
+window.__localThread=()=>{const now=Date.now(),base=workspace.threads[0];workspace.threads.push({...structuredClone(base),id:'localturns',title:'Local notes',projectId:null,pinned:false,updatedAt:now+5,cloud:undefined,
+  turns:[{id:'lt1',prompt:'Hi',attachments:[],createdAt:now,selectedReplyId:'lr1',replies:[{id:'lr1',model:'demo/writer',content:'Hello.',reasoning:'',status:'complete',finishReason:'stop',error:null,usage:null,elapsedMs:0}]}]});emit();};
 '''
 assert marker in html;html=html.replace(marker,marker+fixture,1)
 # A Tinfoil Chat answer with widgets between its paragraphs, read by the real threadFromCloud() from the build.
@@ -45,8 +47,8 @@ with sync_playwright() as pw:
     page.evaluate("window.__cloudPatch({state:'ready',keyId:'0123456789abcdef0123456789abcdef',user:'user_sample',lastSyncAt:Date.now(),chats:2,projects:1,older:1})")
     state=page.locator('.cloud-state');expect(state).to_contain_text('Synced at');expect(state).to_contain_text('2 chats · 1 project')
     expect(section).to_contain_text('Only your 300 most recent cloud chats');expect(section).to_contain_text('Key ID 01234567…');assert section.locator('input').count()==0
-    expect(page.locator('[data-action=cloud-sync]')).to_be_enabled();expect(page.locator('[data-action=cloud-disconnect]')).to_have_text('Remove chat key…')
-    page.evaluate("window.__cloudPatch({state:'syncing'})");expect(state).to_contain_text('Syncing');expect(page.locator('[data-action=cloud-sync]')).to_be_disabled()
+    expect(section.locator('[data-action=cloud-sync]')).to_be_enabled();expect(page.locator('[data-action=cloud-disconnect]')).to_have_text('Remove chat key…')
+    page.evaluate("window.__cloudPatch({state:'syncing'})");expect(state).to_contain_text('Syncing');expect(section.locator('[data-action=cloud-sync]')).to_be_disabled()
     page.evaluate("window.__cloudPatch({state:'error',message:'These cloud chats belong to another Tinfoil account.'})");expect(state).to_contain_text('Sync stopped');expect(section).to_contain_text('another Tinfoil account')
     page.evaluate("window.__cloudPatch({state:'ready',message:null})");page.screenshot(path=str(root/'docs/cloud-account.png'))
     check('connected, the section shows sync state, counts, the listing limit, errors and the key ID, never the key')
@@ -55,6 +57,28 @@ with sync_playwright() as pw:
     group=page.locator('.project-group[aria-label=Research]');expect(group.locator('.project-toggle')).to_have_attribute('title','Tinfoil cloud project')
     assert group.locator('[data-action=project-manage]').count()==0;expect(group).to_contain_text('Cloud paper')
     check('cloud chats and projects are marked in the sidebar, and cloud projects offer no local management')
+    heading=page.locator('.nav-section-heading').filter(has_text='Threads');sync=heading.locator('[data-action=cloud-sync]')
+    plus=page.locator('.nav-section-heading').filter(has_text='Projects').locator('[data-action=project-create]').bounding_box();box=sync.bounding_box()
+    assert abs(box['x']-plus['x'])<=1 and abs(box['width']-plus['width'])<=1,(box,plus)
+    page.evaluate("window.__cloudPatch({state:'syncing'})");expect(sync).to_have_class(re.compile(r'\bsyncing\b'));expect(sync).to_be_disabled();page.evaluate("window.__cloudPatch({state:'ready'})");expect(sync).to_be_enabled()
+    check('the Threads heading has a Sync button in the column of the Projects + button, disabled and turning while syncing')
+    page.evaluate('window.__localThread()');threads=page.locator('#thread-list .thread-group')
+    expect(threads).to_contain_text('Cloud trip');expect(threads).not_to_contain_text('Local notes')
+    page.locator('[data-tab=local]').click();expect(page.locator('[data-tab=local]')).to_have_attribute('aria-pressed','true')
+    expect(threads).to_contain_text('Local notes');expect(threads).not_to_contain_text('Cloud trip')
+    assert page.evaluate('window.tinfoil.snapshot().then(s=>s.workspace.view.threadTab)')=='local'
+    check('Cloud and Local switch the thread list, kept as a view preference')
+    row=page.locator('.thread-row',has=page.locator('[data-thread=localturns]'));row.hover()
+    expect(row.locator('[data-action=row-cloud-upload]')).to_be_visible();expect(row.locator('[data-action=row-delete]')).to_be_visible()
+    row.locator('[data-action=row-cloud-upload]').click();expect(page.locator('#toast')).to_contain_text('Offline preview cannot connect to Tinfoil cloud')
+    page.locator('[data-tab=cloud]').click();crow=page.locator('.thread-row',has=page.locator('[data-thread=cloudstub]'));crow.hover()
+    expect(crow.locator('[data-action=row-cloud-upload]')).to_have_count(0);expect(crow.locator('[data-action=row-delete]')).to_be_visible()
+    page.locator('[data-tab=local]').click();row.hover();row.locator('[data-action=row-delete]').click();expect(page.locator('[data-thread=localturns]')).to_have_count(0)
+    check('hovering a thread offers Delete, and Move to Tinfoil cloud only for a local thread with messages')
+    page.locator('[data-tab=cloud]').click();count=page.locator('#thread-list .thread-group .thread-row').count()
+    page.locator('[data-action=new]').first.click();expect(page.locator('#thread-list .thread-group .thread-row')).to_have_count(count+1)
+    assert page.evaluate('window.tinfoil.snapshot().then(s=>s.workspace.threads.find(t=>t.id===s.workspace.activeId).cloudPending)') is True
+    check('a thread started from the Cloud list is listed there and marked to become a cloud chat')
     menu=page.locator('.export-menu summary');menu.click();expect(page.locator('#cloud-upload')).to_be_visible();page.keyboard.press('Escape')
     stub.click();expect(page.locator('.cloud-loading')).to_contain_text('Loading from Tinfoil cloud');expect(page.locator('.empty-mark')).to_have_count(0)
     menu.click();expect(page.locator('#cloud-upload')).to_be_hidden();page.keyboard.press('Escape')
