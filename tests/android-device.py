@@ -324,7 +324,7 @@ else:
     record('the account view offers Tinfoil Chat sign-in, or says why it is unavailable',
            find('Sign in to Tinfoil Chat', 10) is not None if onboarding else find('Tinfoil Chat sign-in needs a newer Android System WebView', 10, exact=False) is not None)
     adb('shell', 'input', 'keyevent', 'KEYCODE_BACK'); time.sleep(1)
-    none_row = 'Provider defaults. No custom system message is sent.'
+    none_row = 'Provider defaults. No instructions of yours are sent.'
     tap('System instructions', exact=False)
     record('the instructions picker opens from the composer control', find(none_row, 10, exact=False) is not None)
     tap('Concise', exact=False)

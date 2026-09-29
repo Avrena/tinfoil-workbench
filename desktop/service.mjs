@@ -7,6 +7,7 @@ import { viewPreferences } from '../dist/core/preferences.js';
 import { extractCodeBlocks } from '../dist/core/markdown.js';
 import { ToolCallAccumulator, PYTHON_TOOL, pythonArguments } from '../dist/core/tools.js';
 import { VISUAL_TOOLS, VISUAL_TOOL_NAMES } from '../dist/core/visual-tools.js';
+import { toolGuide, withToolGuide } from '../dist/core/prompt.js';
 import { capabilityFor, reasoningParameters, normalizeCapability } from '../dist/core/capabilities.js';
 import { executeVisual } from './visual-runtime.mjs';
 import { DELEGATE_TOOL, delegateArguments, toolActive } from '../dist/core/activity.js';
@@ -383,12 +384,20 @@ export class WorkbenchService {
     this.tasks.add(task); task.finally(() => this.tasks.delete(task));
     return this.snapshot();
   }
+  /** The tools offered to a request: none when the model's catalog entry says it cannot call tools. */
+  offeredTools(job) {
+    const s = job.settings;
+    if (capabilityFor(job.model, this.capabilities).toolCalling === false) return [];
+    return [...(s.visualTools ? VISUAL_TOOLS : []), ...(s.toolsMode === 'ask' ? [PYTHON_TOOL] : []), ...(s.delegateMode === 'ask' ? [DELEGATE_TOOL] : [])];
+  }
   async run(job, ctrl) {
     const reply = findThread(this.workspace, job.threadId).turns.find(t => t.id === job.turnId).replies.find(r => r.id === job.replyId);
     const start = Date.now(); let timeout = false, lastSaved = start, idle;
     const total = setTimeout(() => { timeout = true; ctrl.abort(); }, 600000);
     const resetIdle = () => { clearTimeout(idle); idle = setTimeout(() => { timeout = true; ctrl.abort(); }, 90000); };
-    const messages = structuredClone(job.messages);
+    // The tools are fixed for the whole request, and the system message starts with a guide to them (core/prompt.ts).
+    const offeredTools = this.offeredTools(job);
+    const messages = withToolGuide(structuredClone(job.messages), toolGuide({ visual: offeredTools.some(t => VISUAL_TOOL_NAMES.has(t.function.name)), python: offeredTools.some(t => t.function.name === 'python') }));
     let previousInput = 0, previousOutput = 0, executed = 0;
     reply.tools ??= []; reply.toolMessages ??= [];
     let client = null;
@@ -403,7 +412,6 @@ export class WorkbenchService {
         if (job.settings.temperature !== null) body.temperature = job.settings.temperature;
         const cap=capabilityFor(job.model,this.capabilities), primary=job.lane!=='comparison';
         Object.assign(body,reasoningParameters(cap,primary?job.settings.reasoningEffort:job.settings.compareReasoningEffort,primary?job.settings.thinkingMode:job.settings.compareThinkingMode));
-        const offeredTools=cap.toolCalling===false?[]:[...(job.settings.visualTools?VISUAL_TOOLS:[]),...(job.settings.toolsMode==='ask'?[PYTHON_TOOL]:[]),...(job.settings.delegateMode==='ask'?[DELEGATE_TOOL]:[])];
         if(offeredTools.length){body.tools=offeredTools;body.tool_choice='auto';}
         if(job.settings.webSearch && cap.toolCalling!==false)body.web_search_options={};
         const accumulator = new ToolCallAccumulator(), events = new RouterEventParser(); let finish = null, roundReasoning = '', roundContent = '', usage = null;

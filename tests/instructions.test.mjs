@@ -5,6 +5,7 @@ import { newWorkspace, beginTurn, buildHistory, exportThread, exportMarkdown, im
 import { settings, validateWorkspace, instructionPreset, LIMITS } from '../dist/core/validation.js';
 import { WorkbenchService } from '../desktop/service.mjs';
 import { createCommandHandler } from '../mobile/commands.mjs';
+import { toolGuide } from '../dist/core/prompt.js';
 
 function thread(extra = {}) {
   const w = newWorkspace(), t = w.threads[0];
@@ -174,7 +175,8 @@ test('service stores the library, applies names through settings and never sends
   await s.execute({ type: 'instructions.save', id: preset.id, name: 'Translator', text: 'Answer in German.' });
   assert.equal(s.workspace.threads[0].settings.systemPrompt, 'Answer in French.');
   await s.execute({ type: 'send', id, text: 'Hello', attachments: [] }); await finished(s);
-  assert.deepEqual(calls[0].messages[0], { role: 'system', content: 'Answer in French.' });
+  // The instructions follow the guide to the offered tools, unchanged (core/prompt.ts).
+  assert.deepEqual(calls[0].messages[0], { role: 'system', content: `${toolGuide({ visual: true, python: false })}\n\nAnswer in French.` });
   assert.ok(!JSON.stringify(calls[0]).includes('Translator'));
   assert.equal(s.workspace.threads[0].turns[0].replies[0].systemPromptName, 'Translator');
   snap = await s.execute({ type: 'instructions.delete', id: preset.id });

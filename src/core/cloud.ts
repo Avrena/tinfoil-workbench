@@ -3,6 +3,7 @@
 import type { Attachment, Project, Reply, Thread, Turn } from './types.js';
 import { LIMITS } from './validation.js';
 import { defaults, uid } from './workspace.js';
+import { escapePromptContent } from './prompt.js';
 
 /** A conversation that is also a Tinfoil cloud chat. `turns` is how many turns came from the cloud at the last sync:
  * later turns are Workbench's own until they are written back. `loaded` is false for a listed chat whose messages
@@ -135,13 +136,15 @@ export function projectFromCloud(plain: Json, id: string, etag: string, now: num
 }
 
 /** The context Tinfoil adds to a project chat's system prompt: the project's name, description, instructions and
- * the text of its documents. Sent only for conversations in a cloud project. */
+ * the text of its documents. Sent only for conversations in a cloud project. Escaped as Tinfoil Chat escapes it, so a
+ * document cannot close `<project_context>` and be read as instructions. */
 export function projectContext(project: Project & { cloud?: CloudProjectLink }): string {
   const c = project.cloud; if (!c) return '';
-  let text = `## Project: ${project.name}\n`;
-  if (c.description) text += `\n${c.description}\n`;
-  if (c.instructions) text += `\n### Instructions\n${c.instructions}\n`;
+  const x = escapePromptContent;
+  let text = `## Project: ${x(project.name)}\n`;
+  if (c.description) text += `\n${x(c.description)}\n`;
+  if (c.instructions) text += `\n### Instructions\n${x(c.instructions)}\n`;
   const docs = c.documents.filter(d => d.content);
-  if (docs.length) { text += `\n### Documents\n`; for (const d of docs) text += `--- ${d.name} ---\n${d.content}\n\n`; }
+  if (docs.length) { text += `\n### Documents\n`; for (const d of docs) text += `--- ${x(d.name)} ---\n${x(d.content)}\n\n`; }
   return text;
 }

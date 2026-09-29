@@ -8,7 +8,7 @@ async function setup(t,generator,options={}){const requests=[],runs=[];const vau
 const send=s=>s.execute({type:'send',id:s.workspace.activeId,text:'Make a visualization',attachments:[]});
 const reply=s=>s.workspace.threads[0].turns[0].replies[0];
 const spec={title:'Chart',type:'line',labels:['a','b'],series:[{name:'x',values:[1,2]}]};
-test('visual tools complete an actual model tool loop without Python or approval',async t=>{const {s,requests,runs}=await setup(t,async function*(n){yield n===1?proposal('render_chart',spec):chunk({content:'Chart ready'},'stop');});await send(s);await done(s);assert.equal(s.approvals.size,0);assert.equal(runs.length,0);assert.equal(reply(s).tools[0].artifacts.length,1);assert.equal(requests[1].messages[2].tool_call_id,'call_visual');assert.equal(JSON.parse(requests[1].messages[2].content).artifacts[0].artifact_id,reply(s).tools[0].artifacts[0].id);assert.equal(reply(s).status,'complete');});
+test('visual tools complete an actual model tool loop without Python or approval',async t=>{const {s,requests,runs}=await setup(t,async function*(n){yield n===1?proposal('render_chart',spec):chunk({content:'Chart ready'},'stop');});await send(s);await done(s);assert.equal(s.approvals.size,0);assert.equal(runs.length,0);assert.equal(reply(s).tools[0].artifacts.length,1);assert.equal(requests[1].messages[3].tool_call_id,'call_visual');assert.equal(JSON.parse(requests[1].messages[3].content).artifacts[0].artifact_id,reply(s).tools[0].artifacts[0].id);assert.equal(reply(s).status,'complete');});
 test('Python is not exposed or executed through visualization-only mode',async t=>{const {s,requests,runs}=await setup(t,async function*(n){yield n===1?proposal('python',{code:'print(1)'}):chunk({content:'No execution'},'stop');});await send(s);await done(s);assert.ok(!requests[0].tools.some(t=>t.function.name==='python'));assert.equal(s.approvals.size,0);assert.equal(runs.length,0);assert.equal(reply(s).tools[0].status,'error');});
 test('unsupported model tool capability disables all tool schemas',async t=>{const {s,requests}=await setup(t,async function*(){yield chunk({content:'Text'},'stop');});s.capabilities=[normalizeCapability({id:'fixture',toolCalling:false,chatConfig:{}})];await send(s);await done(s);assert.equal(requests[0].tools,undefined);});
 test('disable visual tools is enforced at the service boundary',async t=>{const {s,requests}=await setup(t,async function*(){yield proposal('render_chart',spec);});s.workspace.threads[0].settings.visualTools=false;await send(s);await done(s);assert.equal(requests[0].tools,undefined);assert.equal(reply(s).status,'interrupted');});
@@ -26,7 +26,7 @@ test('tool rounds retain narrated text and stable inline insertion offsets',asyn
   else yield chunk({content:'The value increased.'},'stop');
  });await send(s);await done(s);const r=reply(s);
  assert.equal(r.content,'Here is the chart.\n\nThe value increased.');assert.equal(r.tools[0].contentOffset,'Here is the chart.'.length);
- assert.equal(requests[1].messages[1].content,'Here is the chart.');assert.equal(r.content.slice(r.finalContentOffset),'The value increased.');
+ assert.equal(requests[1].messages[2].content,'Here is the chart.');assert.equal(r.content.slice(r.finalContentOffset),'The value increased.');
 });
 test('subsequent conversation history does not duplicate preserved narration',async t=>{
  const {s,requests}=await setup(t,async function*(n){if(n===1){yield chunk({content:'Before tool.'});yield proposal('render_chart',spec);}else yield chunk({content:'After tool.'},'stop');});
@@ -37,4 +37,15 @@ test('stream phase uses received reasoning or content, not model-name guessing',
  const {s}=await setup(t,async function*(){yield chunk({reasoning_content:'Reasoning actually received.'});yield chunk({content:'Answer'},'stop');});
  const phases=[];s.onChange=snap=>{const r=snap.workspace.threads[0].turns[0]?.replies[0];if(r)phases.push(r.phase);};await send(s);await done(s);
  assert.equal(reply(s).phase,'answering');assert.ok(phases.includes('waiting'));assert.equal(reply(s).reasoning,'Reasoning actually received.');
+});
+test('the guide to the tools starts the system message exactly when tools are offered, the same on every round',async t=>{
+  const {toolGuide}=await import('../dist/core/prompt.js');
+  const a=await setup(t,async function*(n){yield n===1?proposal('render_chart',spec):chunk({content:'Chart ready'},'stop');});await send(a.s);await done(a.s);
+  assert.deepEqual(a.requests[0].messages[0],{role:'system',content:toolGuide({visual:true,python:false})});
+  assert.deepEqual(a.requests[1].messages[0],a.requests[0].messages[0]);
+  assert.equal(a.requests[0].messages.filter(m=>m.role==='system').length,1);
+  const none=async configure=>{const b=await setup(t,async function*(){yield chunk({content:'Text'},'stop');});configure(b.s);await send(b.s);await done(b.s);return b.requests[0];};
+  for(const configure of [s=>{s.workspace.threads[0].settings.visualTools=false;},s=>{s.capabilities=[normalizeCapability({id:'fixture',toolCalling:false,chatConfig:{}})];}]){
+    const body=await none(configure);assert.equal(body.tools,undefined);assert.ok(!JSON.stringify(body.messages).includes('workbench_tools'));assert.equal(body.messages[0].role,'user');
+  }
 });

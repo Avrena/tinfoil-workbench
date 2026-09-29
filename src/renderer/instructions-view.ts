@@ -22,5 +22,5 @@ export function instructionsListMarkup(settings:GenerationSettings,saved:readonl
   const current=active.kind==='custom'?`<h3 class="instruction-heading">This conversation</h3>${option('current',active.name||'Custom instructions',instructionExcerpt(active.text),true,locked,{key:'current',label:'Edit this conversation’s instructions',glyph:'write'})}`:'';
   const own=saved.length?saved.map(p=>option('saved:'+p.id,p.name,instructionExcerpt(p.text),isCurrent('saved',p),locked,{key:'saved:'+p.id,label:`Edit saved instructions “${p.name}”`,glyph:'write'})).join(''):'<p class="instruction-empty">Instructions you save appear here. They stay in this device’s encrypted workspace.</p>';
   const starters=STARTER_INSTRUCTIONS.map(p=>option('starter:'+p.id,p.name,instructionExcerpt(p.text),isCurrent('starter',p),locked,{key:'starter:'+p.id,label:`Customize a copy of “${p.name}”`,glyph:'copy'})).join('');
-  return `${option('none','None','Provider defaults. No custom system message is sent.',active.kind==='none',locked)}${current}<h3 class="instruction-heading">Saved</h3>${own}<h3 class="instruction-heading">Starters</h3>${starters}`;
+  return `${option('none','None','Provider defaults. No instructions of yours are sent.',active.kind==='none',locked)}${current}<h3 class="instruction-heading">Saved</h3>${own}<h3 class="instruction-heading">Starters</h3>${starters}`;
 }

@@ -1,6 +1,6 @@
 # Account access and optional instructions
 
-Leaving the custom system prompt blank sends no application-supplied custom system message; provider-side defaults still apply. The existing, separately approved text-only delegate retains its narrow worker-protocol instruction; that does not make the user's custom prompt mandatory.
+Leaving the custom system prompt blank sends no instructions of the user's; provider-side defaults still apply. While tools are offered, the system message carries only Workbench's fixed guide to them (`src/core/prompt.ts`). The existing, separately approved text-only delegate retains its narrow worker-protocol instruction; that does not make the user's custom prompt mandatory.
 
 ## What is implemented
 
