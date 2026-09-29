@@ -62,9 +62,9 @@ async function run() {
   // 1. The tester signs in and adds the chat key in the real Account view.
   await js(`document.getElementById('account-footer').click()`);
   log('waiting-for-tester', { steps: ['Sign in to Tinfoil Chat in the Account view', 'Paste your chat key under Tinfoil cloud chats and choose Connect, or choose Open key file'] });
-  await until('sign-in', () => account().snapshot().status === 'signed-in', 15 * 60_000, 1000);
+  await until('sign-in', () => account().snapshot().status === 'signed-in', 30 * 60_000, 1000);
   log('signed-in', { entitlement: account().snapshot().entitlement });
-  await until('the chat key', () => !!service.workspace.cloud, 15 * 60_000, 1000);
+  await until('the chat key', () => !!service.workspace.cloud, 30 * 60_000, 1000);
   const parsed = parseCloudKey(service.workspace.cloud.key); secrets.add(service.workspace.cloud.key); secrets.add(Buffer.from(parsed.bytes).toString('base64'));
   await until('the first sync', () => cloud().status.state === 'ready' && cloud().status.lastSyncAt, 10 * 60_000);
   const snap = cloud().snapshot();
