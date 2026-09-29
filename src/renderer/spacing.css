@@ -260,15 +260,17 @@ dialog:not(.message-editor) .modal-body { padding: 8px 20px 20px; }
   .inline-artifact-header > .inline-expand { min-width: 36px; width: 36px; }
   .inline-artifact-stage { padding-top: 8px; }
   .chart-legend { margin-top: 0; }
-  .composer-tools { padding: 0 8px 8px; gap: 4px; min-height: 52px; flex-wrap: wrap; }
+  .composer-tools { padding: 0 8px 8px; gap: 2px; min-height: 52px; flex-wrap: wrap; }
   .composer textarea, #prompt { padding: 12px 12px 8px; font-size: 16px; min-height: 48px; }
   .composer-tools > .icon-button { min-width: 36px; width: 36px; height: 44px; padding: 10px; }
   /* The model name is placed at 64px and grows into the free space, so a thinking-effort picker does not push Send
      onto a second row on common phone widths; it takes most of the free space (the spacer grows too). When the row
-     still wraps, Send stays at the right. On a 360px phone that leaves about 76px, so the button drops its chevron
-     (it still opens the picker) and keeps the room for the name. */
+     still wraps, Send stays at the right. On a 360px phone, with 2px between the tools, that leaves about 86px, so the
+     button drops its chevron (it still opens the picker) and uses a smaller maker mark to keep the room for the name;
+     phone system fonts need more width than the test browser's. */
   #composer-model { min-width: 0; max-width: 124px; height: 44px; padding: 4px; font-size: 11px; flex: 8 1 64px; gap: 4px; }
   #composer-model .model-chevron { display: none; }
+  #composer-model .maker-badge { width: 18px; height: 18px; }
   .composer-tools .spacer { min-width: 0; }
   .composer-tools .send, .composer-tools .stop { min-width: 44px; height: 44px; }
   .composer-tools .send { margin-inline-start: auto; }
