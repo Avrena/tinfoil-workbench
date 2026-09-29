@@ -89,5 +89,11 @@ with sync_playwright() as p:
  page.set_viewport_size({'width':720,'height':880});first.scroll_into_view_if_needed();assert first.evaluate('(e)=>e.getBoundingClientRect().right')<=720
  assert not errors,errors;assert not [u for u in requests if u.startswith(('http:','https:'))],requests
  checks.append('neutral inline layout fits a narrow window without external requests or JavaScript errors')
+ # An error explains an empty reply; the generic note is only for an empty reply without one.
+ page.evaluate("window.__patch({content:'',tools:[],status:'error',error:'API authentication was rejected. Check your Tinfoil API key and API access.'})")
+ expect(page.locator('.reply-note')).to_contain_text('API authentication was rejected');expect(page.get_by_text('No answer text was returned.')).to_have_count(0)
+ page.evaluate("window.__patch({status:'complete',error:null})");expect(page.get_by_text('No answer text was returned.')).to_have_count(1)
+ assert not errors,errors
+ checks.append('an empty reply with an error shows the error without the generic no-text note')
  b.close()
 (root/'docs/ui-seamless-checks.json').write_text(json.dumps({'checks':len(checks),'passed':checks,'errors':errors},indent=2));print(json.dumps({'checks':len(checks),'passed':checks,'errors':errors},indent=2))
