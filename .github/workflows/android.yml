@@ -34,9 +34,12 @@ jobs:
         run: node scripts/android-build.mjs --debug
       - name: Android release build (unsigned; release signing happens on the maintainer machine)
         run: node scripts/android-build.mjs
+      # Builds are published from the maintainer machine; this copy only helps review. The private repository's
+      # artifact storage fills after a few runs, so a failed upload must not fail a job whose checks passed.
       - uses: actions/upload-artifact@v7
+        continue-on-error: true
         with:
           name: Tinfoil-Workbench-Android-debug
           path: release/*-android-debug.apk
           if-no-files-found: error
-          retention-days: 14
+          retention-days: 1
