@@ -1,4 +1,4 @@
-# Tinfoil Workbench 0.12
+# Tinfoil Workbench
 
 An unofficial, private client for [Tinfoil](https://tinfoil.sh) confidential AI on **Windows 11** and **Android**. Every connection verifies the Tinfoil enclave before a request is sent. The conversation-first interface has inline charts, tables, diagrams, timelines, stat cards and versioned documents, model-aware thinking controls, branching and editing, and an encrypted local workspace.
 
@@ -95,14 +95,18 @@ Use **Export** for plaintext copies, and store exports privately. Back up before
 
 Keyboard shortcuts on Windows: Ctrl+N new thread; Ctrl+K commands; Ctrl+F conversation search; Ctrl+B sidebar; Ctrl+Shift+F focus; Ctrl+Shift+A artifacts; Ctrl+, Settings. Enter sends and Shift+Enter inserts a newline. On touch layouts Enter inserts a newline and Send submits.
 
+## Known limitations
+
+- **Windows:** the executables are not code-signed, so SmartScreen warns when a new version first runs. Only x64 builds are published; `dist:arm64` has not been validated.
+- **Other platforms:** there are no iOS, macOS or Linux builds.
+- **Android:** no Tinfoil cloud chats. Chat sign-in takes email and password only: Google and Apple refuse sign-in in an embedded view, and the provider integration they need does not exist yet. No local Python, PDF export only for artifacts that already are PDFs, and PDF preview needs Android System WebView 125 or newer.
+- **Tinfoil cloud chats (Windows):** Workbench lists your 300 most recent cloud chats and does not download their images, so when you continue a chat the model does not see earlier images. Of Tinfoil Chat's widgets, charts, timelines and stat cards are drawn; the others are listed as not displayed. Visuals made in Workbench are not written back, so Tinfoil Chat shows those answers as text. Cloud projects are managed in Tinfoil Chat.
+- **Sign-in methods:** Chat sign-in has been checked on Windows and Android. Additional sign-in methods have not been tried.
+- **Python** (Windows) runs with your user account's permissions. It is not a sandbox.
+
 ## Verification
 
-[docs/VALIDATION.md](docs/VALIDATION.md) records what ran for this release:
-
-- **Windows:** Node tests, the twelve browser suites, native smoke tests of the source tree and the packaged app, a check that every module the package needs is in it, a live verification of the inference and cloud sync enclaves through the packaged and the installed app, and a silent upgrade over 0.15.1. The tool guide and the charts are checked with scripted model responses. For 0.15.0, Tinfoil cloud chats were checked with a real account from source: the first sync, a read-only check that writing ten real chats back would keep them exactly, and a test chat uploaded, renamed, continued and deleted. That check also restored a real saved sign-in after a restart.
-- **Android:** unit tests, and device checks on Android 16 and Android 14 emulators, including a live enclave verification, the model catalog and picker, the sign-in screen and an in-place upgrade from 0.15.1. Chat sign-in was checked with a real account on one phone for 0.13.0, including a key renewal after expiry.
-
-It also lists what did not run. That includes how often real models choose a visual, chat with a real API key, cloud sync and staying signed in with the installed app, cloud sync conflicts with a real concurrent edit, a key renewal and sign-out in the release-signed Android app with a real account, other physical devices and a clean Windows machine. [docs/HANDOFF.md](docs/HANDOFF.md) is the manual acceptance checklist for those remaining checks.
+[docs/VALIDATION.md](docs/VALIDATION.md) records what ran for the current release and what did not: the Node tests, the browser suites, native smoke tests of the source tree and the packaged app, live verification of the inference and cloud sync enclaves, upgrades over the previous release on Windows and Android, device checks on Android emulators, and checks on a physical Android phone with a real account. Records of earlier releases are in [docs/history](docs/history). [docs/HANDOFF.md](docs/HANDOFF.md) is the manual acceptance checklist for what automated checks cannot establish.
 
 `preview/index.html` (built by `npm run preview:build`) is a standalone renderer demonstration with labelled synthetic responses; it cannot authenticate. [Rendering measurements](docs/RENDERING.md) describe a synthetic workload.
 

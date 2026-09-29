@@ -1,6 +1,6 @@
-# Editing, project navigation and mobile layouts — 0.7
+# Editing, project navigation and mobile layouts
 
-Version 0.7 retains these editing semantics and refines shared insets, compact control wrapping and outer-shell focus scrolling. See [SPACING.md](SPACING.md).
+These editing semantics have been kept since 0.7, which also refined shared insets, compact control wrapping and outer-shell focus scrolling. See [SPACING.md](SPACING.md).
 
 ## Editing a draft, earlier prompt or response
 

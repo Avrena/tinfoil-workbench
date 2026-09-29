@@ -1,4 +1,4 @@
-# Tool activity, MCP and delegation — 0.8
+# Tool activity, MCP and delegation
 
 ## Supported paths and precise boundaries
 

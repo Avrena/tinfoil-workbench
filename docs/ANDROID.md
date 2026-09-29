@@ -1,4 +1,4 @@
-# Android app — 0.12
+# Android app
 
 Tinfoil Workbench for Android is the same renderer and conversation service as the Windows app, hosted by a [Capacitor 8](https://capacitorjs.com/docs) shell. It connects with a developer API key, verifies the Tinfoil enclave with the same SDK, and stores conversations in a workspace encrypted with a key held by the Android Keystore.
 
@@ -113,7 +113,7 @@ Results for this release are in [VALIDATION.md](VALIDATION.md).
 
 ## Tinfoil Chat sign-in
 
-Android Chat access was released in 0.13.0: the app signs in with email and password on Tinfoil's own sign-in page, shown on a separate screen with no bridge and a WebView profile of its own. Google OAuth requires a supported native/browser integration and is refused on that screen. It has been checked with a real account on one phone, with a debug build for 0.13.0 and with release-signed builds for 0.17.1 and 0.17.2. On a WebView without profiles or message ports, the app keeps using a developer API key. [ANDROID-ACCOUNT.md](ANDROID-ACCOUNT.md) records the design, the implementation and the checks.
+Android Chat access was released in 0.13.0: the app signs in with email and password on Tinfoil's own sign-in page, shown on a separate screen with no bridge and a WebView profile of its own. Google OAuth requires a supported native/browser integration and is refused on that screen. It has been checked with a real account on one phone, with a debug build for 0.13.0 and with release-signed builds from 0.17.1 to 0.18.1. On a WebView without profiles or message ports, the app keeps using a developer API key. [ANDROID-ACCOUNT.md](ANDROID-ACCOUNT.md) records the design, the implementation and the checks.
 
 The provider's page never loads in the app's WebView beside the privileged Capacitor bridge, and browser cookies are never copied. Tinfoil's page runs in a separate WebView with no bridge (`WorkbenchAccount.java`), and account credentials reach the host worker only over a private message port. That page is still an embedded browser, and Google refuses OAuth there.
 

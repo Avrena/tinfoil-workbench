@@ -1,4 +1,4 @@
-# Spacing and responsive geometry — 0.7
+# Spacing and responsive geometry
 
 This revision changes layout and component spacing, not conversation semantics, model capabilities, tool permissions or theme colors.
 

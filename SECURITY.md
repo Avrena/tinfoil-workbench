@@ -1,4 +1,4 @@
-# Security boundaries — 0.12
+# Security boundaries
 
 This is an unofficial source implementation, not an independently audited security product. Keep the repository and real conversation data private. Do not report vulnerabilities with credentials or private transcripts attached.
 
