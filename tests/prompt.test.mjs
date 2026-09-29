@@ -23,6 +23,14 @@ test('the guide covers only the tools offered on the request', () => {
   assert.ok(both.includes('<visuals>') && both.includes('<python>') && named(both).has('render_chart'));
 });
 
+test('the guide says where a visual appears and rules out stand-ins for a tool call', () => {
+  // A real model with no such line wrote <div id="..."> placeholders and described a chart it never created.
+  const guide = toolGuide({ visual: true, python: false });
+  assert.match(guide, /A visual appears in your answer where you call its tool, and only there/);
+  assert.match(guide, /Never stand in for a visual with HTML, a placeholder, or a Mermaid or ASCII drawing/);
+  assert.match(guide, /Never say a visual was shown unless its call succeeded/);
+});
+
 test('the guide is fixed text, so the start of every request stays cacheable', () => {
   const a = toolGuide({ visual: true, python: true }), b = toolGuide({ visual: true, python: true });
   assert.equal(a, b);

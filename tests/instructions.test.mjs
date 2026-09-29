@@ -28,6 +28,8 @@ test('the Visual explainer starter names only the real visual tools and holds ba
   for (const name of named) assert.ok(offered.has(name), `${name} is not a visual tool`);
   for (const name of ['render_chart', 'render_stat_cards', 'render_timeline', 'render_table', 'render_diagram', 'create_artifact', 'update_artifact']) assert.ok(named.has(name), name);
   assert.match(visual.text, /^Show, don't just tell\. When visual tools are available,/);
+  assert.match(visual.text, /A visual appears where you call its tool/);
+  assert.match(visual.text, /never mention a visual you have not created/);
   assert.equal(STARTER_INSTRUCTIONS[0].id, 'starter-concise', 'the first starter stays Concise');
   // It follows the fixed tool guide in the system message, which keeps its prefix-cacheable position.
   assert.ok(visual.text.length < 1600, `${visual.text.length} characters`);
