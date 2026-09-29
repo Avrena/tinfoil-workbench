@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.16.0 — the model knows its visual tools; better charts
+
+- The model is now told when and how to use its tools. While visual tools or Python are offered, the system message starts with a short, fixed guide to them, in the XML-section style of Tinfoil Chat's own prompt: create a chart, table or diagram unasked when it shows something better than prose, pick the simplest one, keep a short written reading, revise a visual rather than duplicate it, and never claim one that failed. Your own instructions follow it and take precedence. It costs about 330 tokens per request (400 with Python) and is identical on every request, so the provider's prompt cache covers it. With *Visual tools* off and Python off, nothing is added.
+- Charts: pie charts (one total in two to six parts, drawn as a donut with its total), stacked bar and area charts, and units such as $, % or ms on values. Hovering a chart shows every series at that point in one readout, with a crosshair on line and area charts and the whole category on bar charts; with the chart focused, the arrow keys read the same values. Axis ticks are round numbers. Bars have rounded ends and small gaps, and the series colors are a palette checked for color-vision deficiency and contrast on the dark background (the first two colors were hard to tell apart before).
+- Cloud project names, instructions and documents are escaped inside `<project_context>`, as Tinfoil Chat does, so a document cannot pose as instructions.
+- The instructions picker says that None sends no instructions of yours, rather than no system message.
+- Add `tests/prompt.test.mjs` (4 tests), `tests/charts.test.mjs` (9 tests), a service test of the guide, and the browser suite `tests/ui-charts.py` (9 checks).
+
 ## 0.15.1 — saved sign-in after a slow start
 
 - Windows: a saved sign-in that cannot reach Tinfoil when Workbench starts, for example after a power cut while the network or a proxy is still coming up, is now tried again automatically: after 15 seconds, 30 seconds, 1 minute, then every 2 minutes, and after the PC wakes. Until then the Account view says the sign-in is kept. Cloud sync resumes once it is restored.
