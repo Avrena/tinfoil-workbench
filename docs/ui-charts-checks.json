@@ -1,0 +1,17 @@
+{
+  "checks": 9,
+  "passed": [
+    "line: the crosshair snaps to the nearest label and one readout lists every series with a value there",
+    "a hidden series leaves the readout, and leaving the chart hides it",
+    "legend keys mirror the mark: strokes for a line chart",
+    "keyboard: arrow keys, Home and End read the same values, announced politely; Escape hides them",
+    "stacked bars: the category band is the hover target and the readout adds the total",
+    "labels from the model are shown as text, never HTML",
+    "stacked bars draw one segment per value; native mark tooltips give way to the hover layer",
+    "pie: parts are listed with their shares, the slice under the pointer is read, and the data table adds shares",
+    "no JavaScript errors or external requests"
+  ],
+  "javascript_errors": [],
+  "external_requests": [],
+  "scope": "Production renderer on Chromium with synthetic charts; no model, account or network."
+}
