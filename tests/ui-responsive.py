@@ -49,14 +49,16 @@ with sync_playwright() as p:
   page.evaluate('window.__thinking()');page.wait_for_timeout(150);stop=page.locator('#stop').bounding_box();assert stop and stop['x']>=0 and stop['x']+stop['width']<=w+1;page.evaluate('window.__done()');checks.append(f'{name}: streaming controls remain reachable with a long model name')
   matrix.append({'name':name,'width':w,'height':h,'touch':True,'chart_label_css_pixels':round(pixels,2)})
   context.close()
- # A thinking-effort picker fits beside the model on a phone: Send stays on the same row, at its right end.
- context=b.new_context(viewport={'width':393,'height':852},is_mobile=True,has_touch=True,device_scale_factor=1);page=context.new_page();page.on('pageerror',lambda e:errors.append(str(e)));page.set_content(html)
- page.locator('#composer-model').tap();page.locator('[data-quick-model="deepseek-v4-pro"]').first.tap();expect(page.locator('#quick-effort')).to_be_visible()
- row={k:page.locator(k).bounding_box() for k in ('#composer-model','#quick-effort','#composer-instructions','#send','.composer-tools')}
- assert abs(row['#send']['y']-row['#composer-model']['y'])<=4 and row['#send']['x']>row['#composer-instructions']['x']+row['#composer-instructions']['width'],row
- assert row['#composer-model']['width']>=64 and row['#send']['x']+row['#send']['width']<=row['.composer-tools']['x']+row['.composer-tools']['width']+1,row
- checks.append('phone composer: with a thinking-effort picker, the model name keeps 64px or more and Send stays on its row at the right')
- context.close()
+ # A thinking-effort picker fits beside the model on a phone (360px, as a 1080px screen at density 480, and 393px):
+ # Send stays on the same row at its right end, and the name keeps room for about seven characters.
+ for width in (360,393):
+  context=b.new_context(viewport={'width':width,'height':800},is_mobile=True,has_touch=True,device_scale_factor=1);page=context.new_page();page.on('pageerror',lambda e:errors.append(str(e)));page.set_content(html)
+  page.locator('#composer-model').tap();page.locator('[data-quick-model="deepseek-v4-pro"]').first.tap();expect(page.locator('#quick-effort')).to_be_visible()
+  row={k:page.locator(k).bounding_box() for k in ('#composer-model','#composer-model .model-label','#composer-instructions','#send','.composer-tools')}
+  assert abs(row['#send']['y']-row['#composer-model']['y'])<=4 and row['#send']['x']>row['#composer-instructions']['x']+row['#composer-instructions']['width'],(width,row)
+  assert row['#composer-model .model-label']['width']>=40 and row['#send']['x']+row['#send']['width']<=row['.composer-tools']['x']+row['.composer-tools']['width']+1,(width,row)
+  context.close()
+ checks.append('phone composer at 360 and 393px: with a thinking-effort picker, Send stays on its row at the right and the model name keeps 40px or more')
  # A shrinking viewport approximates keyboard occupation; actual keyboards are not emulated.
  context=b.new_context(viewport={'width':390,'height':844},is_mobile=True,has_touch=True,device_scale_factor=1);page=context.new_page();page.on('pageerror',lambda e:errors.append(str(e)));page.set_content(html);page.evaluate('window.__seed()');page.locator('#prompt').fill('Draft before rotation');page.wait_for_timeout(160)
  page.set_viewport_size({'width':390,'height':420});page.wait_for_timeout(180);send=page.locator('#send').bounding_box();assert send['y']+send['height']<=420;checks.append('keyboard-height simulation: composer send control stays in the visible viewport')
