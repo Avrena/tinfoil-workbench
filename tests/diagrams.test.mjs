@@ -38,6 +38,48 @@ test('edges both ways between two nodes run side by side with their labels apart
   assert.equal(one.x1, 130);
 });
 
+const curves = svg => [...svg.matchAll(/<path d="M([\d.-]+) ([\d.-]+) C([\d.-]+) ([\d.-]+) ([\d.-]+) ([\d.-]+) ([\d.-]+) ([\d.-]+)" fill="none" stroke="#75b9ff"/g)].map(m => m.slice(1).map(Number))
+  .map(([x0, y0, x1, y1, x2, y2, x3, y3]) => ({ start: { x: x0, y: y0 }, end: { x: x3, y: y3 }, mid: { x: (x0 + 3 * x1 + 3 * x2 + x3) / 8, y: (y0 + 3 * y1 + 3 * y2 + y3) / 8 } }));
+// The renderer's own estimate of a label's extent: 6.2px a character, from 11px above the baseline to 3px below.
+const labelBox = l => { const w = l.text.length * 6.2, x = l.anchor === 'middle' ? l.lx - w / 2 : l.anchor === 'end' ? l.lx - w : l.lx; return { x1: x - 2, y1: l.ly - 11, x2: x + w + 2, y2: l.ly + 3 }; };
+const overlap = (a, b) => a.x1 < b.x2 && b.x1 < a.x2 && a.y1 < b.y2 && b.y1 < a.y2;
+
+test('a pair of edges between different rows and columns is bent apart, each label beside its own curve', () => {
+  // As a real model drew it: the browser one row below and one column left of the resolver, with edges both ways.
+  const spec = diagramSpec({ title: 'DNS', nodes: [{ id: 'browser', label: 'Browser', column: 0, row: 1 }, { id: 'dns', label: 'DNS resolver', column: 1, row: 0 }],
+    edges: [{ from: 'browser', to: 'dns', label: '1: resolve domain' }, { from: 'dns', to: 'browser', label: 'IP of the load balancer' }] });
+  const svg = diagramSVG(spec, 'arrow', false), [up, down] = curves(svg), [upLabel, downLabel] = labels(svg), dns = rects(svg)[1];
+  assert.ok(Math.abs(up.mid.y - down.mid.y) >= 20, `the curves' middles are ${Math.abs(up.mid.y - down.mid.y)}px apart`);
+  const [upper, lower] = up.mid.y < down.mid.y ? [up, down] : [down, up];
+  assert.equal(upper, up, 'the edge offset toward the upper node runs above the other');
+  assert.ok(upLabel.ly < upper.mid.y && upLabel.anchor === 'middle', 'its label sits above its middle');
+  assert.ok(downLabel.ly > dns.y + 55 && downLabel.lx > lower.start.x && downLabel.anchor === 'start', 'the other label sits beside its curve, below the resolver');
+  assert.ok(!overlap(labelBox(upLabel), labelBox(downLabel)));
+  // A pair in one column keeps its straight side-by-side layout.
+  const straight = curves(diagramSVG(diagramSpec({ title: 'x', nodes: [{ id: 'a', label: 'A', column: 0, row: 0 }, { id: 'b', label: 'B', column: 0, row: 1 }], edges: [{ from: 'a', to: 'b' }, { from: 'b', to: 'a' }] }), 'arrow', false));
+  assert.deepEqual(straight.map(c => Math.round(c.mid.y)), [Math.round(straight[0].mid.y), Math.round(straight[0].mid.y)]);
+});
+
+test('labels never cover a node or one another', () => {
+  // Long labels on consecutive edges of one row would overlap above it; the second moves up a line.
+  const chain = diagramSpec({ title: 'Chain', nodes: ['a', 'b', 'c'].map((id, i) => ({ id, label: id.toUpperCase(), column: i, row: 0 })),
+    edges: [{ from: 'a', to: 'b', label: 'a fairly long label that spills over' }, { from: 'b', to: 'c', label: 'another long label beside the first one' }] });
+  const request = diagramSpec({ title: 'Request', nodes: [{ id: 'browser', label: 'Browser', column: 0, row: 1 }, { id: 'dns', label: 'DNS', column: 1, row: 0 }, { id: 'lb', label: 'Load balancer', column: 1, row: 1 },
+    { id: 'app', label: 'App server', column: 2, row: 1 }, { id: 'cache', label: 'Cache', column: 2, row: 0 }, { id: 'db', label: 'Database', column: 2, row: 2 }],
+    edges: [['browser', 'dns', '1: resolve domain'], ['dns', 'browser', 'IP of the load balancer'], ['browser', 'lb', '2: TCP + TLS, then HTTP request'], ['lb', 'browser', '7: response'],
+      ['lb', 'app', '3: forward'], ['app', 'cache', '4: cache check'], ['app', 'db', '5: query on miss'], ['db', 'app', '6: rows']].map(([from, to, label]) => ({ from, to, label })) });
+  for (const [spec, heading] of [[chain, true], [request, false], [request, true]]) {
+    const svg = diagramSVG(spec, 'arrow', heading), boxes = labels(svg).map(labelBox), nodes = rects(svg).map(r => ({ x1: r.x, y1: r.y, x2: r.x + 180, y2: r.y + 55 }));
+    assert.equal(boxes.length, spec.edges.length);
+    boxes.forEach((b, i) => {
+      assert.ok(!nodes.some(n => overlap(b, n)), `${spec.title}: label ${i} covers a node`);
+      assert.ok(!boxes.slice(0, i).some(o => overlap(b, o)), `${spec.title}: label ${i} covers an earlier label`);
+    });
+  }
+  const [first, second] = labels(diagramSVG(chain, 'arrow', true));
+  assert.equal(second.ly, first.ly - 14, 'the second chain label moved up a line');
+});
+
 test('every arrow ends on the edge of its target, never hidden under a node', () => {
   // Down, up, right, left and diagonal edges, including a pair in both directions.
   const nodes = [{ id: 'a', label: 'A', column: 0, row: 0 }, { id: 'b', label: 'B', column: 1, row: 0 }, { id: 'c', label: 'C', column: 0, row: 1 }, { id: 'd', label: 'D', column: 1, row: 1 }];

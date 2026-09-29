@@ -294,7 +294,7 @@ export function diagramSVG(spec:DiagramSpec,markerId='arrow',heading=true,print=
   // heading or a whole extra row; preserve the standalone/print geometry.
   const top=heading?90:24,h=heading?(lastRow+1)*130+95:top+lastRow*130+55+24;
   const position=(id:string)=>{const n=spec.nodes.find(n=>n.id===id)!;return{x:40+columns.indexOf(n.column)*230,y:top+rows.indexOf(n.row)*130};};
-  const pairs=new Set(spec.edges.map(e=>`${e.from}>${e.to}`));
+  const pairs=new Set(spec.edges.map(e=>`${e.from}>${e.to}`)),pending:{x:number;y:number;anchor:string;text:string}[]=[];
   let labels='',out=`<defs><marker id="${markerId}" markerWidth="8" markerHeight="8" refX="7" refY="4" orient="auto"><path d="M0 0L8 4L0 8z" fill="#75b9ff"/></marker></defs>${heading?`<text x="40" y="34" font-size="20" fill="#d4d4d4" font-family="system-ui">${escape(spec.title)}</text>`:""}`;
   for(const edge of spec.edges){
     const a=position(edge.from),b=position(edge.to);
@@ -304,8 +304,15 @@ export function diagramSVG(spec:DiagramSpec,markerId='arrow',heading=true,print=
     if(a.y!==b.y){
       // Between rows: from the facing edge of one node to the facing edge of the other, so an upward arrowhead is
       // not hidden under its node.
-      const down=b.y>a.y,x1=a.x+90+side*14,y1=down?a.y+55:a.y,x2=b.x+90+side*14,y2=down?b.y:b.y+55;
-      d=`M${x1} ${y1} C${x1} ${(y1+y2)/2} ${x2} ${(y1+y2)/2} ${x2} ${y2}`;lx=(x1+x2)/2+(side<0?-8:8);ly=(y1+y2)/2-8;anchor=side<0?'end':'start';
+      const down=b.y>a.y,x1=a.x+90+side*14,y1=down?a.y+55:a.y,x2=b.x+90+side*14,y2=down?b.y:b.y+55,ym=(y1+y2)/2;
+      // A pair between different columns runs along a shallow slope, where the sideways offset alone leaves the two
+      // curves a few pixels apart: bend the one offset toward the upper node above the other. The upper curve is
+      // labelled above its middle; the lower one beside where it meets the upper node, away from the row below.
+      const risesRight=down?a.x>b.x:b.x>a.x,bend=side&&a.x!==b.x?side*18*(risesRight?1:-1):0;
+      d=`M${x1} ${y1} C${x1} ${ym+bend} ${x2} ${ym+bend} ${x2} ${y2}`;
+      if(bend<0){lx=(x1+x2)/2;ly=ym+.75*bend-10;anchor='middle';}
+      else if(bend>0){lx=(down?x1:x2)+(risesRight?8:-8);ly=(down?y1:y2)+16;anchor=risesRight?'start':'end';}
+      else{lx=(x1+x2)/2+(side<0?-8:8);ly=ym-8;anchor=side<0?'end':'start';}
     } else {
       // Within a row: from the facing side of one node to the facing side of the other.
       // The gap between two nodes is narrower than most labels, so the label goes above the row (below for the second
@@ -314,10 +321,20 @@ export function diagramSVG(spec:DiagramSpec,markerId='arrow',heading=true,print=
       d=`M${x1} ${y} C${(x1+x2)/2} ${y} ${(x1+x2)/2} ${y} ${x2} ${y}`;lx=(x1+x2)/2;ly=side>0?a.y+55+15:a.y-7;anchor='middle';
     }
     out+=`<path d="${d}" fill="none" stroke="#75b9ff" stroke-width="1.8" marker-end="url(#${markerId})"/>`;
-    // Labels are drawn last, with a halo of the surface colour, so a line or node beneath never hides them.
-    if(edge.label)labels+=`<text x="${f(lx)}" y="${f(ly)}" text-anchor="${anchor}" fill="#b8b8b8" stroke="${SURFACE}" stroke-width="4" stroke-linejoin="round" paint-order="stroke" font-size="11" font-family="system-ui" class="edge-label">${escape(edge.label)}</text>`;
+    if(edge.label)pending.push({x:lx,y:ly,anchor,text:edge.label});
   }
   for(const n of spec.nodes){const {x,y}=position(n.id);out+=`<rect x="${x}" y="${y}" width="180" height="55" rx="8" fill="#292929" stroke="#555555"/><text x="${x+90}" y="${y+31}" text-anchor="middle" fill="#d4d4d4" font-size="12" font-family="system-ui"><title>${escape(n.label)}</title>${escape(n.label.length>24?n.label.slice(0,22)+'…':n.label)}</text>`;}
+  // Labels are drawn last, with a halo of the surface colour, so a line beneath never hides them. One that would cover a
+  // node or an earlier label moves up or down by a line (width estimated at 6.2px a character).
+  const taken=spec.nodes.map(n=>{const p=position(n.id);return {x1:p.x,y1:p.y,x2:p.x+180,y2:p.y+55};});
+  for(const l of pending){
+    const width=l.text.length*6.2,left=l.anchor==='middle'?l.x-width/2:l.anchor==='end'?l.x-width:l.x;
+    const box=(y:number)=>({x1:left-2,y1:y-11,x2:left+width+2,y2:y+3});
+    const clear=(b:{x1:number;y1:number;x2:number;y2:number})=>b.y1>=0&&b.y2<=h&&!taken.some(o=>b.x1<o.x2&&o.x1<b.x2&&b.y1<o.y2&&o.y1<b.y2);
+    const y=[0,-14,14,-28,28,-42,42].map(dy=>l.y+dy).find(y=>clear(box(y)))??l.y;
+    taken.push(box(y));
+    labels+=`<text x="${f(l.x)}" y="${f(y)}" text-anchor="${l.anchor}" fill="#b8b8b8" stroke="${SURFACE}" stroke-width="4" stroke-linejoin="round" paint-order="stroke" font-size="11" font-family="system-ui" class="edge-label">${escape(l.text)}</text>`;
+  }
   const svg=baseSVG(spec.title,spec.description,w,h,out+labels);return print?printVisualSVG(svg):svg;
 }
 /** Only applied to our structured SVG renderer, never an authored document. */
