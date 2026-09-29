@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.18.0 — Tinfoil Chat widgets in synced chats; room for reasoning models
+
+- Windows, Tinfoil cloud chats: charts, timelines and stat cards that Tinfoil Chat's model made now appear in Workbench where Tinfoil Chat shows them, drawn by Workbench's own renderers from the widgets' data, with Data and Source views. Other widgets (images, link previews, maps, clocks, recipe cards, message drafts, sports scores, artifact previews) are listed as not displayed; nothing in them is fetched or run. Chats already opened are read again once at the next sync, unless they hold changes not yet written.
+- The default output limit for new conversations is 32,768 tokens, up from 8,192. Reasoning counts against it: GLM-5.3 spent all 8,192 tokens reasoning about a revenue question and wrote no answer. A new conversation copied from one still on 8,192 starts at 32,768; existing conversations keep their own limit. Each chat model in Tinfoil's catalog accepts the new limit.
+- When an answer stops at the output limit, the notice names the limit, says when the model spent it all on reasoning, and points to Advanced settings.
+- Diagrams: edges both ways between boxes in different rows and columns are bent apart instead of running almost together, each labelled beside its own curve; a label that would cover a box or another label moves by a line.
+- Phones: a model with a thinking-effort picker no longer pushes Send onto a second row of the composer.
+- Add `tests/cloud-widgets.test.mjs`, tests of the re-read, the notice, the new default and the diagram labels, and browser checks for synced widgets (`ui-cloud.py`, 7 checks) and the phone composer (`ui-responsive.py`, 94 checks).
+
 ## 0.17.2 — visuals where they are called; readable diagrams on phones
 
 - The model is told that a visual appears in the answer where its tool is called, and never to stand in for one with HTML, a placeholder or a Mermaid or ASCII drawing, or to repeat it as a table or code block. In a test with a real model, the Visual explainer starter had led it to write placeholders and describe a chart it never made. The starter now says the same.
