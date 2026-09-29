@@ -13,6 +13,13 @@ export function cloudKeyId(bytes) { return Buffer.from(hkdfSync('sha256', Buffer
  * so newer chats sort first), an underscore and a random UUID. Tinfoil Chat makes its IDs this way, without a request. */
 export function cloudChatId(createdAt = Date.now()) { return String(9999999999999 - Math.trunc(createdAt)).padStart(13, '0') + '_' + randomUUID(); }
 
+/** The SDK's attested client for the sync enclave, verified against SYNC_REPO. The SDK is loaded only when cloud sync
+ * is used; loading it here resolves it from the same package as this module, which the packaged-app check relies on. */
+export async function syncEnclave(userCacheSecret) {
+  const { SecureClient } = await import('tinfoil');
+  return new SecureClient({ enclaveURL: SYNC_URL, configRepo: SYNC_REPO, userCacheSecret });
+}
+
 export class CloudError extends Error {
   constructor(message, status = null, code = null) { super(message); this.name = 'CloudError'; this.status = status; this.code = code; }
 }

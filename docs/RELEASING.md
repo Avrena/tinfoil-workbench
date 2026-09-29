@@ -25,7 +25,7 @@ Then check the packaged Windows app itself. Source runs resolve modules from the
 
 - `npm run dist:win` ends with `scripts/check-package.mjs`, which must print `PACKAGE_CHECK_OK`: every packaged module's dependencies and required peer dependencies are in `app.asar`. electron-builder does not pack packages that npm installed only to satisfy a peer dependency; declare such a package as a dependency instead.
 - `release\win-unpacked\Tinfoil Workbench.exe --smoke-test` must print `DESKTOP_SMOKE_OK`. It also loads the attested SDK, without a network request.
-- The SDK loads some modules only while it verifies an enclave. Run the live check with the packaged executable in Node mode; it verifies the enclave with a placeholder key and lists the models, without a prompt, an account or billing, and must print `PACKAGED_PROVIDER_OK`:
+- The SDK loads some modules only while it verifies an enclave. Run the live check with the packaged executable in Node mode; it verifies the inference enclave with a placeholder key and lists the models, then verifies the cloud sync enclave through the packaged cloud client, without a prompt, a sync request, an account or billing, and must print `PACKAGED_PROVIDER_OK`:
 
   ```powershell
   $env:ELECTRON_RUN_AS_NODE = '1'

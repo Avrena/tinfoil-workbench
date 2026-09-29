@@ -15,7 +15,7 @@ import { runPython } from './python-runner.mjs';
 import { safeExternalURL } from '../dist/core/markdown.js';
 import { pythonArguments } from '../dist/core/tools.js';
 import { createProvider } from './provider.mjs';
-import { CloudClient, SYNC_URL, SYNC_REPO } from './cloud-client.mjs';
+import { CloudClient, syncEnclave } from './cloud-client.mjs';
 import { CloseCoordinator, persistCloseDecision } from './close-coordinator.mjs';
 import { AccountSession } from './account-session.mjs';
 import { AccountWindow } from './account-window.mjs';
@@ -55,7 +55,7 @@ async function launch() {
     if (window && !window.isDestroyed()) window.webContents.send('workbench:changed', snapshot);
   }, runPython, {pdfRenderer:renderPDF,capabilityLoader:loadModelCapabilities,account,cloudClient:new CloudClient({
     // Tinfoil's sync enclave, attested like inference; the SDK is loaded only when cloud sync is used.
-    secureClient: async () => { const { SecureClient } = await import('tinfoil'); return new SecureClient({ enclaveURL: SYNC_URL, configRepo: SYNC_REPO, userCacheSecret: service.workspace.cacheSecret }); },
+    secureClient: () => syncEnclave(service.workspace.cacheSecret),
     token: async force => (await account.sessionToken(force)).bearer,
   })});
   await service.initialize();
