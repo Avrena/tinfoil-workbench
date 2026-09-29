@@ -277,16 +277,39 @@ export function chartSVG(spec:ChartSpec,hidden:number[]=[],options:ChartOptions=
 }
 export function diagramSVG(spec:DiagramSpec,markerId='arrow',heading=true,print=false):string {
   markerId=markerId.replace(/[^a-zA-Z0-9_-]/g,'');
-  const lastRow=Math.max(...spec.nodes.map(n=>n.row));
-  const w=Math.max(600,(Math.max(...spec.nodes.map(n=>n.column))+1)*230+40);
+  // Models place nodes on a sparse grid to order them; empty columns and rows would only be blank space.
+  const columns=[...new Set(spec.nodes.map(n=>n.column))].sort((a,b)=>a-b),rows=[...new Set(spec.nodes.map(n=>n.row))].sort((a,b)=>a-b);
+  const lastRow=rows.length-1;
+  const w=Math.max(600,columns.length*230+40);
   // Heading-free host previews have their own title. Do not reserve an empty
   // heading or a whole extra row; preserve the standalone/print geometry.
   const top=heading?90:24,h=heading?(lastRow+1)*130+95:top+lastRow*130+55+24;
-  const position=(id:string)=>{const n=spec.nodes.find(n=>n.id===id)!;return{x:40+n.column*230,y:top+n.row*130};};
-  let out=`<defs><marker id="${markerId}" markerWidth="8" markerHeight="8" refX="7" refY="4" orient="auto"><path d="M0 0L8 4L0 8z" fill="#75b9ff"/></marker></defs>${heading?`<text x="40" y="34" font-size="20" fill="#d4d4d4" font-family="system-ui">${escape(spec.title)}</text>`:""}`;
-  for(const edge of spec.edges){const a=position(edge.from),b=position(edge.to);const downward=b.y>a.y;const x1=a.x+90,y1=a.y+(downward?55:25),x2=b.x+90,y2=b.y+(downward?0:25);out+=`<path d="M${x1} ${y1} C${x1} ${(y1+y2)/2} ${x2} ${(y1+y2)/2} ${x2} ${y2}" fill="none" stroke="#75b9ff" stroke-width="1.8" marker-end="url(#${markerId})"/><text x="${(x1+x2)/2+8}" y="${(y1+y2)/2-8}" fill="#b8b8b8" font-size="11" font-family="system-ui">${escape(edge.label)}</text>`;}
+  const position=(id:string)=>{const n=spec.nodes.find(n=>n.id===id)!;return{x:40+columns.indexOf(n.column)*230,y:top+rows.indexOf(n.row)*130};};
+  const pairs=new Set(spec.edges.map(e=>`${e.from}>${e.to}`));
+  let labels='',out=`<defs><marker id="${markerId}" markerWidth="8" markerHeight="8" refX="7" refY="4" orient="auto"><path d="M0 0L8 4L0 8z" fill="#75b9ff"/></marker></defs>${heading?`<text x="40" y="34" font-size="20" fill="#d4d4d4" font-family="system-ui">${escape(spec.title)}</text>`:""}`;
+  for(const edge of spec.edges){
+    const a=position(edge.from),b=position(edge.to);
+    // Edges both ways between two nodes run side by side, each labelled on its own side.
+    const side=edge.from!==edge.to&&pairs.has(`${edge.to}>${edge.from}`)?(edge.from<edge.to?-1:1):0;
+    let d:string,lx:number,ly:number,anchor:string;
+    if(a.y!==b.y){
+      // Between rows: from the facing edge of one node to the facing edge of the other, so an upward arrowhead is
+      // not hidden under its node.
+      const down=b.y>a.y,x1=a.x+90+side*14,y1=down?a.y+55:a.y,x2=b.x+90+side*14,y2=down?b.y:b.y+55;
+      d=`M${x1} ${y1} C${x1} ${(y1+y2)/2} ${x2} ${(y1+y2)/2} ${x2} ${y2}`;lx=(x1+x2)/2+(side<0?-8:8);ly=(y1+y2)/2-8;anchor=side<0?'end':'start';
+    } else {
+      // Within a row: from the facing side of one node to the facing side of the other.
+      // The gap between two nodes is narrower than most labels, so the label goes above the row (below for the second
+      // of a pair).
+      const right=b.x>a.x,x1=right?a.x+180:a.x,x2=right?b.x:b.x+180,y=a.y+27.5+side*10;
+      d=`M${x1} ${y} C${(x1+x2)/2} ${y} ${(x1+x2)/2} ${y} ${x2} ${y}`;lx=(x1+x2)/2;ly=side>0?a.y+55+15:a.y-7;anchor='middle';
+    }
+    out+=`<path d="${d}" fill="none" stroke="#75b9ff" stroke-width="1.8" marker-end="url(#${markerId})"/>`;
+    // Labels are drawn last, with a halo of the surface colour, so a line or node beneath never hides them.
+    if(edge.label)labels+=`<text x="${f(lx)}" y="${f(ly)}" text-anchor="${anchor}" fill="#b8b8b8" stroke="${SURFACE}" stroke-width="4" stroke-linejoin="round" paint-order="stroke" font-size="11" font-family="system-ui" class="edge-label">${escape(edge.label)}</text>`;
+  }
   for(const n of spec.nodes){const {x,y}=position(n.id);out+=`<rect x="${x}" y="${y}" width="180" height="55" rx="8" fill="#292929" stroke="#555555"/><text x="${x+90}" y="${y+31}" text-anchor="middle" fill="#d4d4d4" font-size="12" font-family="system-ui"><title>${escape(n.label)}</title>${escape(n.label.length>24?n.label.slice(0,22)+'…':n.label)}</text>`;}
-  const svg=baseSVG(spec.title,spec.description,w,h,out);return print?printVisualSVG(svg):svg;
+  const svg=baseSVG(spec.title,spec.description,w,h,out+labels);return print?printVisualSVG(svg):svg;
 }
 /** Only applied to our structured SVG renderer, never an authored document. */
 function printVisualSVG(svg:string):string {

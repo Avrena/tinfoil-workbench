@@ -4,7 +4,8 @@
 
 - The model is told that a visual appears in the answer where its tool is called, and never to stand in for one with HTML, a placeholder or a Mermaid or ASCII drawing, or to repeat it as a table or code block. In a test with a real model, the Visual explainer starter had led it to write placeholders and describe a chart it never made. The starter now says the same.
 - Diagrams on phones keep at least 80% of their drawn size and scroll sideways, instead of shrinking their labels to a few pixels.
-- Add tests of the new guidance and a phone-width diagram check in `tests/ui-charts.py` (13 checks).
+- Diagrams: edges in both directions between two boxes run side by side with their labels apart; arrows that point up or along a row end at the edge of their box instead of under it; labels are drawn over lines and boxes, and same-row labels sit above the row; empty grid columns and rows are no longer drawn as blank space.
+- Add tests of the new guidance, `tests/diagrams.test.mjs` (3 tests) and a phone-width diagram check in `tests/ui-charts.py` (13 checks).
 
 ## 0.17.1 — verified at launch; Visual explainer starter
 
