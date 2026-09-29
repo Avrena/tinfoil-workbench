@@ -22,6 +22,11 @@ window.__charts=()=>{
   const widget=(kind,name,spec,html,offset)=>{const t=previewTool(kind,JSON.stringify(spec),html,spec.title,offset,'text/html');t.name=name;t.artifacts[0].name=spec.title+'.html';return t;};
   reply.tools.push(widget('timeline','render_timeline',timeline,visual_tools_js_1.timelineHTML(timeline),31),widget('stats','render_stat_cards',stats,visual_tools_js_1.statsHTML(stats),42));emit();
 };
+window.__diagram=()=>{
+  const reply=workspace.threads.find(t=>t.id===workspace.activeId).turns[0].replies[0];
+  const spec=visual_tools_js_1.diagramSpec({title:'Request path',nodes:[{id:'b',label:'Browser',column:0,row:0},{id:'l',label:'Load balancer',column:1,row:0},{id:'a',label:'App server',column:2,row:1},{id:'d',label:'Database',column:3,row:1}],edges:[{from:'b',to:'l',label:'HTTPS'},{from:'l',to:'a'},{from:'a',to:'d',label:'SQL'}]});
+  reply.content='Path.\\n\\n';reply.tools=[previewTool('diagram',JSON.stringify(spec),visual_tools_js_1.diagramSVG(spec),spec.title,6)];emit();
+};
 '''
 assert marker in html;html=html.replace(marker,marker+fixture,1)
 def check(label):checks.append(label)
@@ -123,6 +128,17 @@ with sync_playwright() as pw:
 
     stacked.scroll_into_view_if_needed();svg=stacked.locator('.visual-canvas svg').bounding_box();page.mouse.move(svg['x']+svg['width']*.3,svg['y']+svg['height']*.3)
     page.screenshot(path=str(root/'docs/chart-hover.png'),clip=stacked.bounding_box())
+
+    # A phone: a diagram wider than the screen keeps at least 80% of its drawn size and scrolls sideways, so its
+    # labels stay readable (a real model's four-column diagram was shrunk to illegible on a phone).
+    phone=browser.new_page(viewport={'width':390,'height':844},device_scale_factor=2);phone.on('pageerror',lambda e:errors.append(str(e)));phone.on('request',lambda r:requests.append(r.url));phone.set_content(html)
+    phone.locator('#prompt').fill('Show a diagram.');phone.locator('#send').click();expect(phone.locator('#stop')).to_be_hidden(timeout=15000)
+    phone.evaluate('window.__diagram()');fig=phone.locator('.inline-artifact');expect(fig).to_have_count(1);fig.scroll_into_view_if_needed()
+    canvas=fig.locator('.diagram-canvas');diagram=canvas.locator('svg');expect(diagram).to_be_visible()
+    natural=diagram.evaluate('s=>s.viewBox.baseVal.width');drawn=diagram.evaluate('s=>s.getBoundingClientRect().width')
+    assert natural>700 and drawn>=natural*.8-1,(natural,drawn);assert canvas.evaluate('c=>c.scrollWidth>c.clientWidth+50')
+    assert fig.bounding_box()['width']<=390,'the figure itself stays within the screen'
+    check('on a phone a wide diagram keeps at least 80% of its drawn size and scrolls sideways')
     assert not errors,errors
     external=[u for u in requests if not u.startswith(('data:','blob:','about:'))];assert not external,external
     check('no JavaScript errors or external requests')

@@ -55,7 +55,12 @@ export function mountArtifact(container: HTMLElement, a: Artifact, options: Surf
     if (a.kind === 'diagram' && source) {
       const spec = diagramSpec(JSON.parse(source));
       if (options.tab === 'data') dispose=mountTable(container, {title:spec.title,description:spec.description,columns:['From','To','Label'],rows:spec.edges.map(edge=>[edge.from,edge.to,edge.label])}, options.compact);
-      else container.innerHTML = `<div class="visual-canvas diagram-canvas">${diagramSVG(spec, 'diagram-' + ++surfaceId, false)}</div>`;
+      else {
+        container.innerHTML = `<div class="visual-canvas diagram-canvas">${diagramSVG(spec, 'diagram-' + ++surfaceId, false)}</div>`;
+        // Never below 80% of its drawn size: a wide diagram on a phone scrolls sideways instead of shrinking its labels.
+        const svg = container.querySelector('svg'), width = svg?.viewBox.baseVal?.width;
+        if (svg && width) svg.style.minWidth = `${Math.round(width * .8)}px`;
+      }
       return cleanup;
     }
     // Timelines and stat cards are escaped markup in the reply's own type; the Data view lists every field.
