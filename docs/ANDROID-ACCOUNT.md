@@ -88,9 +88,11 @@ Recorded 28 September 2026 with the debug build of this code.
 - **Sign-out:** the native confirmation appeared and was confirmed on the phone; the account was signed out, and a message afterwards was refused with no API-key fallback.
 - **Restart:** the sign-in profile was gone.
 
+**Release-signed builds, same phone (0.17.1 and 0.17.2):** a sign-in with the signed 0.17.1 APK and one with a signed 0.17.2 test build were each followed by the automatic enclave check, with nothing chosen, and by messages with tool calls ([VALIDATION.md](VALIDATION.md#model-test-on-a-phone)). After each in-place update the app was signed out, as after any restart.
+
 **Emulators, without credentials:** Android 16 (WebView 133) passed the debug device checks, including the five sign-in checks (Tinfoil's page on its own screen and profile, Google refused with the reason shown and reported, Cancel, no port or JWT-shaped string in the Workbench page, profile deleted at the next launch), and the release checks. Android 14 (WebView 113) lacks the needed WebView features: the app refused sign-in with the "newer Android System WebView" message and kept the API key, as designed.
 
-**Not covered:** sign-out while a key exchange is in flight, account or session changes, 401/402/403/429 responses and inference rejection on Android (the shared `AccountSession` tests cover them); other phones and WebViews; the release-signed build with a real account; additional sign-in methods.
+**Not covered:** sign-out while a key exchange is in flight, account or session changes, 401/402/403/429 responses and inference rejection on Android (the shared `AccountSession` tests cover them); other phones and WebViews; renewal after expiry, background and resume, and sign-out in a release-signed build; additional sign-in methods.
 
 ## Route B: Clerk's Android SDK
 

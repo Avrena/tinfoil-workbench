@@ -1,5 +1,5 @@
 {
-  "checks": 12,
+  "checks": 13,
   "passed": [
     "line: the crosshair snaps to the nearest label and one readout lists every series with a value there",
     "a hidden series leaves the readout, and leaving the chart hides it",
@@ -12,6 +12,7 @@
     "series that never share a label are drawn as whole bars centred on their labels",
     "timeline: events in order, a tentative event marked in words, model text shown as text, and a Data view",
     "stat cards: values, a change told by arrow and words, colour only for a judged change, and a Data view",
+    "on a phone a wide diagram keeps at least 80% of its drawn size and scrolls sideways",
     "no JavaScript errors or external requests"
   ],
   "javascript_errors": [],

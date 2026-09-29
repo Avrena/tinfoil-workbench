@@ -7,12 +7,12 @@ Tinfoil Workbench for Android is the same renderer and conversation service as t
 ## Requirements
 
 - Android 7.0 (API 24) or newer, with a current **Android System WebView** (or Chrome providing the WebView). The app requires the WebView features `WEB_MESSAGE_LISTENER` and `DOCUMENT_START_SCRIPT`. When they are missing, it shows *Update Android System WebView* and does not load. The stock WebView 83 of the Android 11 emulator image is refused. WebView 113 (Android 14 image) and WebView 133 (Android 16 image) work.
-- A Tinfoil developer API key. Tinfoil Chat website sign-in is not available on Android.
+- A Tinfoil developer API key, or a Tinfoil Chat account with a password ([Tinfoil Chat sign-in](#tinfoil-chat-sign-in)). Google sign-in is not available on Android.
 - Network access to `*.tinfoil.sh` over HTTPS.
 
 ## What differs from Windows
 
-| Feature | Android 0.12 |
+| Feature | Android |
 |---|---|
 | Chat, reasoning, comparison, branching, editing, projects, search | Same as Windows |
 | Optional system instructions (picker, saved library, starters) | Same as Windows. Back steps from the editor to the list, and the editor's actions stay above the on-screen keyboard |
@@ -24,7 +24,7 @@ Tinfoil Workbench for Android is the same renderer and conversation service as t
 | Copy, open links | Android clipboard; links open in the browser after a native confirmation |
 | Export an artifact **as PDF** | Only for artifacts that already are PDFs. Other artifacts can be saved in their original format. |
 | Python execution | Not available. Model-requested Python cannot be set to *Ask*, and code blocks have no Run action. |
-| Tinfoil Chat website sign-in | Not available; use a developer API key |
+| Tinfoil Chat sign-in | Email and password on Tinfoil's own page, asked again after each restart. Google sign-in is not available |
 | Window controls and close review | Not applicable. The draft is saved when the app goes to the background. |
 
 ## Architecture
@@ -113,7 +113,7 @@ Results for this release are in [VALIDATION.md](VALIDATION.md).
 
 ## Tinfoil Chat sign-in
 
-Android Chat access is implemented but not yet released: the app signs in with email and password on Tinfoil's own sign-in page, shown on a separate screen with no bridge and a WebView profile of its own. Google OAuth requires a supported native/browser integration and is refused on that screen. It has been checked with a real account on one phone. On a WebView without profiles or message ports, the app keeps using a developer API key. [ANDROID-ACCOUNT.md](ANDROID-ACCOUNT.md) records the design, the implementation and the checks.
+Android Chat access was released in 0.13.0: the app signs in with email and password on Tinfoil's own sign-in page, shown on a separate screen with no bridge and a WebView profile of its own. Google OAuth requires a supported native/browser integration and is refused on that screen. It has been checked with a real account on one phone, with a debug build for 0.13.0 and with release-signed builds for 0.17.1 and 0.17.2. On a WebView without profiles or message ports, the app keeps using a developer API key. [ANDROID-ACCOUNT.md](ANDROID-ACCOUNT.md) records the design, the implementation and the checks.
 
 The provider's page never loads in the app's WebView beside the privileged Capacitor bridge, and browser cookies are never copied. Tinfoil's page runs in a separate WebView with no bridge (`WorkbenchAccount.java`), and account credentials reach the host worker only over a private message port. That page is still an embedded browser, and Google refuses OAuth there.
 
