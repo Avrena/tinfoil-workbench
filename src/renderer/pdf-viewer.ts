@@ -1,12 +1,20 @@
 /** PDF.js is copied from the pinned npm dependency during bootstrap/build.
  * PDFs are rendered as canvas/text only. No actions, attachments or form scripts run. */
+/** PDF.js 6 supports Chromium 125 and newer. CSS stepped-value functions such as round() shipped in the same
+ * version, so they identify an older engine (an Android WebView that cannot update) before PDF.js fails inside it. */
+export const pdfEngineSupported=()=>typeof CSS!=='undefined'&&CSS.supports('width','round(1px, 1px)');
+export const PDF_ENGINE_TOO_OLD='PDF preview needs a newer browser engine (Chromium 125 or later). On Android, update Android System WebView, or save this PDF to open it in another app.';
 export async function mountPDF(container:HTMLElement,bytes:Uint8Array,alive:()=>boolean):Promise<()=>void> {
   let destroyed=false,doc:any,loading:any,task:any;
   const cleanup=()=>{destroyed=true;try{task?.cancel();void loading?.destroy();}catch{/* Already destroyed. */}};
   const status=document.createElement('p');status.className='muted';status.textContent='Loading PDF…';container.append(status);
+  if(!pdfEngineSupported()){status.textContent=PDF_ENGINE_TOO_OLD;cleanup();return cleanup;}
+  let pdf:any;
   try {
     const entry='/vendor/pdfjs/pdf.mjs';
-    const pdf:any=await import(/* @vite-ignore */ entry);
+    pdf=await import(/* @vite-ignore */ entry);
+  } catch {if(alive()&&!destroyed)status.textContent='PDF preview could not load. Run npm run bootstrap to install the bundled PDF.js renderer, or save this PDF to inspect it externally.';cleanup();return cleanup;}
+  try {
     if(!alive()){cleanup();return cleanup;}
     pdf.GlobalWorkerOptions.workerSrc='/vendor/pdfjs/pdf.worker.mjs';
     loading=pdf.getDocument({data:bytes,isEvalSupported:false,enableXfa:false,useSystemFonts:true,
@@ -39,5 +47,5 @@ export async function mountPDF(container:HTMLElement,bytes:Uint8Array,alive:()=>
     }
     prev.onclick=()=>{pageNumber=Math.max(1,pageNumber-1);void paint();};next.onclick=()=>{pageNumber=Math.min(doc.numPages,pageNumber+1);void paint();};scale.onchange=()=>{zoom=Number(scale.value);void paint();};
     await paint();return cleanup;
-  } catch {if(alive()&&!destroyed)status.textContent='PDF preview could not load. Run npm run bootstrap to install the bundled PDF.js renderer, or save this PDF to inspect it externally.';cleanup();return cleanup;}
+  } catch {if(alive()&&!destroyed)status.textContent='This PDF could not be opened. Save it to inspect it in another app.';cleanup();return cleanup;}
 }

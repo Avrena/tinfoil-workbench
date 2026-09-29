@@ -6,7 +6,7 @@ Tinfoil Workbench for Android is the same renderer and conversation service as t
 
 ## Requirements
 
-- Android 7.0 (API 24) or newer, with a current **Android System WebView** (or Chrome providing the WebView). The app requires the WebView features `WEB_MESSAGE_LISTENER` and `DOCUMENT_START_SCRIPT`. When they are missing, it shows *Update Android System WebView* and does not load. The stock WebView 83 of the Android 11 emulator image is refused. WebView 113 (Android 14 image) and WebView 133 (Android 16 image) work.
+- Android 7.0 (API 24) or newer, with a current **Android System WebView** (or Chrome providing the WebView). The app requires the WebView features `WEB_MESSAGE_LISTENER` and `DOCUMENT_START_SCRIPT`. When they are missing, it shows *Update Android System WebView* and does not load. The stock WebView 83 of the Android 11 emulator image is refused. WebView 113 (Android 14 image) and WebView 133 (Android 16 image) work. PDF preview uses PDF.js 6, which needs WebView 125 or newer; on older WebViews, such as that of the Android 14 image or of Android 7, which cannot update past 119, the viewer says so instead of loading PDF.js.
 - A Tinfoil developer API key, or a Tinfoil Chat account with a password ([Tinfoil Chat sign-in](#tinfoil-chat-sign-in)). Google sign-in is not available on Android.
 - Network access to `*.tinfoil.sh` over HTTPS.
 
@@ -19,7 +19,7 @@ Tinfoil Workbench for Android is the same renderer and conversation service as t
 | Charts, tables, diagrams, timelines, stat cards, documents and HTML previews | Same as Windows (interactive HTML stays opt-in, opaque and network-free) |
 | Enclave attestation and encrypted (EHBP) transport | Same SDK and settings as Windows (`desktop/provider.mjs`) |
 | Tinfoil web search, text-only delegation | Same; delegation is approved in a native Android dialog |
-| Local PDF preview (PDF.js) | Supported |
+| Local PDF preview (PDF.js) | Supported with Android System WebView 125 or newer; older WebViews show a notice |
 | Attach text files, import/export conversations, save generated files | Through the Android system document picker |
 | Copy, open links | Android clipboard; links open in the browser after a native confirmation |
 | Export an artifact **as PDF** | Only for artifacts that already are PDFs. Other artifacts can be saved in their original format. |

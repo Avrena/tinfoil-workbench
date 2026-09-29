@@ -22,7 +22,7 @@ async function collect(id){
   modules.push(`${JSON.stringify(id)}: (exports,require) => {\n${compiled}\n}`);
 }
 await collect('/preview/bridge.mjs');await collect('/renderer/app.js');
-const runtime=`if(!crypto.randomUUID)crypto.randomUUID=()=>{const b=crypto.getRandomValues(new Uint8Array(16));b[6]=(b[6]&15)|64;b[8]=(b[8]&63)|128;const h=Array.from(b,x=>x.toString(16).padStart(2,'0')).join('');return h.slice(0,8)+'-'+h.slice(8,12)+'-'+h.slice(12,16)+'-'+h.slice(16,20)+'-'+h.slice(20);};const modules={${modules.join(',\n')}};const cache={};function load(id){if(cache[id])return cache[id];const exports=cache[id]={};if(!modules[id])throw Error('Missing preview module '+id);modules[id](exports,path=>load(new URL(path,'https://preview.invalid'+id).pathname));return exports;}load('/preview/bridge.mjs');load('/renderer/app.js');`;
+const runtime=`if(!crypto.randomUUID)crypto.randomUUID=()=>{const b=crypto.getRandomValues(new Uint8Array(16));b[6]=(b[6]&15)|64;b[8]=(b[8]&63)|128;const h=Array.from(b,x=>x.toString(16).padStart(2,'0')).join('');return h.slice(0,8)+'-'+h.slice(8,12)+'-'+h.slice(12,16)+'-'+h.slice(16,20)+'-'+h.slice(20);};const modules={${modules.join(',\n')}};const cache={};function load(id){if(cache[id])return cache[id];if(!modules[id])throw Error('Missing preview module '+id);const exports=cache[id]={};modules[id](exports,path=>load(new URL(path,'https://preview.invalid'+id).pathname));return exports;}load('/preview/bridge.mjs');load('/renderer/app.js');`;
 let html=await readFile(join(root,'dist/index.html'),'utf8');
 html=html.replace("script-src 'self'","script-src 'nonce-workbench-preview'").replace("style-src 'self'","style-src 'nonce-workbench-preview'");
 const css=await readFile(join(root,'dist/style.css'),'utf8');

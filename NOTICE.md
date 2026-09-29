@@ -10,7 +10,7 @@ Bundled renderer components: Marked 4.0.19 (MIT), KaTeX 0.16.27 (MIT), and Prism
 
 The offline preview contains clearly labeled synthetic responses and no provider credentials. Browser test fixtures are not real model outputs or evidence of live provider execution.
 
-PDF.js (`pdfjs-dist` 5.4.149) is an external Apache-2.0 dependency, not downloaded into this preparation archive. Bootstrap installs it; the build copies its module, worker and LICENSE into `dist/vendor/pdfjs`. No standard-font binaries, external viewer resources or third-party script CDNs are bundled here. Review the complete resolved dependency notices before distribution.
+PDF.js (`pdfjs-dist` 6.3.289) is an external Apache-2.0 dependency, not downloaded into this preparation archive. Bootstrap installs it; the build copies its module, worker and LICENSE into `dist/vendor/pdfjs`. No standard-font binaries, external viewer resources or third-party script CDNs are bundled here. Review the complete resolved dependency notices before distribution.
 
 The model picker's maker logos are single-colour paths from LobeHub Icons (`@lobehub/icons-static-svg` 1.95.1, MIT), copied into `src/renderer/maker-logos.ts`. The logos are trademarks of their owners (DeepSeek, Z.ai, Moonshot AI, Google, OpenAI, Meta, Mistral AI and Alibaba Cloud's Qwen); they only identify each model's maker, and no endorsement is implied.
 

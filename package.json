@@ -30,7 +30,7 @@
     "android:apk": "node scripts/android-build.mjs"
   },
   "dependencies": {
-    "pdfjs-dist": "5.4.149",
+    "pdfjs-dist": "6.3.289",
     "tinfoil": "1.2.1",
     "zod": "4.6.5"
   },

@@ -60,6 +60,10 @@ with sync_playwright() as p:
  pdf={'id':'pdf-fixture','name':'sample.pdf','mime':'application/pdf','data':base64.b64encode(b'%PDF-1.7\nfixture').decode()};tool={'id':'pdf-tool','callId':'pdf-call','name':'create_artifact','arguments':'{}','origin':'model','status':'complete','stdout':'','stderr':'','exitCode':0,'elapsedMs':0,'artifacts':[pdf],'truncated':False}
  page.evaluate('(tool)=>window.__fixture({tools:[tool]})',tool);page.locator('.inline-expand').first.click();expect(page.locator('#artifact-stage')).to_contain_text('Run npm run bootstrap',timeout=10000)
  checks.append('missing PDF.js fails visibly instead of claiming a rendered PDF (real library not tested here)')
+ # PDF.js 6 supports Chromium 125 and newer; an older engine is named before PDF.js is loaded.
+ page.evaluate("()=>{window.__supports=CSS.supports.bind(CSS);CSS.supports=(p,v)=>p==='width'&&String(v).startsWith('round(')?false:window.__supports(p,v)}")
+ page.evaluate('(tool)=>window.__fixture({tools:[tool]})',{**tool,'id':'pdf-tool-old','artifacts':[{**pdf,'id':'pdf-old-engine'}]});page.locator('.inline-expand').first.click();expect(page.locator('#artifact-stage')).to_contain_text('Chromium 125',timeout=10000);expect(page.locator('#artifact-stage')).not_to_contain_text('npm run bootstrap');page.evaluate('()=>{CSS.supports=window.__supports}')
+ checks.append('a browser engine older than PDF.js supports is named instead of reported as a missing PDF.js')
  page.locator('[data-panel=close]').click();page.keyboard.press('Control+Shift+f');expect(page.locator('#artifact-panel')).to_be_hidden();expect(page.locator('#prompt')).to_be_visible();page.keyboard.press('Control+Shift+f')
  checks.append('focus mode still leaves the composer visible after artifact use')
  assert not errors,errors;assert not [u for u in requests if u.startswith(('http:','https:'))],requests
