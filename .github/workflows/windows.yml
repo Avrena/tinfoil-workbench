@@ -14,12 +14,12 @@ jobs:
     runs-on: windows-latest
     timeout-minutes: 25
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - name: Require reviewed dependency lockfile
         shell: pwsh
         run: |
           if (!(Test-Path package-lock.json)) { throw 'Bootstrap dependencies and commit package-lock.json first.' }
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v7
         with:
           node-version: '24'
           cache: npm
@@ -39,7 +39,7 @@ jobs:
           $out = & "release\win-unpacked\Tinfoil Workbench.exe" --smoke-test 2>&1 | Out-String
           Write-Output $out
           if ($LASTEXITCODE -ne 0 -or $out -notmatch 'DESKTOP_SMOKE_OK') { throw 'The packaged app smoke test failed.' }
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         with:
           name: Tinfoil-Workbench-Windows-x64
           path: release/*.exe

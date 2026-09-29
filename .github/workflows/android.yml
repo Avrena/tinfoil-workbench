@@ -14,14 +14,14 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 30
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - name: Require reviewed dependency lockfile
         run: test -f package-lock.json
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v7
         with:
           node-version: '24'
           cache: npm
-      - uses: actions/setup-java@v4
+      - uses: actions/setup-java@v6
         with:
           distribution: temurin
           java-version: '21'
@@ -34,7 +34,7 @@ jobs:
         run: node scripts/android-build.mjs --debug
       - name: Android release build (unsigned; release signing happens on the maintainer machine)
         run: node scripts/android-build.mjs
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         with:
           name: Tinfoil-Workbench-Android-debug
           path: release/*-android-debug.apk
