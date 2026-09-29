@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.17.1 — verified at launch; Visual explainer starter
+
+- Workbench now verifies the enclave and loads the model list by itself: at launch when an API key is saved, when a Tinfoil Chat sign-in completes or a saved one is restored, and after switching the connection. It uses only that connection's own credential and never signs in, opens a window or falls back to the other one. *Verify & refresh models* still checks again on demand. Before, the app showed "Not connected" after every launch until it was pressed or a message was sent.
+- A new read-only starter, **Visual explainer**, asks for a visual whenever an answer involves numbers, change over time, comparisons, dated events or a process, and names the tool for each job, including the timeline and stat cards.
+- Add service and account tests of the automatic check and a test of the starter.
+
 ## 0.17.0 — timelines and stat cards; centred bars
 
 - Two new visual tools, with the names and arguments of the Tinfoil Chat widgets of the same name: `render_timeline` shows dated events in order, marking planned, projected or unconfirmed ones as tentative; `render_stat_cards` shows up to eight headline figures, each with its change against a named period, whether that change is good, and a sparkline of recent values. Both have a Data view, and save and export as script-free HTML. The tool guide tells the model when to choose them.
