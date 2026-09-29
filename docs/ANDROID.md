@@ -72,7 +72,7 @@ npm run android:apk            # release APK; signed only when signing is config
 node scripts/android-build.mjs --debug   # debuggable build for device tests
 ```
 
-`npm run android:apk` compiles the renderer and runs `scripts/build-mobile.mjs`, which writes `mobile-dist/` with the bridge and worker bundles and `THIRD-PARTY-NOTICES.txt`. It then runs `cap sync android` and Gradle (`assembleRelease`). A signed APK is verified with `apksigner` and copied to `release/Tinfoil-Workbench-<version>-android.apk` with its SHA-256. The version comes from `package.json`: `0.17.1` gives versionCode `17001`.
+`npm run android:apk` compiles the renderer and runs `scripts/build-mobile.mjs`, which writes `mobile-dist/` with the bridge and worker bundles and `THIRD-PARTY-NOTICES.txt`. It then runs `cap sync android` and Gradle (`assembleRelease`). A signed APK is verified with `apksigner` and copied to `release/Tinfoil-Workbench-<version>-android.apk` with its SHA-256. The version comes from `package.json`: `0.17.2` gives versionCode `17002`.
 
 Toolchain: Capacitor 8.5.2, Android Gradle Plugin 8.13.0, Gradle 8.14.3, compile and target SDK 36, minimum SDK 24.
 
@@ -97,8 +97,8 @@ Android only installs updates signed with the same key. Keep an offline backup o
 `tests/android-device.py` runs on one attached emulator or device (Python 3 with `websocket-client`, `ANDROID_HOME` set, English system locale):
 
 ```powershell
-python tests/android-device.py --debug --live --apk release/Tinfoil-Workbench-0.17.1-android-debug.apk
-python tests/android-device.py --release --apk release/Tinfoil-Workbench-0.17.1-android.apk
+python tests/android-device.py --debug --live --apk release/Tinfoil-Workbench-0.17.2-android-debug.apk
+python tests/android-device.py --release --apk release/Tinfoil-Workbench-0.17.2-android.apk
 ```
 
 Installing replaces the app and its local data on that device. The two modes cover:

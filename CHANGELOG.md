@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.17.2 — visuals where they are called; readable diagrams on phones
+
+- The model is told that a visual appears in the answer where its tool is called, and never to stand in for one with HTML, a placeholder or a Mermaid or ASCII drawing, or to repeat it as a table or code block. In a test with a real model, the Visual explainer starter had led it to write placeholders and describe a chart it never made. The starter now says the same.
+- Diagrams on phones keep at least 80% of their drawn size and scroll sideways, instead of shrinking their labels to a few pixels.
+- Add tests of the new guidance and a phone-width diagram check in `tests/ui-charts.py` (13 checks).
+
 ## 0.17.1 — verified at launch; Visual explainer starter
 
 - Workbench now verifies the enclave and loads the model list by itself: at launch when an API key is saved, when a Tinfoil Chat sign-in completes or a saved one is restored, and after switching the connection. It uses only that connection's own credential and never signs in, opens a window or falls back to the other one. *Verify & refresh models* still checks again on demand. Before, the app showed "Not connected" after every launch until it was pressed or a message was sent.
