@@ -7,7 +7,8 @@
 - Conversations are limited to 800 on a device (was 300), to leave room for cloud chats.
 - New cloud chats get IDs in Tinfoil Chat's format (a reverse timestamp and a random UUID), made in Workbench as Tinfoil Chat makes them.
 - The packaged-app release check (`scripts/check-packaged-provider.mjs`) also verifies the cloud sync enclave through the packaged cloud client.
-- Add `tests/cloud.test.mjs` (9 tests), `tests/cloud-sync.test.mjs` (15 tests), the browser suite `tests/ui-cloud.py` and the manual live check `tests/cloud-live.mjs`.
+- Android is unchanged: the cloud sync modules stay out of its worker bundle, and a test checks the worker's imports.
+- Add `tests/cloud.test.mjs` (9 tests), `tests/cloud-sync.test.mjs` (16 tests), the browser suite `tests/ui-cloud.py` and the manual live check `tests/cloud-live.mjs`.
 
 ## 0.14.0 — stay signed in on Windows
 

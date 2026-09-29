@@ -14,7 +14,7 @@ Run from a clean working tree at the commit to be tagged, in this order:
 npm run bootstrap                        # npm ci + checksum-verified Electron binary
 npm run doctor                           # every entry must pass
 npm run dist:win                         # doctor, 300+ Node tests, native smoke, NSIS + portable, then the package check
-python tests/ui-smoke.py                 # …and the other nine ui-*.py suites (after npm run preview:build)
+python tests/ui-smoke.py                 # …and the other ten ui-*.py suites (after npm run preview:build)
 npm run android:apk                      # signed release APK (TINFOIL_ANDROID_SIGNING set)
 node scripts/android-build.mjs --debug   # debuggable APK for device tests
 python tests/android-device.py --debug --live --apk release/Tinfoil-Workbench-<v>-android-debug.apk
@@ -68,6 +68,6 @@ Record any failure, skip or retry in the validation record; do not describe a re
 |---|---|---|
 | `windows.yml` | windows-latest | bootstrap, doctor, Node tests, native Electron/DPAPI/PDF smoke, x64 packaging, the package check and the packaged app's smoke test; uploads the installers as a 14-day artifact |
 | `android.yml` | ubuntu-latest | bootstrap, Node tests, Android debug and unsigned release builds; uploads the debug APK as a 14-day artifact |
-| `renderer.yml` | ubuntu-latest | rebuilds the preview and runs the ten browser UI suites |
+| `renderer.yml` | ubuntu-latest | rebuilds the preview and runs the eleven browser UI suites |
 
 CI artifacts are for verification only; they are not release assets.

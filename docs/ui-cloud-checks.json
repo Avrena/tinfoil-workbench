@@ -1,0 +1,14 @@
+{
+  "checks": 6,
+  "passed": [
+    "signed out, the cloud section explains itself and offers no key field",
+    "signed in, the chat key is masked, cleared after use, and the preview refuses to connect",
+    "connected, the section shows sync state, counts, the listing limit, errors and the key ID, never the key",
+    "cloud chats and projects are marked in the sidebar, and cloud projects offer no local management",
+    "a listed chat shows that it is loading, and Move to Tinfoil cloud appears only for local conversations while connected",
+    "no JavaScript errors or external requests"
+  ],
+  "javascript_errors": [],
+  "external_requests": [],
+  "scope": "Production renderer on Linux Chromium with synthetic cloud state; no Tinfoil account, chat key or network."
+}
