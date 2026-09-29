@@ -1,6 +1,6 @@
 import { randomUUID } from 'node:crypto';
 import { InputError, text, identifier, validateArtifact } from '../dist/core/validation.js';
-import { visualArguments, chartSpec, chartSVG, tableSpec, tableHTML, diagramSpec, diagramSVG, artifactSource } from '../dist/core/visual-tools.js';
+import { visualArguments, chartSpec, chartSVG, tableSpec, tableHTML, diagramSpec, diagramSVG, artifactSource, artifactFileName } from '../dist/core/visual-tools.js';
 
 /** Pure artifact production except for an injected, script-free PDF renderer.
  * No model-selected filesystem paths, network destinations or code execution. */
@@ -46,7 +46,7 @@ export async function executeVisual(name, raw, { artifacts = [], pdfRenderer = n
   }
   if(signal?.aborted)throw new InputError('Artifact creation cancelled.');
   const id=randomUUID();
-  const a=validateArtifact({id,title,name:(title.replace(/[^\p{L}\p{N} _-]/gu,'').trim().slice(0,90)||'artifact')+'.'+ext,mime,kind,source,description,
+  const a=validateArtifact({id,title,name:artifactFileName(title,ext),mime,kind,source,description,
     data:Buffer.from(data).toString('base64'),version:parent?Math.max(...artifacts.filter(a=>(a.rootId??a.id)===(parent.rootId??parent.id)).map(a=>a.version??1))+1:1,rootId:parent?.rootId??parent?.id??id,...(parent?{parentId:parent.id}:{})});
   return { artifacts:[a], output:{ artifact_id:a.id,kind:a.kind,title:a.title,version:a.version,
     note:kind==='pdf'?'PDF generated; inspect the inline preview or workspace to verify layout.':'Artifact created. The client renders it inline; it can also be expanded in the workspace.' } };

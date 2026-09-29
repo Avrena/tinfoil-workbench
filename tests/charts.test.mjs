@@ -106,3 +106,21 @@ test('axis ticks are round steps that fit the data tightly', async () => {
     assert.ok([1, 2, 2.5, 5].includes(mantissa), `${a}..${b} step ${step}`);
   }
 });
+
+test('series that never share a label get whole centred bars; series that do are grouped', () => {
+  // The case seen in use: reported values in one series and a projection in another.
+  const split = { title: 'Revenue', type: 'bar', labels: ['2023', '2024', '2025', '2026'], series: [{ name: 'Reported', values: [0.1, 1, 4.5, null] }, { name: 'Projection', values: [null, null, null, 15] }] };
+  // The horizontal middle of each bar path: its x coordinates come from M, H and both points of each Q.
+  const middle = d => { const xs = []; for (const [, c, a] of d.matchAll(/([MHQV])([^MHQVZ]*)/g)) { const n = a.trim().split(/[ ,]+/).map(Number); if (c === 'M' || c === 'H') xs.push(n[0]); if (c === 'Q') xs.push(n[0], n[2]); } return (Math.min(...xs) + Math.max(...xs)) / 2; };
+  const bars = spec => [...chartSVG(chartSpec(spec)).matchAll(/<path d="([^"]+)" fill="[^"]+" class="chart-mark"/g)].map(m => middle(m[1]));
+  const L = chartLayout(chartSpec(split)), centres = [0, 1, 2, 3].map(i => L.x(i));
+  const split_ = bars(split);
+  assert.equal(split_.length, 4);
+  split_.forEach((mid, i) => assert.ok(Math.abs(mid - centres[i] + 1) < 0.02, `bar ${i} is centred on its label`));
+  const shared = { ...split, series: [{ name: 'Reported', values: [0.1, 1, 4.5, 9] }, { name: 'Projection', values: [null, null, 5, 15] }] };
+  const grouped = bars(shared);
+  assert.equal(grouped.length, 6);
+  assert.ok(grouped[2] < centres[2] && grouped[4] > centres[2], 'bars that share a label sit side by side');
+  // Hiding a series re-evaluates the rule, so the remaining series fills its bands.
+  assert.equal((chartSVG(chartSpec(shared), [1]).match(/class="chart-mark"/g) || []).length, 4);
+});
