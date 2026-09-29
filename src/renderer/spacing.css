@@ -412,6 +412,9 @@ dialog:not(.message-editor) .modal-body { padding: 8px 20px 20px; }
 .account-details summary{cursor:pointer;color:#b4b4b4;font-size:12px;min-height:32px;display:list-item}
 .model-options{gap:2px}
 .model-options .model-option{gap:12px;padding:9px 10px}
+/* Rows keep their content height in the scrolling list. On touch screens every button has min-height:44px, which
+   replaces the automatic content minimum, so a list longer than the dialog squeezed its rows until their lines overlapped. */
+.model-options .model-option{flex:none}
 .option-title{gap:8px}
 .option-description,.option-detail{margin-top:2px}
 .option-tag{padding:0 5px}

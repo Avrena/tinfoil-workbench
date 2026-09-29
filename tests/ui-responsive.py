@@ -59,6 +59,13 @@ with sync_playwright() as p:
   assert row['#composer-model .model-label']['width']>=50 and row['#send']['x']+row['#send']['width']<=row['.composer-tools']['x']+row['.composer-tools']['width']+1,(width,row)
   context.close()
  checks.append('phone composer at 360 and 393px: with a thinking-effort picker, Send stays on its row at the right and the model name keeps 50px or more')
+ # A model list longer than the picker scrolls; its rows keep their full height instead of overlapping.
+ context=b.new_context(viewport={'width':360,'height':560},is_mobile=True,has_touch=True,device_scale_factor=1);page=context.new_page();page.on('pageerror',lambda e:errors.append(str(e)));page.set_content(html)
+ page.locator('#composer-model').tap();expect(page.locator('#model-dialog')).to_be_visible()
+ rows=page.evaluate("""()=>{const list=document.querySelector('#model-dialog .model-options');return {scrolls:list.scrollHeight>list.clientHeight+1,rows:[...list.querySelectorAll('.model-option')].map(r=>[Math.round(r.getBoundingClientRect().height),r.scrollHeight])}}""")
+ assert rows['scrolls'] and all(h>=s-1 for h,s in rows['rows']),rows
+ checks.append('phone model picker: a list longer than the dialog scrolls and every row keeps its full height')
+ context.close()
  # A shrinking viewport approximates keyboard occupation; actual keyboards are not emulated.
  context=b.new_context(viewport={'width':390,'height':844},is_mobile=True,has_touch=True,device_scale_factor=1);page=context.new_page();page.on('pageerror',lambda e:errors.append(str(e)));page.set_content(html);page.evaluate('window.__seed()');page.locator('#prompt').fill('Draft before rotation');page.wait_for_timeout(160)
  page.set_viewport_size({'width':390,'height':420});page.wait_for_timeout(180);send=page.locator('#send').bounding_box();assert send['y']+send['height']<=420;checks.append('keyboard-height simulation: composer send control stays in the visible viewport')
