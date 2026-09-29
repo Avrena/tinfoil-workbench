@@ -54,7 +54,7 @@ async function launch() {
   powerMonitor.on('resume',()=>account?.resume());
   service = new WorkbenchService(vault, createProvider, snapshot => {
     if (window && !window.isDestroyed()) window.webContents.send('workbench:changed', snapshot);
-  }, runPython, {pdfRenderer:renderPDF,capabilityLoader:loadModelCapabilities,account,cloud:host=>new CloudSync({host,account,client:new CloudClient({
+  }, runPython, {pdfRenderer:renderPDF,capabilityLoader:loadModelCapabilities,account,autoConnect:!smoke,cloud:host=>new CloudSync({host,account,client:new CloudClient({
     // Tinfoil's sync enclave, attested like inference; the SDK is loaded only when cloud sync is used.
     secureClient: () => syncEnclave(service.workspace.cacheSecret),
     token: async force => (await account.sessionToken(force)).bearer,
@@ -63,8 +63,10 @@ async function launch() {
   // Cloud chats sync after sign-in and then every ten minutes while the app is open.
   if (!smoke) setInterval(() => service.syncCloud(), 600_000).unref?.();
   await account.setRemember(service.workspace.rememberAccount!==false);
-  // Restores in the background; the account view shows "Restoring" until it finishes.
+  // Restores in the background; the account view shows "Restoring" until it finishes. A saved API key is verified at
+  // once; a Chat sign-in is verified when its restore completes.
   void account.restore();
+  void service.autoConnect();
   protocol.handle('app', async request => {
     const path = resourcePath(request.url);
     if (request.method !== 'GET' || !path) return new Response('Not found', { status: 404 });

@@ -94,7 +94,7 @@ export class WorkbenchService {
   }
   accountChanged() {
     const status = this.options.account?.snapshot().status;
-    if (status === 'signed-in' && this.lastAccountStatus !== 'signed-in') this.syncCloud();
+    if (status === 'signed-in' && this.lastAccountStatus !== 'signed-in') { this.syncCloud(); void this.autoConnect(); }
     this.lastAccountStatus = status;
     if(this.workspace?.connectionMode==='chat-account' && this.options.account?.snapshot().status!=='signed-in'){
       for(const ctrl of this.controllers.values())ctrl.abort();
@@ -192,6 +192,16 @@ export class WorkbenchService {
       error=this.connectionError(error,client);this.notice = publicError(error); this.emit(); throw error;
     }
   }
+  /** Verifies the enclave and loads the model list without being asked, when the host enables it: at launch, when a
+   * Chat sign-in completes and after the connection mode changes. It uses only the credential the chosen mode already
+   * has (a saved API key, or the signed-in Chat session), so it never signs in, opens a window or falls back to the
+   * other mode. A failure is reported like a manual check's; Verify & refresh stays available. */
+  async autoConnect() {
+    if (!this.options.autoConnect || !this.workspace || this.busyThreadId || this.connection || this.verification.state === 'verified') return;
+    const chat = (this.workspace.connectionMode ?? 'api-key') === 'chat-account';
+    if (chat ? this.options.account?.snapshot().status !== 'signed-in' : !this.workspace.apiKey) return;
+    try { await this.connect(); } catch { /* connect() has recorded the failure in the verification state and notice. */ }
+  }
   async listModels(client) {
     let page = await client.models.list();
     const names = [], listed = [];
@@ -247,7 +257,7 @@ export class WorkbenchService {
   }
   async execute(input) {
     const c = record(input), type = text(c.type, 'Command', 80, true);
-    let cloudChanged = null;
+    let cloudChanged = null, reconnect = false;
     switch (type) {
       case 'cloud.connect': if (!this.cloud) throw new InputError('Cloud sync is not available here.'); await this.cloud.connect(text(c.key, 'Chat key', 4096, true)); return this.snapshot();
       case 'cloud.sync': if (!this.cloud) throw new InputError('Cloud sync is not available here.'); await this.cloud.sync(); return this.snapshot();
@@ -260,7 +270,7 @@ export class WorkbenchService {
       case 'connection.mode': {
         if(this.busyThreadId||this.connection)throw new InputError('Stop the response or wait for verification before changing connections.');
         if(!['api-key','chat-account'].includes(c.mode))throw new InputError('Invalid connection mode.');
-        this.workspace.connectionMode=c.mode;this.resetConnection();break;
+        this.workspace.connectionMode=c.mode;this.resetConnection();reconnect=true;break;
       }
       case 'view.set': this.workspace.view = viewPreferences(c.view); break;
       // Only the preference is stored here; the host's account session saves or deletes the website session.
@@ -344,6 +354,7 @@ export class WorkbenchService {
     }
     await this.save(); this.emit();
     if (cloudChanged && this.cloud) void this.cloud.changed(cloudChanged);
+    if (reconnect) void this.autoConnect();
     return this.snapshot();
   }
   /** Cloud projects are managed in Tinfoil Chat; Workbench reads them and files chats into them. */

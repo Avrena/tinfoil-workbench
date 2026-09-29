@@ -40,8 +40,9 @@ const ready = (async () => {
   const chat = !!account;
   service = new WorkbenchService(new MobileVault(native), createProvider,
     snapshot => self.postMessage({ kind: 'changed', snapshot: withPlatform(snapshot, chat) }),
-    null, { capabilityLoader: loadModelCapabilities, account });
+    null, { capabilityLoader: loadModelCapabilities, account, autoConnect: true });
   await service.initialize();
+  void service.autoConnect();
   command = createCommandHandler({ service, native, account });
 })();
 ready.then(() => self.postMessage({ kind: 'ready' }), () => self.postMessage({ kind: 'fatal',

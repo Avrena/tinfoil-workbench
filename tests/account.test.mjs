@@ -445,3 +445,19 @@ test('a new sign-in waits for the old temporary browser partition to finish clea
  await tick();assert.equal(logins,0);assert.equal(f.account.snapshot().status,'signed-out');
  finishClear();await exiting;await entering;assert.equal(logins,1);assert.equal(f.account.snapshot().status,'signed-in');
 });
+test('with automatic checks, a completed Chat sign-in verifies the enclave on the sign-in\'s own key exchange',async t=>{
+ const made=[];let service;
+ const f=fixture(undefined,{onChange:()=>service?.accountChanged()});
+ const factory=async(key,cache,mode)=>{made.push([key,mode]);return {ready:async()=>{},getVerificationDocument:async()=>({securityVerified:true,steps:{}}),models:{list:async()=>({data:[{id:'model'}]})}};};
+ service=new WorkbenchService({read:async()=>null,write:async w=>{validateWorkspace(w);},flush:async()=>{}},factory,()=>{},null,{account:f.account,autoConnect:true});
+ await service.initialize();t.after(()=>service.shutdown());service.workspace.apiKey='developer-key';
+ await service.execute({type:'connection.mode',mode:'chat-account'});await tick();
+ assert.deepEqual(made,[],'signed out: nothing is verified and the developer key is not used');assert.equal(service.verification.state,'idle');
+ await f.account.login();await until(()=>service.verification.state==='verified','the automatic check');
+ assert.deepEqual(made,[['inference-secret','chat-account']]);
+ assert.equal(f.requests.length,1,'sign-in and the check share one key exchange');
+ await until(()=>service.models.length===1,'the model list');
+ // Choosing the other mode checks it too, with that mode's own credential.
+ await service.execute({type:'connection.mode',mode:'api-key'});await until(()=>service.verification.state==='verified','the API-key check');
+ assert.deepEqual(made.at(-1),['developer-key','api-key']);
+});

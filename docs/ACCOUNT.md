@@ -28,7 +28,7 @@ The view displays the provider-returned name, primary email and its verification
 
 Subscription & usage starts collapsed. It shows only budgets returned by the provider: input/output limits and remaining amounts, reset times, and request counts when present. These are timestamped snapshots from the last access check, not a live billing meter. Requests and token budgets are different dimensions. Parent and delegated model usage remain separate in the transcript.
 
-After sign-in and a successful account-access check, choose **Verify enclave & load models**, select a chat model and send a message. An API key is not required when this account path works. Account access does not automatically provision hosted Python/code-execution sessions or arbitrary MCP servers.
+After sign-in and a successful account-access check, Workbench verifies the enclave and loads the models by itself (the same happens when a saved sign-in is restored at launch; **Verify & refresh models** checks again). Select a chat model and send a message. An API key is not required when this account path works. Account access does not automatically provision hosted Python/code-execution sessions or arbitrary MCP servers.
 
 ## Chat access: renewal, expiry and failures
 

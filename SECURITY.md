@@ -4,7 +4,7 @@ This is an unofficial source implementation, not an independently audited securi
 
 ## Inference and credentials
 
-Live inference uses the official Tinfoil SDK with EHBP and an explicitly successful verification result. There is no unverified fallback. Developer API credentials stay in the main process and encrypted vault; Chat session/inference credentials stay only in main-process memory. Renderer snapshots omit all credentials. The optional public model-catalog request sends no credential or conversation data and cannot change provider destinations or tool permissions. Catalog parameters are whitelisted.
+Live inference uses the official Tinfoil SDK with EHBP and an explicitly successful verification result. There is no unverified fallback. The automatic check at launch, after a Chat sign-in and after a change of connection mode uses only the credential the chosen mode already has; it never signs in, opens a window or uses the other mode's credential. Developer API credentials stay in the main process and encrypted vault; Chat session/inference credentials stay only in main-process memory. Renderer snapshots omit all credentials. The optional public model-catalog request sends no credential or conversation data and cannot change provider destinations or tool permissions. Catalog parameters are whitelisted.
 
 Workspace storage uses authenticated encryption and OS-protected key material. Windows DPAPI behavior has not been validated in this environment. Restored vaults that cannot decrypt are not silently replaced. At-rest encryption does not protect data from malware running as the same user, renderer memory inspection, screenshots, unlocked-session access, plaintext exports or backups. Delete is not secure erasure.
 

@@ -60,3 +60,23 @@ test('oversized responses preserve a bounded, reloadable partial record',async t
   assert.equal(r.content.length,2000000);assert.equal(r.status,'stopped');assert.match(r.error,/size limit/);
   const {validateWorkspace}=await import('../dist/core/validation.js');assert.doesNotThrow(()=>validateWorkspace(s.workspace));
 });
+test('a host that enables it gets a saved API key verified without being asked, once; otherwise nothing is contacted',async t=>{
+  const store=vault();let factories=0;
+  const client={ready:async()=>{},getVerificationDocument:async()=>({securityVerified:true,steps:{verifyCode:{status:'success'}}}),models:{list:async()=>({data:[{id:'a'},{id:'b'}]})}};
+  const factory=async()=>{factories++;return client;};
+  const plain=new WorkbenchService(store,factory);await plain.initialize();t.after(()=>plain.shutdown());
+  await plain.autoConnect();assert.equal(factories,0,'off unless the host asks for it');
+  await plain.execute({type:'credentials.set',key:'test-only-not-real'});await plain.autoConnect();assert.equal(factories,0);
+  const s=new WorkbenchService(store,factory,()=>{},null,{autoConnect:true});await s.initialize();t.after(()=>s.shutdown());
+  await s.autoConnect();assert.equal(s.verification.state,'verified');assert.equal(factories,1);
+  for(let i=0;i<50&&!s.models.length;i++)await wait(1);
+  assert.deepEqual(s.models,['a','b'],'the model list loads from the verified client');
+  await s.autoConnect();assert.equal(factories,1,'a verified connection is not checked again');
+  const empty=new WorkbenchService(vault(),factory,()=>{},null,{autoConnect:true});await empty.initialize();t.after(()=>empty.shutdown());
+  await empty.autoConnect();assert.equal(factories,1,'no key, no request');assert.equal(empty.verification.state,'idle');assert.equal(empty.notice,null);
+});
+test('an automatic check that fails is reported like a manual one and never throws',async t=>{
+  const store=vault();const s=new WorkbenchService(store,async()=>({ready:async()=>{throw Object.assign(new Error('offline'),{code:'ENOTFOUND'});},getVerificationDocument:async()=>({})}),()=>{},null,{autoConnect:true});
+  await s.initialize();t.after(()=>s.shutdown());s.workspace.apiKey='test-only-not-real';
+  await s.autoConnect();assert.equal(s.verification.state,'failed');assert.ok(s.notice);
+});
