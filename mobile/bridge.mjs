@@ -63,7 +63,9 @@ async function appEvent(event) {
   return handled;
 }
 void Workbench.addListener('backButton', async () => { if (!await appEvent('back')) await Workbench.moveTaskToBack(); });
-void Workbench.addListener('pause', () => { void appEvent('pause'); });
+// The worker learns of the pause too: Android stops a paused app's connections, and a reply cut off that way is
+// reported as an interruption rather than as a network failure.
+void Workbench.addListener('pause', () => { worker.postMessage({ kind: 'pause', at: Date.now() }); void appEvent('pause'); });
 // On resume the account session drops a key that expired meanwhile; timers do not run while the app sleeps.
 void Workbench.addListener('resume', () => { worker.postMessage({ kind: 'resume' }); });
 

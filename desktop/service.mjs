@@ -17,6 +17,8 @@ import { signedOutAccount } from '../dist/core/account.js';
 import { publicError, networkFailure, moduleFailure } from '../dist/core/security.js';
 import { projectContext } from '../dist/core/cloud.js';
 const idleVerification = () => ({ state: 'idle', checkedAt: null, steps: [] });
+/** A reply cut off because the Android app left the screen (see the `backgroundedSince` host option). */
+export const BACKGROUND_INTERRUPTION = 'The reply stopped because Workbench left the screen: Android pauses apps in the background, which ends their connections. Partial output was preserved. Retry in a new branch to ask again.';
 const bounded = (v, max = 100) => typeof v === 'string' ? v.slice(0, max) : '';
 const stepList = steps => Object.entries(steps ?? {}).slice(0, 20).map(([name, step]) => ({ name: bounded(name), status: bounded(step?.status) }));
 // The SDK records every verification step, including the one that failed, even when ready() rejects.
@@ -513,8 +515,12 @@ export class WorkbenchService {
     } catch (error) {
       const accountRejected=this.workspace.connectionMode==='chat-account'&&[401,403].includes(error?.status);
       error=this.connectionError(error,client);
-      reply.status = accountRejected ? 'error' : ctrl.signal.aborted ? 'stopped' : 'error';
-      reply.error = error instanceof InputError ? error.message : timeout ? 'The request timed out. Partial output was preserved.' : ctrl.signal.aborted ? 'Stopped. Partial output was preserved.' : publicError(error);
+      // On Android a paused app loses its connections and its timers stop; a reply cut off after a pause is not a network
+      // failure or a timeout. A Stop the user chose and errors with an HTTP status keep their own messages.
+      const backgrounded = !(error instanceof InputError) && (error?.status === undefined || error?.status === null) &&
+        !(ctrl.signal.aborted && !timeout) && this.options.backgroundedSince?.(start) === true;
+      reply.status = accountRejected || backgrounded ? 'error' : ctrl.signal.aborted ? 'stopped' : 'error';
+      reply.error = backgrounded ? BACKGROUND_INTERRUPTION : error instanceof InputError ? error.message : timeout ? 'The request timed out. Partial output was preserved.' : ctrl.signal.aborted ? 'Stopped. Partial output was preserved.' : publicError(error);
     } finally {
       clearTimeout(total); clearTimeout(idle);
       for(const tool of reply.tools??[])if(toolActive(tool)){tool.status='cancelled';tool.stderr ||= 'The response stopped before this action finished. No automatic retry.';}

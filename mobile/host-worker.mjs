@@ -29,7 +29,7 @@ const native = Object.freeze(Object.fromEntries(NATIVE_OPERATIONS.map(op => [op,
 let settleAccount;
 const accountPort = new Promise(resolve => { settleAccount = resolve; setTimeout(() => resolve(null), 5000); });
 
-let service = null, command = null, account = null;
+let service = null, command = null, account = null, lastPause = 0;
 const ready = (async () => {
   const port = await accountPort;
   if (port) {
@@ -40,7 +40,7 @@ const ready = (async () => {
   const chat = !!account;
   service = new WorkbenchService(new MobileVault(native), createProvider,
     snapshot => self.postMessage({ kind: 'changed', snapshot: withPlatform(snapshot, chat) }),
-    null, { capabilityLoader: loadModelCapabilities, account, autoConnect: true });
+    null, { capabilityLoader: loadModelCapabilities, account, autoConnect: true, backgroundedSince: time => lastPause >= time });
   await service.initialize();
   void service.autoConnect();
   command = createCommandHandler({ service, native, account });
@@ -60,6 +60,7 @@ self.addEventListener('message', async ({ data }) => {
   }
   if (data.kind === 'account') { settleAccount(data.port instanceof MessagePort ? data.port : null); return; }
   if (data.kind === 'resume') { account?.resume(); return; }
+  if (data.kind === 'pause') { lastPause = Number.isFinite(data.at) ? data.at : Date.now(); return; }
   if (data.kind !== 'snapshot' && data.kind !== 'command') return;
   try {
     await ready;

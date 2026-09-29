@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { WorkbenchService } from '../desktop/service.mjs';
+import { WorkbenchService, BACKGROUND_INTERRUPTION } from '../desktop/service.mjs';
 import { newWorkspace } from '../dist/core/workspace.js';
 const wait=ms=>new Promise(r=>setTimeout(r,ms));
 function vault(){let value=null;return {fail:false,read:async()=>value,write:async function(v){if(this.fail)throw Error('disk');value=structuredClone(v);},flush:async()=>{}};}
@@ -84,4 +84,21 @@ test('an automatic check that fails is reported like a manual one and never thro
   const store=vault();const s=new WorkbenchService(store,async()=>({ready:async()=>{throw Object.assign(new Error('offline'),{code:'ENOTFOUND'});},getVerificationDocument:async()=>({})}),()=>{},null,{autoConnect:true});
   await s.initialize();t.after(()=>s.shutdown());s.workspace.apiKey='test-only-not-real';
   await s.autoConnect();assert.equal(s.verification.state,'failed');assert.ok(s.notice);
+});
+test('a reply cut off after the Android app was paused names the interruption, not the network',async t=>{
+  let paused=0;const cut=async function*(){yield {choices:[{delta:{content:'partial'}}]};paused=Date.now();throw new TypeError('Failed to fetch');};
+  const {s}=await setup(t,{generator:cut});s.options.backgroundedSince=time=>paused>=time;await send(s);await finished(s);
+  const r=s.workspace.threads[0].turns[0].replies[0];assert.equal(r.status,'error');assert.equal(r.content,'partial');assert.equal(r.error,BACKGROUND_INTERRUPTION);
+});
+test('without a pause the same failure is still a network failure',async t=>{
+  const {s}=await setup(t,{generator:async function*(){yield {choices:[{delta:{content:'partial'}}]};throw new TypeError('Failed to fetch');}});
+  s.options.backgroundedSince=()=>false;await send(s);await finished(s);assert.match(s.workspace.threads[0].turns[0].replies[0].error,/^Tinfoil could not be reached\./);
+});
+test('after a pause an HTTP error and a chosen Stop keep their own messages',async t=>{
+  const {s}=await setup(t,{generator:async function*(){throw Object.assign(new Error('Too many requests'),{status:429});}});
+  s.options.backgroundedSince=()=>true;await send(s);await finished(s);const limited=s.workspace.threads[0].turns[0].replies[0];
+  assert.equal(limited.status,'error');assert.notEqual(limited.error,BACKGROUND_INTERRUPTION);
+  const stop=await setup(t,{generator:async function*(_body,signal){yield {choices:[{delta:{content:'partial'}}]};while(!signal.aborted)await wait(5);throw Error('Abort');}});
+  stop.s.options.backgroundedSince=()=>true;await send(stop.s);await wait(15);await stop.s.execute({type:'stop',id:stop.s.workspace.activeId});await finished(stop.s);
+  const r=stop.s.workspace.threads[0].turns[0].replies[0];assert.equal(r.status,'stopped');assert.equal(r.error,'Stopped. Partial output was preserved.');
 });
