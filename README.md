@@ -99,10 +99,10 @@ Keyboard shortcuts on Windows: Ctrl+N new thread; Ctrl+K commands; Ctrl+F conver
 
 [docs/VALIDATION.md](docs/VALIDATION.md) records what ran for this release:
 
-- **Windows:** Node tests, the ten browser suites, native smoke tests of the source tree and the packaged app, a check that every module the package needs is in it, a live enclave verification through the packaged and the installed app, and a silent upgrade over 0.13.1.
-- **Android:** unit tests, and device checks on Android 16 and Android 14 emulators, including a live enclave verification, the model catalog and picker, the sign-in screen and an in-place upgrade from 0.13.1. Chat sign-in was checked with a real account on one phone for 0.13.0, including a key renewal after expiry.
+- **Windows:** Node tests, the ten browser suites, native smoke tests of the source tree and the packaged app, a check that every module the package needs is in it, a live enclave verification through the packaged and the installed app, a silent upgrade over 0.13.2, and synthetic checks of staying signed in.
+- **Android:** unit tests, and device checks on Android 16 and Android 14 emulators, including a live enclave verification, the model catalog and picker, the sign-in screen and an in-place upgrade from 0.13.2. Chat sign-in was checked with a real account on one phone for 0.13.0, including a key renewal after expiry.
 
-It also lists what did not run. That includes chat with a real API key, sign-in from the installed Windows app or the release-signed Android app, other physical devices and a clean Windows machine. [docs/HANDOFF.md](docs/HANDOFF.md) is the manual acceptance checklist for those remaining checks.
+It also lists what did not run. That includes chat with a real API key, restoring a real sign-in after a restart, the release-signed Android app with a real account, other physical devices and a clean Windows machine. [docs/HANDOFF.md](docs/HANDOFF.md) is the manual acceptance checklist for those remaining checks.
 
 `preview/index.html` (built by `npm run preview:build`) is a standalone renderer demonstration with labelled synthetic responses; it cannot authenticate. [Rendering measurements](docs/RENDERING.md) describe a synthetic workload.
 

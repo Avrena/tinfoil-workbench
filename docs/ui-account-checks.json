@@ -1,5 +1,5 @@
 {
-  "checks": 66,
+  "checks": 68,
   "passed": [
     "sidebar Account entry opens the signed-out account view",
     "account view does not repeat the optional-instructions notice and does not collect a password or pasted session token",
@@ -18,6 +18,8 @@
     "expired sessions ask for reconnection rather than a new API key",
     "pending sign-in has a cancel action and cannot change modes",
     "preview cancellation never claims to have touched a real provider session",
+    "a saved sign-in being restored offers no sign-in or mode change until it finishes",
+    "Stay signed in is a switch, on by default, and the session text says where the website session is kept",
     "active response prevents connection changes while sign-out remains reachable",
     "selecting API mode neither signs out nor changes identity",
     "developer access stays in its existing Settings form",
