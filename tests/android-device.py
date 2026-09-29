@@ -323,7 +323,10 @@ else:
     tap('Set up connection')
     record('the account view offers Tinfoil Chat sign-in, or says why it is unavailable',
            find('Sign in to Tinfoil Chat', 10) is not None if onboarding else find('Tinfoil Chat sign-in needs a newer Android System WebView', 10, exact=False) is not None)
-    adb('shell', 'input', 'keyevent', 'KEYCODE_BACK'); time.sleep(1)
+    # Android 14 can drop the first Back after the force-stop restart; press again only while the account view is open.
+    for _ in range(2):
+        adb('shell', 'input', 'keyevent', 'KEYCODE_BACK'); time.sleep(1)
+        if find('Sign in to Tinfoil Chat', 2) is None and find('Tinfoil Chat sign-in needs a newer Android System WebView', 1, exact=False) is None: break
     none_row = 'Provider defaults. No instructions of yours are sent.'
     tap('System instructions', exact=False)
     record('the instructions picker opens from the composer control', find(none_row, 10, exact=False) is not None)
