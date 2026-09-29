@@ -1,5 +1,14 @@
 # Changelog
 
+## 1.0.0 — first stable release
+
+- Dependencies: Electron 44.4.5, which backports fixes from upstream Chromium, V8, ANGLE, Dawn and PDFium; PDF.js 6.3.289; TypeScript 7.0.2, the native compiler, which emits the same JavaScript for this source; and current GitHub Actions for CI.
+- PDF preview: PDF.js 6 needs Chromium 125 or newer. On an older engine, such as an Android WebView that cannot update, the viewer says that PDF preview needs a newer one instead of failing inside PDF.js. A file PDF.js cannot open now says so instead of pointing to the installation.
+- Windows package: PDF.js and its Node-only canvas module, with a native binary, are no longer packed into the app, which never loaded them; the installer is about 16 MB smaller.
+- Documentation: the README lists the known limitations of this release; document titles no longer name old versions.
+- Tests: the browser preview is built with esbuild instead of TypeScript's JavaScript API, which TypeScript 7 no longer has; `tests/ui-artifacts.py` checks the PDF engine notice.
+- Android: versionCode 1000000.
+
 ## 0.18.1 — readable model picker and model name on phones
 
 - Phones: on a 360px-wide screen (a 1080px screen at density 480), 0.18.0 kept Send on the composer's row beside a thinking-effort picker but left the model name about 30px, so GLM-5.3 showed as "G…". Up to 600px wide the model button now drops its chevron (it still opens the picker) and uses a smaller maker mark, and the composer's controls sit 2px apart, so the name gets 57px at 360px and the phone shows "GLM-5.3" in full.
