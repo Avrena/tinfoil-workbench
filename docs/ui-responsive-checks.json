@@ -1,5 +1,5 @@
 {
-  "checks": 93,
+  "checks": 94,
   "passed": [
     "phone-small: transcript and header fit 320\u00d7740 without page overflow",
     "phone-small: chart labels remain at least 9 CSS pixels at actual render scale",
@@ -85,6 +85,7 @@
     "tablet-wide: touch Enter inserts a newline instead of accidentally sending",
     "tablet-wide: long thread, project and model names do not widen the app",
     "tablet-wide: streaming controls remain reachable with a long model name",
+    "phone composer: with a thinking-effort picker, the model name keeps 64px or more and Send stays on its row at the right",
     "keyboard-height simulation: composer send control stays in the visible viewport",
     "keyboard-height simulation: fullscreen editor keeps a usable field and reachable Save",
     "landscape rotation preserves an open editor and its unsent draft",
