@@ -39,7 +39,7 @@
     "@capacitor/cli": "8.5.2",
     "@capacitor/core": "8.5.2",
     "buffer": "6.0.3",
-    "electron": "44.4.3",
+    "electron": "44.4.5",
     "electron-builder": "26.17.0",
     "esbuild": "0.28.2",
     "typescript": "5.8.3"

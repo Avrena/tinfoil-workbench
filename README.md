@@ -53,7 +53,7 @@ npm start
 npm run dist:win       # reruns doctor, tests and smoke, then builds release\*.exe (x64, unsigned)
 ```
 
-A successful smoke test prints `DESKTOP_SMOKE_OK`. It uses a temporary profile and never signs in or calls a model. `dist:arm64` exists but has not been validated. The direct dependencies are pinned exactly (Electron 44.4.3, electron-builder 26.17.0, TypeScript 5.8.3, tinfoil 1.2.1, pdfjs-dist 5.4.149). Do not replace them with `latest` or run `npm audit fix --force`.
+A successful smoke test prints `DESKTOP_SMOKE_OK`. It uses a temporary profile and never signs in or calls a model. `dist:arm64` exists but has not been validated. The direct dependencies are pinned exactly (Electron 44.4.5, electron-builder 26.17.0, TypeScript 5.8.3, tinfoil 1.2.1, pdfjs-dist 5.4.149). Do not replace them with `latest` or run `npm audit fix --force`.
 
 In the VS Code integrated terminal, clear `ELECTRON_RUN_AS_NODE` before starting Electron (`Remove-Item Env:ELECTRON_RUN_AS_NODE`). The editor sets it for its own processes, and Electron would otherwise start as plain Node.
 
