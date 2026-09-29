@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.17.0 — timelines and stat cards; centred bars
+
+- Two new visual tools, with the names and arguments of the Tinfoil Chat widgets of the same name: `render_timeline` shows dated events in order, marking planned, projected or unconfirmed ones as tentative; `render_stat_cards` shows up to eight headline figures, each with its change against a named period, whether that change is good, and a sparkline of recent values. Both have a Data view, and save and export as script-free HTML. The tool guide tells the model when to choose them.
+- Bar charts: series that never share a label, such as reported values and a projection, are drawn as whole bars centred on their labels, instead of half-width bars beside an empty slot.
+- Saved artifact file names keep dashes and turn other punctuation into spaces, so a title with "2023–2026" is no longer saved as "20232026".
+- Add `tests/widgets.test.mjs` (7 tests), a chart test for centred bars, a file-name test, and three checks in `tests/ui-charts.py` (now 12).
+
 ## 0.16.0 — the model knows its visual tools; better charts
 
 - The model is now told when and how to use its tools. While visual tools or Python are offered, the system message starts with a short, fixed guide to them, in the XML-section style of Tinfoil Chat's own prompt: create a chart, table or diagram unasked when it shows something better than prose, pick the simplest one, keep a short written reading, revise a visual rather than duplicate it, and never claim one that failed. Your own instructions follow it and take precedence. It costs about 330 tokens per request (400 with Python) and is identical on every request, so the provider's prompt cache covers it. With *Visual tools* off and Python off, nothing is added.
