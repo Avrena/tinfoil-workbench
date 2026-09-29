@@ -1,11 +1,13 @@
 # Changelog
 
-## Unreleased
+## 0.15.0 — Tinfoil cloud chats and projects on Windows
 
 - Windows: two-way sync with Tinfoil Chat's cloud chats and projects. Add your chat key (the `key_…` string or the key file from Tinfoil Chat) under Account → Tinfoil cloud chats; Workbench checks it against your account's current key and keeps it encrypted. Your 300 most recent cloud chats appear in the sidebar and load their messages when opened; cloud projects appear with their instructions and documents, which are added to requests in their chats as Tinfoil Chat does. Continuing, renaming, editing, moving between cloud projects or deleting a cloud chat changes it in your Tinfoil account; a conversation in a cloud project, or one you move with *Move to Tinfoil cloud*, becomes a cloud chat. Local conversations stay local. Sync runs after sign-in, every ten minutes and on *Sync now*.
 - Writes name the version they were made against and change only what Workbench changed; every field Workbench does not use is kept. If a chat changed in Tinfoil meanwhile, the cloud version wins and Workbench's version is kept as "… (Workbench copy)". The key reaches only Tinfoil's attested sync enclave. See `docs/CLOUD.md`.
 - Conversations are limited to 800 on a device (was 300), to leave room for cloud chats.
-- Add `tests/cloud.test.mjs` (9 tests), `tests/cloud-sync.test.mjs` (12 tests), the browser suite `tests/ui-cloud.py` and the manual live check `tests/cloud-live.mjs`.
+- New cloud chats get IDs in Tinfoil Chat's format (a reverse timestamp and a random UUID), made in Workbench as Tinfoil Chat makes them.
+- The packaged-app release check (`scripts/check-packaged-provider.mjs`) also verifies the cloud sync enclave through the packaged cloud client.
+- Add `tests/cloud.test.mjs` (9 tests), `tests/cloud-sync.test.mjs` (15 tests), the browser suite `tests/ui-cloud.py` and the manual live check `tests/cloud-live.mjs`.
 
 ## 0.14.0 — stay signed in on Windows
 
