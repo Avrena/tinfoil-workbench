@@ -1,5 +1,6 @@
 import type { Artifact } from '../core/types.js';
-import { artifactSource, chartSpec, chartSVG, tableSpec, diagramSpec, diagramSVG, type TableSpec, visualPalette } from '../core/visual-tools.js';
+import { artifactSource, chartSpec, chartSVG, chartLayout, formatShare, tableSpec, diagramSpec, diagramSVG, type TableSpec, visualPalette } from '../core/visual-tools.js';
+import { chartHover } from './chart-hover.js';
 import { escapeHtml as e } from '../core/markdown.js';
 import { staticPreview, interactivePreview, renderDataPreview } from './artifacts.js';
 import { mountPDF } from './pdf-viewer.js';
@@ -20,20 +21,32 @@ export function mountArtifact(container: HTMLElement, a: Artifact, options: Surf
   try {
     if (a.kind === 'chart' && source) {
       const spec = chartSpec(JSON.parse(source));
+      const pie = spec.type === 'pie', total = pie ? spec.series[0]!.values.reduce<number>((sum,v)=>sum+(v??0),0) : 0;
       if (options.tab === 'data') {
-        dispose=mountTable(container, {title:spec.title, description:spec.description, columns:[spec.x_label || 'Label', ...(spec.x_values ? ['X'] : []), ...spec.series.map(s=>s.name)], rows:spec.labels.map((label,i)=>[label,...(spec.x_values?[spec.x_values[i]!]:[]),...spec.series.map(s=>s.values[i]??null)])}, options.compact); return cleanup;
+        dispose=mountTable(container, {title:spec.title, description:spec.description, columns:[spec.x_label || 'Label', ...(spec.x_values ? ['X'] : []), ...spec.series.map(s=>s.name), ...(pie?['Share']:[])],
+          rows:spec.labels.map((label,i)=>[label,...(spec.x_values?[spec.x_values[i]!]:[]),...spec.series.map(s=>s.values[i]??null),...(pie?[formatShare((spec.series[0]!.values[i]??0)/total)]:[])])}, options.compact); return cleanup;
       }
       const chart = document.createElement('div'); chart.className = 'visual-canvas';
-      const legend = document.createElement('div'); legend.className = 'chart-legend'; legend.setAttribute('aria-label', 'Visible chart series');
+      const legend = document.createElement('div'); legend.className = 'chart-legend'; legend.setAttribute('aria-label', pie ? 'Chart parts' : 'Visible chart series');
       let hidden: number[] = [];let width=780;let resizeFrame=0;
-      const paint = () => { updateMarkup(chart,chartSVG(spec, hidden, {heading:false,compact:options.compact,width,tight:true})); };
+      const view = () => ({heading:false,compact:options.compact,width,tight:true});
+      const hover = chartHover(chart, spec, () => chartLayout(spec, hidden, view()));
+      const paint = () => { updateMarkup(chart,chartSVG(spec, hidden, {...view(),hover:true})); hover.attach(); };
       const resize=new ResizeObserver(entries=>{const next=Math.max(300,Math.min(780,Math.round(entries[0]?.contentRect.width??780)));if(Math.abs(next-width)<4||!(entries[0]?.contentRect.width))return;width=next;if(!resizeFrame)resizeFrame=requestAnimationFrame(()=>{resizeFrame=0;if(alive){chart.classList.remove('visual-enter');paint();}});});
       chart.classList.add('visual-enter');
-      const entrance=window.setTimeout(()=>chart.classList.remove('visual-enter'),550);dispose=()=>{clearTimeout(entrance);resize.disconnect();cancelAnimationFrame(resizeFrame);};
-      spec.series.forEach((series, i) => {
+      const entrance=window.setTimeout(()=>chart.classList.remove('visual-enter'),550);dispose=()=>{clearTimeout(entrance);resize.disconnect();cancelAnimationFrame(resizeFrame);hover.dispose();};
+      // The legend key mirrors the mark: a stroke for lines, a dot for points, a block for bars, areas and slices.
+      const key = spec.type === 'line' ? 'line' : spec.type === 'scatter' ? 'dot' : 'block';
+      const swatch = (index: number) => { const i = document.createElement('i'); i.className = `series-swatch ${key}`; i.style.backgroundColor = visualPalette[index % visualPalette.length]!; i.setAttribute('aria-hidden','true'); return i; };
+      if (pie) spec.labels.forEach((label, i) => {
+        // A pie has one series, so its parts are listed rather than toggled; each keeps its slice's color.
+        const item = document.createElement('span'); item.className = 'legend-item';
+        const share = document.createElement('span'); share.className = 'legend-share'; share.textContent = formatShare((spec.series[0]!.values[i] ?? 0) / total);
+        item.append(swatch(i), document.createTextNode(label), share); legend.append(item);
+      });
+      else spec.series.forEach((series, i) => {
         const b = document.createElement('button'); b.type = 'button'; b.setAttribute('aria-pressed', 'true');
-        const swatch = document.createElement('i'); swatch.className = 'series-swatch'; swatch.style.backgroundColor = visualPalette[i]!; swatch.setAttribute('aria-hidden','true');
-        b.append(swatch, document.createTextNode(series.name));
+        b.append(swatch(i), document.createTextNode(series.name));
         b.onclick = () => { chart.classList.remove('visual-enter'); hidden = hidden.includes(i) ? hidden.filter(n=>n!==i) : [...hidden,i]; b.setAttribute('aria-pressed', String(!hidden.includes(i))); paint(); };
         legend.append(b);
       }); container.append(chart, legend);width=Math.max(300,Math.min(780,container.clientWidth||780));paint();resize.observe(container);return cleanup;

@@ -5,8 +5,9 @@ const string = { type: 'string' };
 const makeTool = (name: string, description: string, properties: Record<string, unknown>, required: string[]) => ({ type: 'function', function: { name, description, parameters: { type: 'object', properties, required, additionalProperties: false } } });
 const primitive = { type: ['string','number','boolean','null'] };
 const shared = { title: string, description: { type: 'string', description: 'Accessible description and data/source caveats. Do not imply generated data are observations.' } };
+export const CHART_TYPES=['line','bar','area','scatter','pie'] as const;
 export const VISUAL_TOOLS = [
-  makeTool('render_chart', 'Create an interactive chart artifact inline in the answer (expandable into the workspace) without running Python. The reader can toggle series and inspect the data table. Supply actual numeric values, never JavaScript or remote URLs.', { ...shared, type: { type:'string', enum:['line','bar','area','scatter'] }, labels: { type:'array', items:string, maxItems:200 }, x_values: { type:'array', items:{type:'number'}, maxItems:200 }, x_label:string, y_label:string, series: { type:'array', maxItems:8, items:{ type:'object', properties:{ name:string, values:{type:'array',items:{type:['number','null']},maxItems:200}},required:['name','values'],additionalProperties:false } } }, ['title','type','labels','series']),
+  makeTool('render_chart', 'Create an interactive chart inline in the answer (expandable into the workspace) without running Python: line, area, bar, scatter, or pie for one series of two to six parts of a total. Hovering shows every series at a point; the reader can toggle series and open the data table. Supply actual numbers, never JavaScript or remote URLs.', { ...shared, type: { type:'string', enum:[...CHART_TYPES] }, labels: { type:'array', items:string, maxItems:200 }, x_values: { type:'array', items:{type:'number'}, maxItems:200, description:'Numeric x positions for line, area or scatter charts, one per label.' }, x_label:string, y_label:string, series: { type:'array', maxItems:8, items:{ type:'object', properties:{ name:string, values:{type:'array',items:{type:['number','null']},maxItems:200}},required:['name','values'],additionalProperties:false } }, stacked: { type:'boolean', description:'Bar or area only: stack the series to show parts of a total.' }, value_prefix: { type:'string', description:'Shown before each value, such as $.' }, value_suffix: { type:'string', description:'Shown after each value, such as % or ms.' } }, ['title','type','labels','series']),
   makeTool('render_table', 'Create a sortable, searchable table artifact. Values are data, never executable expressions. Maximum 500 rows and 20 columns. Use null for missing values.', { ...shared, columns:{type:'array',items:string,maxItems:20}, rows:{type:'array',maxItems:500,items:{type:'array',items:primitive,maxItems:20}} }, ['title','columns','rows']),
   makeTool('render_diagram', 'Create a labelled directed diagram from nodes and edges inline in the answer (expandable into the workspace). Layout is a simple grid or explicitly supplied column/row coordinates (0..15), not a full Mermaid layout engine. Maximum 50 nodes and 100 edges. Text is escaped.', { ...shared, nodes:{type:'array',maxItems:50,items:{type:'object',properties:{id:string,label:string,column:{type:'integer',minimum:0,maximum:15},row:{type:'integer',minimum:0,maximum:15}},required:['id','label'],additionalProperties:false}}, edges:{type:'array',maxItems:100,items:{type:'object',properties:{from:string,to:string,label:string},required:['from','to'],additionalProperties:false}} }, ['title','nodes','edges']),
   makeTool('create_artifact', 'Create a versioned HTML, SVG, Markdown, JSON, text or PDF artifact. PDF source is a self-contained HTML document, not base64. HTML previews are static by default; the user can enable isolated inline JavaScript for that preview. Use addEventListener in an inline script; inline event attributes, eval, modules and external scripts are unsupported. No network, external libraries, local files, or bridge APIs. Inline CSS and system fonts only. PDF generation runs without JavaScript. For inline visualizations use a transparent background (or neutral grey #252526), text #d4d4d4, system fonts and small VS Code-style accent colors. Blend into the answer: no outer card, border, shadow or large padded panel. Prefer the structured chart/table/diagram tools over custom HTML or Python when sufficient; they are cheaper to render and need less source. PDF pages may keep a print-appropriate white background. Preserve user-requested and authored colors. The preview appears inline with the response. This creates an in-app artifact, not a file on disk.', {...shared, kind:{type:'string',enum:['html','svg','markdown','json','text','pdf']}, source:{type:'string',description:'Complete UTF-8 source, at most 100,000 characters. For PDF, provide HTML with print CSS and page breaks.'}}, ['title','kind','source']),
@@ -16,7 +17,8 @@ export const VISUAL_TOOLS = [
 export const VISUAL_TOOL_NAMES = new Set(VISUAL_TOOLS.map(t=>t.function.name));
 export type Cell = string | number | boolean | null;
 export interface TableSpec { title:string; description:string; columns:string[]; rows:Cell[][] }
-export interface ChartSpec { title:string; description:string; type:'line'|'bar'|'area'|'scatter'; labels:string[]; x_values?:number[]; x_label:string; y_label:string; series:{name:string;values:(number|null)[]}[] }
+export interface ChartSpec { title:string; description:string; type:typeof CHART_TYPES[number]; labels:string[]; x_values?:number[]; x_label:string; y_label:string; series:{name:string;values:(number|null)[]}[];
+  /** Bar and area only: series stack to show parts of a total. */ stacked?:boolean; value_prefix?:string; value_suffix?:string }
 export interface DiagramSpec { title:string; description:string; nodes:{id:string;label:string;column:number;row:number}[]; edges:{from:string;to:string;label:string}[] }
 function array(v: unknown, max: number, label: string): unknown[] { if (!Array.isArray(v)||v.length>max) throw new InputError(`${label} exceeds its size limit or is not an array.`); return v; }
 function finite(v: unknown): number { if (typeof v!=='number'||!Number.isFinite(v)||Math.abs(v)>1e12) throw new InputError('Visualization values must be finite numbers between -1e12 and 1e12.');return v; }
@@ -27,12 +29,26 @@ export function visualArguments(raw: string):Record<string, unknown>{
 }
 export function chartSpec(value:unknown):ChartSpec {
   const v=record(value), title=text(v.title,'Chart title',160,true), labels=array(v.labels,200,'Chart labels').map(x=>text(x,'Label',120));
-  if(!labels.length||!['line','bar','area','scatter'].includes(String(v.type)))throw new InputError('Choose a supported chart type and at least one data label.');
+  const type=String(v.type) as ChartSpec['type'];
+  if(!labels.length||!(CHART_TYPES as readonly string[]).includes(type))throw new InputError('Choose a supported chart type and at least one data label.');
   const series=array(v.series,8,'Chart series').map(item=>{const s=record(item);const values=array(s.values,200,'Chart values').map(x=>x===null?null:finite(x));if(values.length!==labels.length)throw new InputError('Every series must have exactly one value per label.');return{name:text(s.name,'Series name',100,true),values};});
   if(!series.length||!series.some(s=>s.values.some(v=>v!==null)))throw new InputError('The chart needs at least one numeric value.');
   let x_values:number[]|undefined;
   if(v.x_values!==undefined){x_values=array(v.x_values,200,'X values').map(finite);if(x_values.length!==labels.length)throw new InputError('X values must match labels.');}
-  return {title,description:description(v.description),type:v.type as ChartSpec['type'],labels,series,...(x_values?{x_values}:{}),x_label:v.x_label===undefined?'':text(v.x_label,'X axis label',100),y_label:v.y_label===undefined?'':text(v.y_label,'Y axis label',100)};
+  if(v.stacked!==undefined&&typeof v.stacked!=='boolean')throw new InputError('stacked must be true or false.');
+  const stacked=v.stacked===true;
+  if(stacked&&type!=='bar'&&type!=='area')throw new InputError('Only bar and area charts can be stacked.');
+  if(stacked&&series.some(s=>s.values.some(n=>n!==null&&n<0)))throw new InputError('Stacked charts need values of zero or more.');
+  if(type==='pie'){
+    const parts=series[0]!.values;
+    if(series.length!==1||labels.length<2||labels.length>6)throw new InputError('A pie chart shows one series of two to six parts. Use a bar chart for more parts or series.');
+    if(parts.some(n=>n===null||n<0)||!parts.some(n=>n!==null&&n>0))throw new InputError('Pie values must be zero or more, with none missing and at least one above zero.');
+    if(x_values)throw new InputError('A pie chart takes no x_values.');
+  }
+  const affix=(x:unknown,label:string,max:number)=>x===undefined?'':text(x,label,max);
+  const value_prefix=affix(v.value_prefix,'Value prefix',8),value_suffix=affix(v.value_suffix,'Value suffix',16);
+  return {title,description:description(v.description),type,labels,series,...(x_values?{x_values}:{}),x_label:v.x_label===undefined?'':text(v.x_label,'X axis label',100),y_label:v.y_label===undefined?'':text(v.y_label,'Y axis label',100),
+    ...(stacked?{stacked}:{}),...(value_prefix?{value_prefix}:{}),...(value_suffix?{value_suffix}:{})};
 }
 export function tableSpec(value:unknown):TableSpec {
   const v=record(value),columns=array(v.columns,20,'Columns').map(x=>text(x,'Column name',100,true));
@@ -48,13 +64,39 @@ export function diagramSpec(value:unknown):DiagramSpec {
   return{title:text(v.title,'Diagram title',160,true),description:description(v.description),nodes,edges};
 }
 export function tableHTML(spec:TableSpec):string {return `<table><caption>${escape(spec.title)}</caption><thead><tr>${spec.columns.map(c=>`<th scope="col">${escape(c)}</th>`).join('')}</tr></thead><tbody>${spec.rows.map(r=>`<tr>${r.map(c=>`<td>${escape(c===null?'—':String(c))}</td>`).join('')}</tr>`).join('')}</tbody></table>`;}
-export const visualPalette=['#75b9ff','#b7a6f5','#4ec9b0','#dcdcaa','#ce9178','#9cdcfe','#b5cea8','#d7e2f1'];
+/** Categorical series colors: the dark steps of the dataviz reference palette, validated on the app's #1e1e1e and
+ * #252526 surfaces (lightness band, chroma floor, adjacent CVD and normal-vision separation, 3:1 contrast). Fixed order,
+ * never cycled: a series keeps its color when others are hidden. */
+export const visualPalette=['#3987e5','#d95926','#199e70','#c98500','#d55181','#008300','#9085e9','#e66767'];
+/** The reply surface; slice and marker rings use it so neighbouring marks stay apart. Print maps it to white. */
+const SURFACE='#1e1e1e';
 const palette=visualPalette;
 const f=(n:number)=>Number(n.toFixed(2));
 const baseSVG=(title:string,desc:string,w:number,h:number,body:string)=>`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${w} ${h}" role="img" aria-label="${escape(title)}"><title>${escape(title)}</title><desc>${escape(desc)}</desc>${body}</svg>`;
-export function chartSVG(spec:ChartSpec,hidden:number[]=[],options:{heading?:boolean;compact?:boolean;print?:boolean;width?:number;tight?:boolean}={}):string {
-  const visible=spec.series.map((s,i)=>({...s,index:i})).filter(s=>!hidden.includes(s.index)), values=visible.flatMap(s=>s.values.filter((v):v is number=>v!==null));
-  let low=Math.min(...values,0),high=Math.max(...values,0);if(low===high){low-=1;high+=1;}
+/** A value as the chart shows it: rounded, with the spec's prefix and suffix. */
+export function formatValue(spec:Pick<ChartSpec,'value_prefix'|'value_suffix'>,n:number,precision=6):string {
+  const body=Number(Math.abs(n).toPrecision(precision)).toLocaleString('en-US',{maximumFractionDigits:6});
+  return `${n<0?'−':''}${spec.value_prefix??''}${body}${spec.value_suffix??''}`;
+}
+export const formatShare=(share:number):string=>`${(Math.round(share*1000)/10).toLocaleString('en-US')}%`;
+export interface ChartOptions { heading?:boolean; compact?:boolean; print?:boolean; width?:number; tight?:boolean; hover?:boolean }
+export interface PieSlice { index:number; value:number; share:number; start:number; end:number }
+/** Everything the SVG and the hover layer need to agree on: plot box, scales, stacking and pie geometry. */
+export interface ChartLayout {
+  w:number; h:number; left:number; right:number; top:number; bottom:number; pw:number; ph:number; narrow:boolean; heading:boolean;
+  low:number; high:number; band:number; ticks:number[];
+  visible:{name:string;values:(number|null)[];index:number}[];
+  /** For stacked charts: each visible series' base and top at every label. */
+  bases:number[][]; tops:number[][];
+  x(i:number):number; y(n:number):number;
+  pie?:{cx:number;cy:number;r:number;r0:number;total:number;slices:PieSlice[]};
+}
+export function chartLayout(spec:ChartSpec,hidden:number[]=[],options:ChartOptions={}):ChartLayout {
+  const visible=spec.series.map((s,i)=>({...s,index:i})).filter(s=>!hidden.includes(s.index));
+  const stacked=!!spec.stacked&&(spec.type==='bar'||spec.type==='area'),bases:number[][]=[],tops:number[][]=[];
+  if(stacked){const run=spec.labels.map(()=>0);for(const s of visible){bases.push([...run]);s.values.forEach((v,i)=>{run[i]=run[i]!+(v??0);});tops.push([...run]);}}
+  const values=stacked?tops.flat():visible.flatMap(s=>s.values.filter((v):v is number=>v!==null));
+  const extent=niceTicks(Math.min(...values,0),Math.max(...values,0)),{low,high,ticks}=extent;
   const minX=spec.x_values?Math.min(...spec.x_values):0,maxX=spec.x_values?Math.max(...spec.x_values):Math.max(1,spec.labels.length-1);
   const heading=options.heading!==false;
   const w=options.print?780:Math.max(300,Math.min(780,Number.isFinite(options.width)?options.width!:780)),narrow=w<500;
@@ -65,17 +107,94 @@ export function chartSVG(spec:ChartSpec,hidden:number[]=[],options:{heading?:boo
   const topTrim=tight?8:0;
   const h=(heading?430:narrow?250:options.compact?280:340)-blankAxis-topTrim;
   const left=narrow?62:76,right=narrow?22:28,top=(heading?64:24)-topTrim;
-  const bottom=(narrow?54:64)-blankAxis,pw=w-left-right,ph=h-top-bottom;
-  const x=(i:number)=>spec.type==='bar'?left+pw*(i+.5)/spec.labels.length:left+pw*((spec.x_values?.[i]??i)-minX)/(maxX-minX||1);
+  const bottom=(narrow?54:64)-blankAxis,pw=w-left-right,ph=h-top-bottom,band=pw/spec.labels.length;
+  const x=(i:number)=>spec.type==='bar'?left+band*(i+.5):left+pw*((spec.x_values?.[i]??i)-minX)/(maxX-minX||1);
   const y=(n:number)=>top+ph*(1-(n-low)/(high-low));
-  let out=heading?`<text x="${left}" y="28" fill="#d4d4d4" font-family="system-ui" font-size="17">${escape(spec.title)}</text>`:"";
-  for(let n=0;n<=4;n++){const value=low+(high-low)*n/4,yy=f(y(value));out+=`<line x1="${left}" y1="${yy}" x2="${w-right}" y2="${yy}" stroke="#363636"/><text x="${left-10}" y="${yy+4}" text-anchor="end" fill="#a6a6a6" font-family="system-ui" font-size="11">${escape(Number(value.toPrecision(5)).toLocaleString('en-US'))}</text>`;}
-  spec.labels.forEach((label,i)=>{if(i%Math.max(1,Math.ceil(spec.labels.length/Math.max(2,Math.floor(pw/70))))===0||i===spec.labels.length-1)out+=`<text x="${f(x(i))}" y="${h-bottom+24}" text-anchor="middle" fill="#a6a6a6" font-family="system-ui" font-size="11">${escape(label.length>(narrow?10:20)?label.slice(0,narrow?9:18)+'…':label)}</text>`;});
+  const layout:ChartLayout={w,h,left,right,top,bottom,pw,ph,narrow,heading,low,high,band,ticks,visible,bases,tops,x,y};
+  if(spec.type==='pie'){
+    const parts=spec.series[0]!.values.map(v=>v??0),total=parts.reduce((a,b)=>a+b,0);
+    const cy=top+(h-top-12)/2,r=Math.max(40,Math.min((h-top-12)/2-22,w/2-130));
+    let angle=-Math.PI/2;
+    const slices=parts.map((value,index)=>{const share=total>0?value/total:0,start=angle;angle+=share*Math.PI*2;return{index,value,share,start,end:angle};});
+    layout.pie={cx:w/2,cy,r,r0:r*.58,total,slices};
+  }
+  return layout;
+}
+/** Round axis ticks (steps of 1, 2, 2.5 or 5 times a power of ten); the axis is extended to the
+ * nearest tick on each side, so the grid never shows values such as 1.125. */
+export function niceTicks(low:number,high:number):{low:number;high:number;ticks:number[]} {
+  if(low===high){low-=1;high+=1;}
+  let best:{low:number;high:number;ticks:number[]}|null=null,score=Infinity;
+  // Four to six intervals; the one that wastes the least of the plot wins, a little against more gridlines.
+  for(const count of [4,5,6]){
+    const raw=(high-low)/count,magnitude=10**Math.floor(Math.log10(raw)),n=raw/magnitude;
+    const step=(n<=1?1:n<=2?2:n<=2.5?2.5:n<=5?5:10)*magnitude,min=Math.floor(low/step+1e-9)*step,max=Math.ceil(high/step-1e-9)*step;
+    const ticks:number[]=[];for(let v=min;v<=max+step/2;v+=step)ticks.push(Number(v.toPrecision(12)));
+    const s=(max-min)/(high-low)+ticks.length*.02;
+    if(s<score-1e-9){score=s;best={low:Number(min.toPrecision(12)),high:Number(max.toPrecision(12)),ticks};}
+  }
+  return best!;
+}
+/** A bar from its baseline to its value, rounded only at the value end (dataviz: 4px data-ends on the baseline). */
+function barPath(x:number,width:number,base:number,end:number,radius:number):string {
+  const r=Math.max(0,Math.min(radius,width/2,Math.abs(base-end))),up=end<=base,edge=up?end+r:end-r;
+  if(r===0)return `M${f(x)} ${f(base)}V${f(end)}H${f(x+width)}V${f(base)}Z`;
+  return `M${f(x)} ${f(base)}V${f(edge)}Q${f(x)} ${f(end)} ${f(x+r)} ${f(end)}H${f(x+width-r)}Q${f(x+width)} ${f(end)} ${f(x+width)} ${f(edge)}V${f(base)}Z`;
+}
+function arc(cx:number,cy:number,r:number,r0:number,start:number,end:number):string {
+  const p=(radius:number,a:number)=>`${f(cx+radius*Math.cos(a))} ${f(cy+radius*Math.sin(a))}`,large=end-start>Math.PI?1:0;
+  if(end-start>=Math.PI*2-1e-9)return `M${p(r,start)}A${f(r)} ${f(r)} 0 1 1 ${p(r,start+Math.PI)}A${f(r)} ${f(r)} 0 1 1 ${p(r,start)}ZM${p(r0,start)}A${f(r0)} ${f(r0)} 0 1 0 ${p(r0,start+Math.PI)}A${f(r0)} ${f(r0)} 0 1 0 ${p(r0,start)}Z`;
+  return `M${p(r,start)}A${f(r)} ${f(r)} 0 ${large} 1 ${p(r,end)}L${p(r0,end)}A${f(r0)} ${f(r0)} 0 ${large} 0 ${p(r0,start)}Z`;
+}
+function pieMarks(spec:ChartSpec,L:ChartLayout,titles:boolean):string {
+  const {cx,cy,r,r0,total,slices}=L.pie!;let out='';
+  for(const s of slices){
+    if(s.value<=0)continue;
+    const tip=titles?`<title>${escape(`${spec.labels[s.index]}: ${formatValue(spec,s.value)} (${formatShare(s.share)})`)}</title>`:'';
+    out+=`<path d="${arc(cx,cy,r,r0,s.start,s.end)}" fill="${palette[s.index%palette.length]}" fill-rule="evenodd" stroke="${SURFACE}" stroke-width="2" stroke-linejoin="round" class="chart-mark" data-key="slice-${s.index}">${tip}</path>`;
+  }
+  // Direct labels only where a slice is large enough; the legend, tooltip and table carry the rest.
+  for(const s of slices){
+    if(s.share<.04)continue;
+    const mid=(s.start+s.end)/2,lx=cx+(r+12)*Math.cos(mid),ly=cy+(r+12)*Math.sin(mid)+4,max=L.narrow?12:22,label=spec.labels[s.index]!;
+    out+=`<text x="${f(lx)}" y="${f(ly)}" text-anchor="${Math.cos(mid)>=0?'start':'end'}" fill="#d4d4d4" font-family="system-ui" font-size="12">${escape(label.length>max?label.slice(0,max-1)+'…':label)} <tspan fill="#a6a6a6">${formatShare(s.share)}</tspan></text>`;
+  }
+  if(r0>=34&&spec.value_suffix!=='%')out+=`<text x="${f(cx)}" y="${f(cy+2)}" text-anchor="middle" fill="#d4d4d4" font-family="system-ui" font-size="${L.narrow?15:18}">${escape(formatValue(spec,total))}</text><text x="${f(cx)}" y="${f(cy+19)}" text-anchor="middle" fill="#a6a6a6" font-family="system-ui" font-size="11">Total</text>`;
+  return out;
+}
+export function chartSVG(spec:ChartSpec,hidden:number[]=[],options:ChartOptions={}):string {
+  const L=chartLayout(spec,hidden,options),{w,h,left,right,top,bottom,pw,ph,x,y,visible}=L;
+  // The inline preview has its own hover layer; exports keep native tooltips.
+  const titles=!options.hover;
+  let out=L.heading?`<text x="${left}" y="28" fill="#d4d4d4" font-family="system-ui" font-size="17">${escape(spec.title)}</text>`:"";
+  if(L.pie){const svg=baseSVG(spec.title,spec.description,w,h,out+pieMarks(spec,L,titles));return options.print?printVisualSVG(svg):svg;}
+  for(const value of L.ticks){const yy=f(y(value));out+=`<line x1="${left}" y1="${yy}" x2="${w-right}" y2="${yy}" stroke="#363636"/><text x="${left-10}" y="${yy+4}" text-anchor="end" fill="#a6a6a6" font-family="system-ui" font-size="11">${escape(formatValue(spec,value,5))}</text>`;}
+  spec.labels.forEach((label,i)=>{if(i%Math.max(1,Math.ceil(spec.labels.length/Math.max(2,Math.floor(pw/70))))===0||i===spec.labels.length-1)out+=`<text x="${f(x(i))}" y="${h-bottom+24}" text-anchor="middle" fill="#a6a6a6" font-family="system-ui" font-size="11">${escape(label.length>(L.narrow?10:20)?label.slice(0,L.narrow?9:18)+'…':label)}</text>`;});
+  const stacked=L.tops.length>0,group=Math.min(70,L.band*.75),lastTop=L.tops.at(-1);
   visible.forEach((s,si)=>{
     out+=`<g data-key="series-${s.index}" data-series="${s.index}">`;
     const color=palette[s.index%palette.length];let segment:{i:number;v:number}[]=[];
-    const flush=()=>{if(!segment.length)return;const points=segment.map(p=>`${f(x(p.i))},${f(y(p.v))}`).join(' ');if(spec.type==='area')out+=`<polygon points="${f(x(segment[0]!.i))},${f(y(0))} ${points} ${f(x(segment.at(-1)!.i))},${f(y(0))}" fill="${color}" opacity="0.14" class="chart-area"/>`;if(spec.type!=='scatter'&&spec.type!=='bar')out+=`<polyline points="${points}" fill="none" stroke="${color}" stroke-width="2.5" class="chart-line" pathLength="1"/>`;if(spec.labels.length>80&&spec.type!=='scatter'&&spec.type!=='bar'&&segment.length===1){const p=segment[0]!;out+=`<circle cx="${f(x(p.i))}" cy="${f(y(p.v))}" r="3" fill="${color}"><title>${escape(s.name+': '+p.v)}</title></circle>`;}segment=[];};
-    s.values.forEach((v,i)=>{if(v===null){flush();return;}segment.push({i,v});const tooltip=escape(`${s.name} · ${spec.labels[i]}: ${v}`);if(spec.type==='bar'){const bw=Math.min(70,pw/spec.labels.length*.75)/Math.max(1,visible.length),xx=x(i)-bw*visible.length/2+bw*si;out+=`<rect x="${f(xx)}" y="${f(Math.min(y(v),y(0)))}" width="${f(Math.max(.3,bw-1))}" height="${f(Math.max(.3,Math.abs(y(v)-y(0))))}" fill="${color}" class="chart-mark"><title>${tooltip}</title></rect>`;}else if(spec.type==='scatter'||spec.labels.length<=80)out+=`<circle cx="${f(x(i))}" cy="${f(y(v))}" r="${spec.type==='scatter'?4:3}" fill="${color}" class="chart-mark"><title>${tooltip}</title></circle>`;});flush();out+='</g>';
+    const tip=(i:number,v:number)=>titles?`<title>${escape(`${s.name} · ${spec.labels[i]}: ${formatValue(spec,v)}`)}</title>`:'';
+    if(stacked&&spec.type==='area'){
+      const topPoints=spec.labels.map((_,i)=>`${f(x(i))},${f(y(L.tops[si]![i]!))}`),basePoints=spec.labels.map((_,i)=>`${f(x(i))},${f(y(L.bases[si]![i]!))}`).reverse();
+      out+=`<polygon points="${[...topPoints,...basePoints].join(' ')}" fill="${color}" opacity="0.34" class="chart-area"/><polyline points="${topPoints.join(' ')}" fill="none" stroke="${color}" stroke-width="2" class="chart-line" pathLength="1"/></g>`;
+      return;
+    }
+    const flush=()=>{if(!segment.length)return;const points=segment.map(p=>`${f(x(p.i))},${f(y(p.v))}`).join(' ');if(spec.type==='area')out+=`<polygon points="${f(x(segment[0]!.i))},${f(y(0))} ${points} ${f(x(segment.at(-1)!.i))},${f(y(0))}" fill="${color}" opacity="0.14" class="chart-area"/>`;if(spec.type!=='scatter'&&spec.type!=='bar')out+=`<polyline points="${points}" fill="none" stroke="${color}" stroke-width="2" class="chart-line" pathLength="1"/>`;if(spec.labels.length>80&&spec.type!=='scatter'&&spec.type!=='bar'&&segment.length===1){const p=segment[0]!;out+=`<circle cx="${f(x(p.i))}" cy="${f(y(p.v))}" r="3" fill="${color}">${tip(p.i,p.v)}</circle>`;}segment=[];};
+    s.values.forEach((v,i)=>{
+      if(v===null){flush();return;}segment.push({i,v});
+      if(spec.type==='bar'){
+        if(stacked){
+          // Segments sit on each other with a 2px surface gap; only the top of the stack is rounded.
+          if(v===0)return;const base=L.bases[si]![i]!,end=L.tops[si]![i]!;
+          out+=`<path d="${barPath(x(i)-group/2,Math.max(.3,group),y(base)-(base>0?2:0),y(end),end===lastTop![i]?4:0)}" fill="${color}" class="chart-mark">${tip(i,v)}</path>`;
+        } else {
+          const bw=group/Math.max(1,visible.length),xx=x(i)-group/2+bw*si;
+          out+=`<path d="${barPath(xx,Math.max(.3,bw-2),y(0),y(v),4)}" fill="${color}" class="chart-mark">${tip(i,v)}</path>`;
+        }
+      } else if(spec.type==='scatter')out+=`<circle cx="${f(x(i))}" cy="${f(y(v))}" r="4" fill="${color}" stroke="${SURFACE}" stroke-width="2" class="chart-mark">${tip(i,v)}</circle>`;
+      else if(spec.labels.length<=80)out+=`<circle cx="${f(x(i))}" cy="${f(y(v))}" r="3" fill="${color}" class="chart-mark">${tip(i,v)}</circle>`;
+    });flush();out+='</g>';
   });
   out+=`<text x="${left+pw/2}" y="${h-16}" text-anchor="middle" fill="#a6a6a6" font-family="system-ui" font-size="12">${escape(spec.x_label)}</text><text x="18" y="${top+ph/2}" transform="rotate(-90 18 ${top+ph/2})" text-anchor="middle" fill="#a6a6a6" font-family="system-ui" font-size="12">${escape(spec.y_label)}</text>`;
   const svg=baseSVG(spec.title,spec.description,w,h,out);return options.print?printVisualSVG(svg):svg;
@@ -95,7 +214,7 @@ export function diagramSVG(spec:DiagramSpec,markerId='arrow',heading=true,print=
 }
 /** Only applied to our structured SVG renderer, never an authored document. */
 function printVisualSVG(svg:string):string {
-  const colors:Record<string,string>={'#d4d4d4':'#242424','#363636':'#d0d0d0','#a6a6a6':'#555555','#b8b8b8':'#555555','#292929':'#f2f2f2','#555555':'#888888','#75b9ff':'#0072b2','#b7a6f5':'#7354a6','#4ec9b0':'#00876c','#dcdcaa':'#8a7200','#ce9178':'#a44d24','#9cdcfe':'#007da4','#b5cea8':'#54733d','#d7e2f1':'#585858'};
+  const colors:Record<string,string>={'#d4d4d4':'#242424','#363636':'#d0d0d0','#a6a6a6':'#555555','#b8b8b8':'#555555','#292929':'#f2f2f2','#555555':'#888888','#75b9ff':'#0072b2','#3987e5':'#2a78d6','#d95926':'#eb6834','#199e70':'#1baf7a','#c98500':'#eda100','#d55181':'#e87ba4','#9085e9':'#4a3aa7','#e66767':'#e34948','#1e1e1e':'#ffffff'};
   return svg.replace(/(fill|stroke)="(#[a-f0-9]{6})"/g,(attribute,kind,color)=>colors[color]?`${kind}="${colors[color]}"`:attribute);
 }
 export function artifactSource(a:Artifact):string|null {

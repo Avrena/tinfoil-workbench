@@ -493,6 +493,18 @@ button{transition:background-color 130ms ease,color 130ms ease,border-color 130m
 .chart-legend button:hover{background:#2d2d2d}
 .chart-legend button[aria-pressed=false]{opacity:.58}
 .series-swatch{width:8px;height:8px;border-radius:2px;display:inline-block;flex-shrink:0}
+/* Legend keys mirror the mark; pie parts are listed, not toggled. */
+.series-swatch.line{width:12px;height:2px;border-radius:1px}.series-swatch.dot{border-radius:50%}
+.legend-item{display:inline-flex;align-items:center;gap:6px;font-size:10px;color:#bbbbbb;padding:5px 6px}.legend-share{color:#8f8f8f;font-variant-numeric:tabular-nums}
+/* The hover layer: a hairline crosshair (a faint band on bars) and one readout listing every series. */
+.visual-canvas{position:relative}.visual-canvas:focus-visible{outline:1px solid var(--accent);outline-offset:2px;border-radius:4px}
+.chart-crosshair{position:absolute;width:1px;background:#6b6b6b;pointer-events:none}.chart-crosshair.band{background:#ffffff0f}
+.chart-tooltip{position:absolute;z-index:2;pointer-events:none;min-width:96px;max-width:240px;padding:7px 9px;border:1px solid #3c3c3c;border-radius:6px;background:#252526f2;box-shadow:0 6px 20px #0007;font-size:11px;line-height:1.35;color:#a6a6a6}
+.chart-tooltip .tip-head{margin-bottom:4px;color:#c8c8c8;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.chart-tooltip .tip-row{display:flex;align-items:center;gap:6px;white-space:nowrap}.chart-tooltip .tip-row span{overflow:hidden;text-overflow:ellipsis}
+.chart-tooltip .tip-row strong{color:#f0f0f0;font-weight:600;font-variant-numeric:tabular-nums}
+.chart-tooltip .tip-key{width:8px;height:8px;border-radius:2px;flex-shrink:0}.chart-tooltip .tip-key.line{width:10px;height:2px;border-radius:1px}
+@media(prefers-reduced-motion:reduce){.chart-tooltip{box-shadow:none}}
 .visual-enter .chart-line{stroke-dasharray:1;animation:chart-draw 480ms var(--ease-out) both}
 .visual-enter .chart-area{animation:area-arrive 500ms ease-out both}
 .visual-enter rect.chart-mark{transform-box:fill-box;transform-origin:center bottom;animation:bar-grow 380ms var(--ease-out) both}

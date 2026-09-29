@@ -30,7 +30,7 @@ jobs:
           python -m playwright install --with-deps chromium
       - name: Ten production-renderer suites (synthetic fixtures, no network)
         run: |
-          for suite in ui-smoke ui-artifacts ui-inline ui-seamless ui-editing ui-responsive ui-spacing ui-activity ui-account ui-handoff ui-cloud; do
+          for suite in ui-smoke ui-artifacts ui-inline ui-seamless ui-editing ui-responsive ui-spacing ui-activity ui-account ui-handoff ui-cloud ui-charts; do
             echo "::group::$suite"
             python "tests/$suite.py"
             echo "::endgroup::"
