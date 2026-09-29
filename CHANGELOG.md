@@ -2,7 +2,7 @@
 
 ## 0.18.1 — readable model picker and model name on phones
 
-- Phones: on a 360px-wide screen (a 1080px screen at density 480), 0.18.0 kept Send on the composer's row beside a thinking-effort picker but left the model name about 30px, so GLM-5.3 showed as "G…". Up to 600px wide the model button now drops its chevron (it still opens the picker) and gives the name 44px at 360px.
+- Phones: on a 360px-wide screen (a 1080px screen at density 480), 0.18.0 kept Send on the composer's row beside a thinking-effort picker but left the model name about 30px, so GLM-5.3 showed as "G…". Up to 600px wide the model button now drops its chevron (it still opens the picker) and uses a smaller maker mark, and the composer's controls sit 2px apart, so the name gets 57px at 360px and the phone shows "GLM-5.3" in full.
 - Phones: in *Choose model*, a list longer than the dialog squeezed its rows until their lines overlapped, because touch screens give every button a 44px minimum height that replaced the rows' content height. Rows now keep their full height and the list scrolls.
 - The phone composer check in `tests/ui-responsive.py` now runs at 360 and 393px, and a new check opens the model picker at 360 × 560 with a list that scrolls (95 checks).
 
