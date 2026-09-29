@@ -36,6 +36,12 @@ with sync_playwright() as p:
  page.set_content(html)
  expect(page.locator('#preview-label')).to_be_visible();expect(page.locator('#inspector')).to_be_hidden();expect(page.locator('.sidebar')).to_be_visible()
  checks.append('default layout hides advanced controls and labels offline data')
+ for width in (1500,1100):
+  page.set_viewport_size({'width':width,'height':900});box=page.locator('.title-search').bounding_box()
+  assert abs(box['x']+box['width']/2-width/2)<=1 and abs(box['width']-min(width*.4,600))<=1,(width,box)
+ page.set_viewport_size({'width':1500,'height':1180})
+ status=page.locator('.statusbar').inner_text();assert not any(word in status for word in ('Ready','Encrypted','memory only')),status
+ checks.append('the title search is centred on the window at 40% of its width, and the idle status bar shows only the connection')
  page.locator('#composer-model').click();expect(page.locator('#model-dialog')).to_be_visible()
  expect(page.locator('#quick-model')).to_have_value('');rows=page.locator('#model-options [data-quick-model]')
  assert rows.evaluate_all('r=>r.map(b=>b.dataset.quickModel)')==['deepseek-v4-pro','kimi-k3','demo/writer','demo/analyst']

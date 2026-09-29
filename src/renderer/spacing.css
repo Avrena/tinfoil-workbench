@@ -497,3 +497,13 @@ dialog:not(.message-editor) .modal-body { padding: 8px 20px 20px; }
 @media(max-width:600px) {
   .instructions-form > .modal-actions { margin: 8px -16px -16px; padding: 12px 16px 16px; }
 }
+
+/* Title bar: the search box is centred on the window, like a command centre, and about 40% of its width. The name
+   and the window controls sit in equal side columns, so their different widths do not move the centre. */
+@media(min-width:781px){
+  .titlebar{display:grid;grid-template-columns:minmax(0,1fr) auto minmax(0,1fr);padding-left:0}
+  .title-brand{padding-left:17px;min-width:0}
+  .title-search{width:min(40vw,600px);margin:0}
+  .title-trailing{justify-self:end;margin-left:0}
+  .focus-mode .title-search{width:auto}
+}
