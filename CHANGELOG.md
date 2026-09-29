@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.18.1 — readable model name on 360px phones
+
+- Phones: on a 360px-wide screen (a 1080px screen at density 480), 0.18.0 kept Send on the composer's row beside a thinking-effort picker but left the model name about 30px, so GLM-5.3 showed as "G…". Up to 600px wide the model button now drops its chevron (it still opens the picker) and gives the name 44px at 360px.
+- The phone composer check in `tests/ui-responsive.py` now runs at 360 and 393px.
+
 ## 0.18.0 — Tinfoil Chat widgets in synced chats; room for reasoning models
 
 - Windows, Tinfoil cloud chats: charts, timelines and stat cards that Tinfoil Chat's model made now appear in Workbench where Tinfoil Chat shows them, drawn by Workbench's own renderers from the widgets' data, with Data and Source views. Other widgets (images, link previews, maps, clocks, recipe cards, message drafts, sports scores, artifact previews) are listed as not displayed; nothing in them is fetched or run. Chats already opened are read again once at the next sync, unless they hold changes not yet written.
