@@ -11,7 +11,7 @@ parser.add_argument('--no-sandbox', action='store_true')
 args = parser.parse_args()
 root = Path(__file__).resolve().parents[1]
 checks, errors, matrix = [], [], []
-marker = 'const pause = ms => new Promise(r => setTimeout(r, ms));'
+marker = 'const pause = (ms) => new Promise((r) => setTimeout(r, ms));'
 fixture = r'''window.__spacingSeed=()=>{
  const {chartSpec,chartSVG,tableSpec,tableHTML}=require('/core/visual-tools.js');
  const t=workspace.threads.find(t=>t.id===workspace.activeId);

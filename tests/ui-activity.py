@@ -4,7 +4,7 @@ from pathlib import Path
 from playwright.sync_api import sync_playwright,expect
 parser=argparse.ArgumentParser();parser.add_argument('--chromium',default=None);args=parser.parse_args()
 root=Path(__file__).resolve().parents[1];html=(root/'preview/index.html').read_text(encoding='utf-8');checks=[];errors=[];requests=[]
-marker='const pause = ms => new Promise(r => setTimeout(r, ms));'
+marker='const pause = (ms) => new Promise((r) => setTimeout(r, ms));'
 fixture=r'''
 window.__activitySeed=(mode='approval')=>{
  const t=workspace.threads.find(t=>t.id===workspace.activeId);t.title='Tool activity · synthetic demonstration';

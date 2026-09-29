@@ -14,7 +14,7 @@ parser.add_argument('--chromium',default=None)
 parser.add_argument('--no-sandbox',action='store_true',help='Isolated root-owned test containers only; never a production flag.')
 args=parser.parse_args();root=Path(__file__).resolve().parents[1];checks=[]
 html=(root/'preview/index.html').read_text(encoding='utf-8')
-marker='const pause = ms => new Promise(r => setTimeout(r, ms));'
+marker='const pause = (ms) => new Promise((r) => setTimeout(r, ms));'
 assert marker in html
 fixture="""window.__fixture = patch => { const t=workspace.threads.find(t=>t.id===workspace.activeId); Object.assign(t.turns[0].replies[0],patch); emit(); };
 window.__active = () => structuredClone(workspace.threads.find(t=>t.id===workspace.activeId));"""

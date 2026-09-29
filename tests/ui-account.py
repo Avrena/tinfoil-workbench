@@ -4,7 +4,7 @@ from pathlib import Path
 from playwright.sync_api import sync_playwright,expect
 p=argparse.ArgumentParser();p.add_argument('--chromium',default=None);args=p.parse_args()
 root=Path(__file__).resolve().parents[1];html=(root/'preview/index.html').read_text(encoding='utf-8');checks=[];errors=[];requests=[]
-marker='const pause = ms => new Promise(r => setTimeout(r, ms));'
+marker='const pause = (ms) => new Promise((r) => setTimeout(r, ms));'
 fixture='''
 window.__accountPatch=patch=>{previewAccount={...previewAccount,...patch};emit();};
 window.__accountState=()=>snapshot();

@@ -6,7 +6,7 @@ from pathlib import Path
 from playwright.sync_api import sync_playwright,expect
 parser=argparse.ArgumentParser();parser.add_argument('--chromium',default=None);args=parser.parse_args()
 root=Path(__file__).resolve().parents[1];html=(root/'preview/index.html').read_text(encoding='utf-8');checks=[];errors=[];matrix=[]
-marker='const pause = ms => new Promise(r => setTimeout(r, ms));'
+marker='const pause = (ms) => new Promise((r) => setTimeout(r, ms));'
 fixture=r'''window.__inspect=()=>structuredClone(workspace);
 window.__seed=()=>{
  const {chartSpec,chartSVG,tableSpec,tableHTML}=require('/core/visual-tools.js');

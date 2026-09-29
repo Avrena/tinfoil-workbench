@@ -5,7 +5,7 @@ from pathlib import Path
 from playwright.sync_api import sync_playwright, expect
 p=argparse.ArgumentParser();p.add_argument('--chromium',default=None);args=p.parse_args()
 root=Path(__file__).resolve().parents[1];html=(root/'preview/index.html').read_text(encoding='utf-8');checks=[];errors=[];requests=[]
-marker='const pause = ms => new Promise(r => setTimeout(r, ms));'
+marker='const pause = (ms) => new Promise((r) => setTimeout(r, ms));'
 fixture='''
 window.__charts=()=>{
   const reply=workspace.threads.find(t=>t.id===workspace.activeId).turns[0].replies[0];
@@ -14,18 +14,18 @@ window.__charts=()=>{
     {title:'Traffic sources',type:'pie',labels:['Search','Direct','Social','Mail'],series:[{name:'Visits',values:[60,25,13,2]}]},
     {title:'Latency',type:'line',value_suffix:' ms',labels:['Mon','Tue','Wed','Thu'],series:[{name:'API',values:[40,52,null,47]},{name:'Web',values:[80,76,90,85]}]},
     {title:'Revenue',type:'bar',value_prefix:'$',value_suffix:'B',labels:['2023','2024','2025','2026'],series:[{name:'Reported',values:[0.2,1,4.5,null]},{name:'Projection',values:[null,null,null,15]}]},
-  ].map(s=>visual_tools_js_1.chartSpec(s));
-  const timeline=visual_tools_js_1.timelineSpec({title:'Release history',description:'Synthetic preview data',events:[{date:'2023',title:'Private beta'},{date:'Mar 2025',title:'General release <b>1.0</b>',description:'Available in every region.'},{date:'Q3 2026',title:'Version 2',description:'Planned.',tentative:true}]});
-  const stats=visual_tools_js_1.statsSpec({title:'Quarter at a glance',description:'Synthetic preview data',stats:[{label:'Revenue',value:'$4.2B',delta:'+12% vs Q2',trend:'up',good:true,sparkline:[3.1,3.4,3.8,4.2]},{label:'Churn',value:'2.1%',delta:'+0.3 pt vs Q2',trend:'up',good:false},{label:'Active users',value:1284000,trend:'flat'}]});
+  ].map(s=>import_visual_tools.chartSpec(s));
+  const timeline=import_visual_tools.timelineSpec({title:'Release history',description:'Synthetic preview data',events:[{date:'2023',title:'Private beta'},{date:'Mar 2025',title:'General release <b>1.0</b>',description:'Available in every region.'},{date:'Q3 2026',title:'Version 2',description:'Planned.',tentative:true}]});
+  const stats=import_visual_tools.statsSpec({title:'Quarter at a glance',description:'Synthetic preview data',stats:[{label:'Revenue',value:'$4.2B',delta:'+12% vs Q2',trend:'up',good:true,sparkline:[3.1,3.4,3.8,4.2]},{label:'Churn',value:'2.1%',delta:'+0.3 pt vs Q2',trend:'up',good:false},{label:'Active users',value:1284000,trend:'flat'}]});
   reply.content='Stacked.\\n\\nPie.\\n\\nLine.\\n\\nSplit.\\n\\nTimeline.\\n\\nStats.\\n\\n';
-  reply.tools=specs.map((spec,i)=>previewTool('chart',JSON.stringify(spec),visual_tools_js_1.chartSVG(spec),spec.title,[0,10,16,23][i]));
+  reply.tools=specs.map((spec,i)=>previewTool('chart',JSON.stringify(spec),import_visual_tools.chartSVG(spec),spec.title,[0,10,16,23][i]));
   const widget=(kind,name,spec,html,offset)=>{const t=previewTool(kind,JSON.stringify(spec),html,spec.title,offset,'text/html');t.name=name;t.artifacts[0].name=spec.title+'.html';return t;};
-  reply.tools.push(widget('timeline','render_timeline',timeline,visual_tools_js_1.timelineHTML(timeline),31),widget('stats','render_stat_cards',stats,visual_tools_js_1.statsHTML(stats),42));emit();
+  reply.tools.push(widget('timeline','render_timeline',timeline,import_visual_tools.timelineHTML(timeline),31),widget('stats','render_stat_cards',stats,import_visual_tools.statsHTML(stats),42));emit();
 };
 window.__diagram=()=>{
   const reply=workspace.threads.find(t=>t.id===workspace.activeId).turns[0].replies[0];
-  const spec=visual_tools_js_1.diagramSpec({title:'Request path',nodes:[{id:'b',label:'Browser',column:0,row:0},{id:'l',label:'Load balancer',column:1,row:0},{id:'a',label:'App server',column:2,row:1},{id:'d',label:'Database',column:3,row:1}],edges:[{from:'b',to:'l',label:'HTTPS'},{from:'l',to:'a'},{from:'a',to:'d',label:'SQL'}]});
-  reply.content='Path.\\n\\n';reply.tools=[previewTool('diagram',JSON.stringify(spec),visual_tools_js_1.diagramSVG(spec),spec.title,6)];emit();
+  const spec=import_visual_tools.diagramSpec({title:'Request path',nodes:[{id:'b',label:'Browser',column:0,row:0},{id:'l',label:'Load balancer',column:1,row:0},{id:'a',label:'App server',column:2,row:1},{id:'d',label:'Database',column:3,row:1}],edges:[{from:'b',to:'l',label:'HTTPS'},{from:'l',to:'a'},{from:'a',to:'d',label:'SQL'}]});
+  reply.content='Path.\\n\\n';reply.tools=[previewTool('diagram',JSON.stringify(spec),import_visual_tools.diagramSVG(spec),spec.title,6)];emit();
 };
 '''
 assert marker in html;html=html.replace(marker,marker+fixture,1)
