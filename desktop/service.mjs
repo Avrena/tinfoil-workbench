@@ -15,7 +15,6 @@ import { randomUUID } from 'node:crypto';
 import { signedOutAccount } from '../dist/core/account.js';
 import { publicError, networkFailure, moduleFailure } from '../dist/core/security.js';
 import { projectContext } from '../dist/core/cloud.js';
-import { CloudSync } from './cloud-sync.mjs';
 const idleVerification = () => ({ state: 'idle', checkedAt: null, steps: [] });
 const bounded = (v, max = 100) => typeof v === 'string' ? v.slice(0, max) : '';
 const stepList = steps => Object.entries(steps ?? {}).slice(0, 20).map(([name, step]) => ({ name: bounded(name), status: bounded(step?.status) }));
@@ -43,9 +42,10 @@ export class WorkbenchService {
     // The public catalog outlives connections; `listed` is the verified endpoint's own list.
     this.catalog = []; this.listed = []; this.catalogState = 'idle'; this.catalogFlight = null; this.catalogFailedAt = 0;
     this.controllers = new Map(); this.tasks = new Set(); this.notice = null; this.storageFailed = false; this.emitter = null;
-    // Tinfoil cloud chats and projects (docs/CLOUD.md), when the host provides the attested sync client.
-    this.cloud = options.cloudClient ? new CloudSync({ client: options.cloudClient, account: options.account, host: { workspace: () => this.workspace,
-      save: () => this.save(), emit: () => this.emit(), notice: message => { this.notice = message; }, ensureActive: () => this.ensureActive() } }) : null;
+    // Tinfoil cloud chats and projects (docs/CLOUD.md): `options.cloud(host)` builds the sync engine. The Windows app
+    // provides it; the Android bundle shares this service and leaves cloud sync, and its Node-only crypto, out.
+    this.cloud = options.cloud ? options.cloud({ workspace: () => this.workspace,
+      save: () => this.save(), emit: () => this.emit(), notice: message => { this.notice = message; }, ensureActive: () => this.ensureActive() }) : null;
   }
   ensureActive() {
     if (!this.workspace.threads.length) addThread(this.workspace);

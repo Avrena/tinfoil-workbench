@@ -16,6 +16,7 @@ import { safeExternalURL } from '../dist/core/markdown.js';
 import { pythonArguments } from '../dist/core/tools.js';
 import { createProvider } from './provider.mjs';
 import { CloudClient, syncEnclave } from './cloud-client.mjs';
+import { CloudSync } from './cloud-sync.mjs';
 import { CloseCoordinator, persistCloseDecision } from './close-coordinator.mjs';
 import { AccountSession } from './account-session.mjs';
 import { AccountWindow } from './account-window.mjs';
@@ -53,11 +54,11 @@ async function launch() {
   powerMonitor.on('resume',()=>account?.resume());
   service = new WorkbenchService(vault, createProvider, snapshot => {
     if (window && !window.isDestroyed()) window.webContents.send('workbench:changed', snapshot);
-  }, runPython, {pdfRenderer:renderPDF,capabilityLoader:loadModelCapabilities,account,cloudClient:new CloudClient({
+  }, runPython, {pdfRenderer:renderPDF,capabilityLoader:loadModelCapabilities,account,cloud:host=>new CloudSync({host,account,client:new CloudClient({
     // Tinfoil's sync enclave, attested like inference; the SDK is loaded only when cloud sync is used.
     secureClient: () => syncEnclave(service.workspace.cacheSecret),
     token: async force => (await account.sessionToken(force)).bearer,
-  })});
+  })})});
   await service.initialize();
   // Cloud chats sync after sign-in and then every ten minutes while the app is open.
   if (!smoke) setInterval(() => service.syncCloud(), 600_000).unref?.();

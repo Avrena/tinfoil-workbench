@@ -1,6 +1,9 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { webcrypto } from 'node:crypto';
+import { readFileSync } from 'node:fs';
+import { dirname, join, resolve } from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { CloudSync } from '../desktop/cloud-sync.mjs';
 import { CloudClient, CloudError, cloudKeyId, cloudChatId, SYNC_URL } from '../desktop/cloud-client.mjs';
 import { parseCloudKey } from '../dist/core/cloud.js';
@@ -266,7 +269,7 @@ test('the service opens, writes back, moves and exports cloud chats through its 
   const server = enclave(); server.seed('project', 'p1', { name: 'Research' }); server.seed('chat', 'c1', chat('Trip', 1));
   let stored = null; const vault = { read: async () => stored, write: async v => { stored = structuredClone(v); }, flush: async () => {} };
   const account = { snapshot: () => ({ status: 'signed-in', profile: { id: 'user_test' } }), sessionToken: async () => ({ bearer: 'clerk-test-only', user: 'user_test' }) };
-  const s = new WorkbenchService(vault, async () => ({}), () => {}, null, { account, cloudClient: server }); await s.initialize();
+  const s = new WorkbenchService(vault, async () => ({}), () => {}, null, { account, cloud: host => new CloudSync({ client: server, account, host }) }); await s.initialize();
   const snap = await s.execute({ type: 'cloud.connect', key: KEY });
   assert.equal(snap.cloud.state, 'ready'); assert.equal(snap.cloud.chats, 1); assert.equal(JSON.stringify(snap).includes(KEY), false, 'no snapshot carries the key');
   assert.equal(stored.cloud.key, KEY, 'the key is kept in the encrypted workspace');
@@ -288,3 +291,18 @@ test('the service opens, writes back, moves and exports cloud chats through its 
   await s.shutdown();
 });
 const until = async (ready, ms = 2000) => { const end = Date.now() + ms; while (Date.now() < end) { if (ready()) return; await new Promise(r => setTimeout(r, 5)); } assert.fail('timed out'); };
+
+test('the Android worker bundle leaves cloud sync out', () => {
+  // The worker bundles the shared service with a crypto shim that has only randomUUID, so the sync engine and the
+  // client (hkdfSync, the SDK's sync enclave) must stay out of its static imports. Walks them from the entry, through
+  // the built dist/ modules as the bundler does.
+  const root = dirname(dirname(fileURLToPath(import.meta.url))), seen = new Set();
+  const walk = file => {
+    if (seen.has(file)) return; seen.add(file);
+    for (const [, spec] of readFileSync(file, 'utf8').matchAll(/^\s*(?:import|export)\s[^'"]*?from\s+['"](\.{1,2}\/[^'"]+)['"]/gm)) walk(resolve(dirname(file), spec));
+  };
+  walk(join(root, 'mobile', 'host-worker.mjs'));
+  const reached = [...seen].map(f => f.slice(root.length + 1).replaceAll('\\', '/'));
+  assert.ok(reached.includes('desktop/service.mjs'), 'the walk reaches the shared service');
+  assert.deepEqual(reached.filter(f => /desktop\/cloud-(sync|client)\.mjs$/.test(f)), []);
+});
