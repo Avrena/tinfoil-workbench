@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.15.1 — saved sign-in after a slow start
+
+- Windows: a saved sign-in that cannot reach Tinfoil when Workbench starts, for example after a power cut while the network or a proxy is still coming up, is now tried again automatically: after 15 seconds, 30 seconds, 1 minute, then every 2 minutes, and after the PC wakes. Until then the Account view says the sign-in is kept. Cloud sync resumes once it is restored.
+- *Reconnect Tinfoil Chat* now tries the saved sign-in again first. Before, it signed out, which deleted the saved sign-in and asked for a new one even though the session was still valid. A new sign-in is needed only if Tinfoil reports that the saved session has ended.
+- Add three tests of the retries and of Reconnect to `tests/account-remember.test.mjs`.
+
 ## 0.15.0 — Tinfoil cloud chats and projects on Windows
 
 - Windows: two-way sync with Tinfoil Chat's cloud chats and projects. Add your chat key (the `key_…` string or the key file from Tinfoil Chat) under Account → Tinfoil cloud chats; Workbench checks it against your account's current key and keeps it encrypted. Your 300 most recent cloud chats appear in the sidebar and load their messages when opened; cloud projects appear with their instructions and documents, which are added to requests in their chats as Tinfoil Chat does. Continuing, renaming, editing, moving between cloud projects or deleting a cloud chat changes it in your Tinfoil account; a conversation in a cloud project, or one you move with *Move to Tinfoil cloud*, becomes a cloud chat. Local conversations stay local. Sync runs after sign-in, every ten minutes and on *Sync now*.
