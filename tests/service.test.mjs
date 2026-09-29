@@ -41,6 +41,11 @@ test('tool-call termination is not silently accepted or executed',async t=>{
 test('initial disk failure prevents any API call',async t=>{
   const {s,store,calls}=await setup(t);store.fail=true;await assert.rejects(send(s),/save failed/);assert.equal(calls.length,0);assert.equal(s.storageFailed,true);assert.equal(s.busyThreadId,null);
 });
+test('an answer that ends in reasoning at the output limit says so',async t=>{
+  const {s}=await setup(t,{generator:async function*(){yield {choices:[{delta:{reasoning_content:'Recalling figures'},finish_reason:null}]};yield {choices:[{delta:{},finish_reason:'length'}]};}});await send(s);await finished(s);
+  const r=s.workspace.threads[0].turns[0].replies[0];assert.equal(r.status,'complete');assert.equal(r.content,'');
+  assert.match(r.error,/spent its whole output limit \(32,768 tokens\) on reasoning and wrote no answer\. Raise the output limit in Advanced settings/);
+});
 test('output-limit endings are complete but visibly annotated',async t=>{
   const {s}=await setup(t,{generator:async function*(){yield {choices:[{delta:{content:'truncated'},finish_reason:'length'}]};}});await send(s);await finished(s);const r=s.workspace.threads[0].turns[0].replies[0];assert.equal(r.status,'complete');assert.match(r.error,/incomplete/);
 });

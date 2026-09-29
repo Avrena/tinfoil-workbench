@@ -1,5 +1,5 @@
 import type { Project, Workspace, Thread } from './types.js';
-import { addThread, findThread, uid } from './workspace.js';
+import { PREVIOUS_MAX_TOKENS, addThread, defaults, findThread, uid } from './workspace.js';
 import { InputError, text } from './validation.js';
 export function findProject(w:Workspace,id:string):Project {
   const project=w.projects.find(p=>p.id===id);if(!project)throw new InputError('Project not found.');return project;
@@ -24,5 +24,6 @@ export function moveThread(w:Workspace,id:string,projectId:string|null):void {
 export function newProjectThread(w:Workspace,projectId?:string|null):Thread {
   const source=findThread(w,w.activeId),project=projectId===undefined?source.projectId??null:projectId;
   if(project!==null)findProject(w,project);
-  const thread=addThread(w,source.settings);thread.projectId=project;return thread;
+  const settings=source.settings.maxTokens===PREVIOUS_MAX_TOKENS?{...source.settings,maxTokens:defaults.maxTokens}:source.settings;
+  const thread=addThread(w,settings);thread.projectId=project;return thread;
 }

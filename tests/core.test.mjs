@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { newWorkspace, beginTurn, buildHistory, chooseReply, forkThread, exportThread, exportMarkdown, importThread, recoverInterrupted, userContent, defaults } from '../dist/core/workspace.js';
+import { newWorkspace, beginTurn, buildHistory, chooseReply, forkThread, exportThread, exportMarkdown, importThread, recoverInterrupted, userContent, defaults, outputLimitNotice } from '../dist/core/workspace.js';
 import { settings, attachments, validateWorkspace, LIMITS, InputError } from '../dist/core/validation.js';
 import { trustedFrame, resourcePath, publicError } from '../dist/core/security.js';
 import { markdown } from '../dist/core/markdown.js';
@@ -51,7 +51,12 @@ test('invalid branch does not add a conversation',()=>{
 });
 test('generation jobs snapshot settings',()=>{
   const {t}=fixture();const jobs=beginTurn(t,'Hello',[]);t.settings.model='different';t.settings.maxTokens=12;
-  assert.equal(jobs[0].model,'model-a');assert.equal(jobs[0].settings.maxTokens,8192);
+  assert.equal(jobs[0].model,'model-a');assert.equal(jobs[0].settings.maxTokens,32768);
+});
+test('the output-limit notice says when reasoning used the whole limit, and where to raise it',()=>{
+  assert.equal(outputLimitNotice('','Thinking about revenue.',8192),'The model spent its whole output limit (8,192 tokens) on reasoning and wrote no answer. Raise the output limit in Advanced settings and try again.');
+  assert.equal(outputLimitNotice('Revenue grew','Thinking.',32768),'The model reached its output limit (32,768 tokens). This answer may be incomplete; a higher output limit in Advanced settings allows longer answers.');
+  assert.match(outputLimitNotice(' ','',100),/^The model reached its output limit \(100 tokens\)/,'no reasoning: the plain notice');
 });
 test('crash recovery never marks partial replies complete',()=>{
   const {w,t}=fixture();beginTurn(t,'Hello',[]);t.turns[0].replies[0].content='partial';

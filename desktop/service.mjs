@@ -2,7 +2,7 @@ import { editReply,editPrompt } from '../dist/core/editing.js';
 import { createProject,renameProject,removeProject,moveThread,newProjectThread } from '../dist/core/projects.js';
 import { saveInstructionPreset, deleteInstructionPreset } from '../dist/core/instructions.js';
 import { InputError, record, text, identifier, settings, attachments, validateWorkspace, LIMITS, validateTool } from '../dist/core/validation.js';
-import { newWorkspace, findThread, addThread, beginTurn, chooseReply, forkThread, recoverInterrupted, importThread } from '../dist/core/workspace.js';
+import { newWorkspace, findThread, addThread, beginTurn, chooseReply, forkThread, recoverInterrupted, importThread, outputLimitNotice } from '../dist/core/workspace.js';
 import { viewPreferences } from '../dist/core/preferences.js';
 import { extractCodeBlocks } from '../dist/core/markdown.js';
 import { ToolCallAccumulator, PYTHON_TOOL, pythonArguments } from '../dist/core/tools.js';
@@ -505,7 +505,7 @@ export class WorkbenchService {
         if (calls.length) throw new InputError('The provider returned tool calls without the expected completion marker. Nothing was executed.');
         if (['stop','length','content_filter'].includes(finish)) {
           reply.status = 'complete';
-          if (finish === 'length') reply.error = 'The model reached its output limit. This answer may be incomplete.';
+          if (finish === 'length') reply.error = outputLimitNotice(reply.content, reply.reasoning, job.settings.maxTokens);
           if (finish === 'content_filter') reply.error = 'The provider filtered part of this answer.';
         } else { reply.status = 'interrupted'; reply.error = 'The stream ended without a completion marker. Partial output was preserved.'; }
         return;

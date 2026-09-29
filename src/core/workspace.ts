@@ -3,8 +3,19 @@ import type { ApiMessage, Attachment, GenerationJob, GenerationSettings, Reply, 
 import { InputError, LIMITS, attachments as checkAttachments, text, validateThread } from './validation.js';
 export const defaults: GenerationSettings = {
   toolsMode: 'off', visualTools: true, webSearch: false, delegateMode: 'off', thinkingMode: 'default', compareReasoningEffort: 'default', compareThinkingMode: 'default', model: '', compareModel: '', compare: false, systemPrompt: '', systemPromptName: '',
-  temperature: null, maxTokens: 8192, reasoningEffort: 'default',
+  temperature: null, maxTokens: 32768, reasoningEffort: 'default',
 };
+/** The output limit of new conversations before 0.18.0. Reasoning counts against it, and some reasoning models spent
+ * all of it thinking; a conversation still on it seeds new ones with the current default. */
+export const PREVIOUS_MAX_TOKENS = 8192;
+/** Why an answer stopped at the output limit, and where to raise it. A model that spends the whole limit reasoning
+ * writes no answer at all. */
+export function outputLimitNotice(content: string, reasoning: string, limit: number): string {
+  const tokens = `${limit.toLocaleString('en-US')} tokens`;
+  return !content.trim() && reasoning.trim()
+    ? `The model spent its whole output limit (${tokens}) on reasoning and wrote no answer. Raise the output limit in Advanced settings and try again.`
+    : `The model reached its output limit (${tokens}). This answer may be incomplete; a higher output limit in Advanced settings allows longer answers.`;
+}
 export const uid = (): string => crypto.randomUUID();
 export function newThread(seed: GenerationSettings = defaults): Thread {
   const now = Date.now();
