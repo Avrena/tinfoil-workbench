@@ -143,6 +143,7 @@ export function validateWorkspace(value: unknown): Workspace {
   const v = record(value);
   if (v.version !== 1) throw new InputError('Unsupported workspace version.');
   if(v.connectionMode!==undefined&&!['api-key','chat-account'].includes(String(v.connectionMode)))throw new InputError('Invalid connection mode.');
+  if(v.rememberAccount!==undefined&&v.rememberAccount!==false)throw new InputError('Invalid sign-in preference.');
   const threads = list(v.threads, LIMITS.threads).map(validateThread);
   if (!threads.length || new Set(threads.map(t => t.id)).size !== threads.length) throw new InputError('Invalid workspace conversations.');
   const projects = list(v.projects ?? [], 100).map(item => {const p=record(item);return {id:identifier(p.id),name:text(p.name,'Project name',80,true).trim(),createdAt:stamp(p.createdAt)};});
@@ -153,7 +154,7 @@ export function validateWorkspace(value: unknown): Workspace {
   const activeId = identifier(v.activeId);
   if (!threads.some(t => t.id === activeId)) throw new InputError('Active conversation is missing.');
   return {
-    version: 1, activeId, threads, projects, instructionPresets, ...(v.connectionMode?{connectionMode:v.connectionMode as Workspace['connectionMode']}:{}), view: viewPreferences(v.view), pythonPath: text(v.pythonPath ?? '', 'Python interpreter path', 4096),
+    version: 1, activeId, threads, projects, instructionPresets, ...(v.connectionMode?{connectionMode:v.connectionMode as Workspace['connectionMode']}:{}), ...(v.rememberAccount===false?{rememberAccount:false as const}:{}), view: viewPreferences(v.view), pythonPath: text(v.pythonPath ?? '', 'Python interpreter path', 4096),
     apiKey: text(v.apiKey, 'API key', 4096), cacheSecret: text(v.cacheSecret, 'Cache secret', 200, true),
   };
 }

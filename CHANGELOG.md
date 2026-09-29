@@ -1,5 +1,10 @@
 # Changelog
 
+## Unreleased
+
+- Windows: stay signed in to Tinfoil Chat across restarts and updates. While *Stay signed in on this PC* is on (the default, under Account & connection → Session & local workspace), Workbench saves Tinfoil's website session: the persistent cookies of tinfoil.sh and its subdomains, sealed with your Windows account (DPAPI) in `account-session.bin`. At the next launch it restores the session in a hidden window and uses it only if it still belongs to the same user and Clerk session. Quitting no longer ends the session while it is saved. Signing out, turning the option off, or an ended or rejected session deletes the saved copy. Offline at launch, the saved sign-in is kept and retried when Chat access is next needed. Android still asks you to sign in after the app restarts.
+- Add `tests/account-remember.test.mjs` (13 tests) and Account view checks for the restoring state and the switch in `tests/ui-account.py`.
+
 ## 0.13.2 — Windows connections and maker logos
 
 - Windows: the installed app can now connect. The Windows builds up to 0.13.1 lacked zod, which the attested SDK's AI SDK dependencies import; npm had installed it only as their peer dependency, and electron-builder does not pack such packages. Loading the SDK failed with ERR_MODULE_NOT_FOUND, so every verification failed, with an API key and with Chat sign-in. Runs from source were not affected, and neither is the Android app, whose build bundles its dependencies. zod is now a direct dependency.

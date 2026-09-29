@@ -256,7 +256,7 @@ function fakeElectron(){
   constructor(opts){super();this.opts=opts;this.dead=false;this.webContents=new EventEmitter();this.webContents.getURL=()=>this.url??'';this.webContents.executeJavaScript=async()=>raw();this.webContents.isLoading=()=>!!this.loading;this.webContents.setWindowOpenHandler=fn=>this.popup=fn;windows.push(this);}
   isDestroyed(){return this.dead;}async loadURL(url){this.url=url;}show(){}hide(){}focus(){}destroy(){this.dead=true;this.emit('closed');}
  }
- const session={fromPartition:(name,opts)=>{partitions.push([name,opts]);const ses=new EventEmitter();ses.setPermissionRequestHandler=fn=>ses.permissions=fn;ses.setPermissionCheckHandler=fn=>ses.check=fn;ses.webRequest={onBeforeRequest:fn=>ses.request=fn};ses.closeAllConnections=async()=>{};ses.clearStorageData=async()=>{ses.cleared=true;};ses.clearCache=async()=>{};currentSession=ses;return ses;}};
+ const session={fromPartition:(name,opts)=>{partitions.push([name,opts]);const ses=new EventEmitter();ses.setPermissionRequestHandler=fn=>ses.permissions=fn;ses.setPermissionCheckHandler=fn=>ses.check=fn;ses.webRequest={onBeforeRequest:fn=>ses.request=fn};ses.cookies=Object.assign(new EventEmitter(),{set:async()=>{},get:async()=>[]});ses.closeAllConnections=async()=>{};ses.clearStorageData=async()=>{ses.cleared=true;};ses.clearCache=async()=>{};currentSession=ses;return ses;}};
  return{BrowserWindow:Window,session,windows,partitions,get ses(){return currentSession;}};
 }
 test('native account window has a separate memory-only partition and no preload or Node bridge',async()=>{

@@ -1,6 +1,6 @@
 /** Account display data only. Credentials never belong in snapshots or exports. */
 export type ConnectionMode = 'api-key' | 'chat-account';
-export type AccountStatus = 'signed-out' | 'signing-in' | 'signed-in' | 'expired' | 'error';
+export type AccountStatus = 'signed-out' | 'signing-in' | 'restoring' | 'signed-in' | 'expired' | 'error';
 export interface AccountProfile {
   id: string; name: string; email: string; emailVerified: boolean;
   subscriptionStatus: string | null; subscriptionExpiresAt: number | null;
@@ -45,6 +45,11 @@ export function normalizeUsage(value: unknown): AccountUsage | null {
   const v=obj(value);
   return {maxRequests:count(v.max_requests),remaining:count(v.remaining),resetsAt:utcTimestamp(v.resets_at),
     inputTokens:budget({max:v.max_input_tokens,used:v.input_tokens_used,remaining:v.input_tokens_remaining}),outputTokens:budget({max:v.max_output_tokens,used:v.output_tokens_used,remaining:v.output_tokens_remaining})};
+}
+/** Cookies Workbench may keep for a saved sign-in: those of tinfoil.sh and its subdomains, nothing else. */
+export function accountCookieDomain(domain: string): boolean {
+  const d = domain.replace(/^\./, '').toLowerCase();
+  return /^[a-z0-9.-]+$/.test(d) && (d === 'tinfoil.sh' || d.endsWith('.tinfoil.sh'));
 }
 export function authOrigin(url: string): boolean {
   try {const u=new URL(url);return u.origin===CHAT_ORIGIN && !u.username && !u.password; }catch{return false;}

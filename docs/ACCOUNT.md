@@ -32,7 +32,16 @@ After sign-in and a successful account-access check, choose **Verify enclave & l
 
 ## Chat access: renewal, expiry and failures
 
-The website browser session, identity token and inference credential stay in memory. They are not written into workspace.vault, renderer snapshots, logs or exports. There is no Remember me option: quitting the app requires signing in again next time. The website window stays hidden while signed in so its Clerk session can refresh on demand; it has the usual resource/network overhead of that page. Workbench polls only during the explicit sign-in attempt and otherwise reads session state on account actions and requests. The remote website can perform its own normal account operations; it cannot read the local Workbench vault.
+The identity token and inference credential stay in memory. They are not written into workspace.vault, renderer snapshots, logs or exports.
+
+**Staying signed in.** On Windows, *Stay signed in on this PC* (Account & connection → Session & local workspace) is on by default. While it is on and you are signed in, the website session is saved, so a restart or an update keeps you signed in:
+
+- *What is saved:* the persistent cookies of `tinfoil.sh` and its subdomains from the sign-in partition, the user and Clerk session IDs bound at sign-in, and the display profile. Session cookies, cookies of other sites (Google and other sign-in providers included), identity tokens and inference keys are not saved.
+- *Where and how:* `account-session.bin` in the app's data folder, sealed by Electron safeStorage (DPAPI on Windows, bound to the Windows account), written atomically. It is saved after sign-in, two seconds after those cookies last changed (Clerk rotates its client cookie) and at quit.
+- *Restore:* at launch the cookies go into a new in-memory partition before Tinfoil's page loads, in a hidden window. The Account view shows *Restoring your saved sign-in…*. The session is accepted only if it belongs to the saved user and Clerk session, and Chat access is then checked as after a sign-in. An ended, changed or rejected session deletes the saved one and asks you to sign in. If Tinfoil cannot be reached, the saved sign-in is kept and tried again when Chat access is next needed.
+- *Ending it:* signing out ends the Clerk session and deletes the file. Turning the option off deletes the file, and quitting then ends the session as before. Quitting while it is on keeps the Clerk session, so the saved sign-in stays valid.
+
+On Android, the sign-in profile is still deleted when the app next starts, so reopening the app asks you to sign in. The website window stays hidden while signed in so its Clerk session can refresh on demand; it has the usual resource/network overhead of that page. Workbench polls only during the explicit sign-in attempt and otherwise reads session state on account actions and requests. The remote website can perform its own normal account operations; it cannot read the local Workbench vault.
 
 A Chat inference key is renewed when a request needs one, not by a timer, so system sleep cannot leave an expired key in use:
 

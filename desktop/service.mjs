@@ -53,7 +53,7 @@ export class WorkbenchService {
     const { version, activeId, threads, projects, instructionPresets, view } = this.workspace;
     return { sequence: ++this.sequence, workspace: structuredClone({ version, activeId, threads, projects, instructionPresets, view }), hasKey: !!this.workspace.apiKey,
       pythonConfigured: !!this.workspace.pythonPath, models: [...this.models], capabilities: structuredClone(this.capabilities), modelCatalog: this.catalogState, verification: structuredClone(this.verification),
-      account: this.options.account?.snapshot()??signedOutAccount(), connectionMode:this.workspace.connectionMode??'api-key',
+      account: this.options.account?.snapshot()??signedOutAccount(), connectionMode:this.workspace.connectionMode??'api-key', rememberAccount:this.workspace.rememberAccount!==false,
       busyThreadId: this.busyThreadId, storage: 'os-encrypted', notice: this.notice };
   }
   emit() { this.onChange(this.snapshot()); }
@@ -238,6 +238,8 @@ export class WorkbenchService {
         this.workspace.connectionMode=c.mode;this.resetConnection();break;
       }
       case 'view.set': this.workspace.view = viewPreferences(c.view); break;
+      // Only the preference is stored here; the host's account session saves or deletes the website session.
+      case 'account.remember': if(c.enabled===true)delete this.workspace.rememberAccount;else this.workspace.rememberAccount=false; break;
       case 'tool.cancel': {
         const entry=this.delegateControllers.get(identifier(c.toolId));
         if(!entry||entry.threadId!==identifier(c.id))throw new InputError('This delegated request is no longer running.');

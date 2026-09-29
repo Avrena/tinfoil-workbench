@@ -79,7 +79,7 @@ export interface Thread {
 }
 export interface Workspace {
   version: 1; activeId: string; threads: Thread[]; projects: Project[]; instructionPresets: InstructionPreset[];
-  connectionMode?: ConnectionMode; apiKey: string; cacheSecret: string; view: ViewPreferences; pythonPath: string;
+  connectionMode?: ConnectionMode; /** false turns staying signed in off; absent means on. */ rememberAccount?: false; apiKey: string; cacheSecret: string; view: ViewPreferences; pythonPath: string;
 }
 export interface Verification {
   state: 'idle' | 'checking' | 'verified' | 'failed';
@@ -88,7 +88,7 @@ export interface Verification {
 export interface Snapshot {
   sequence: number;
   workspace: Omit<Workspace, 'apiKey' | 'cacheSecret' | 'pythonPath'>;
-  account?: AccountSnapshot; connectionMode?: ConnectionMode;
+  account?: AccountSnapshot; connectionMode?: ConnectionMode; rememberAccount?: boolean;
   hasKey: boolean; models: string[]; capabilities?: ModelCapability[]; verification: Verification;
   /** Tinfoil's public model catalog, loaded without credentials when the model picker needs it. */
   modelCatalog?: 'idle' | 'loading' | 'ready' | 'failed';
@@ -106,6 +106,7 @@ export interface GenerationJob {
 }
 export type Command =
   | { type: 'account.login' | 'account.cancel' | 'account.refresh' | 'account.manage' | 'account.signout' }
+  | { type: 'account.remember'; enabled: boolean }
   | { type: 'connection.mode'; mode: ConnectionMode }
   | { type: 'thread.authorize-account'; id: string }
   | { type: 'thread.new'; projectId?: string | null }

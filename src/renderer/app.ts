@@ -597,6 +597,7 @@ async function action(name:string, target?:HTMLElement):Promise<void> {
     case 'account-refresh':await dispatch({type:'account.refresh'});break;
     case 'account-manage':await dispatch({type:'account.manage'});break;
     case 'account-signout':await dispatch({type:'account.signout'});break;
+    case 'account-remember':await dispatch({type:'account.remember',enabled:state.rememberAccount===false});break;
     case 'account-mode-chat':await dispatch({type:'connection.mode',mode:'chat-account'});break;
     case 'account-mode-api':await dispatch({type:'connection.mode',mode:'api-key'});break;
     case 'account-api':dismiss();$('key-feedback').textContent='';showDialog('settings-dialog');break;

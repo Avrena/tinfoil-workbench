@@ -18,6 +18,7 @@ import { createProvider } from './provider.mjs';
 import { CloseCoordinator, persistCloseDecision } from './close-coordinator.mjs';
 import { AccountSession } from './account-session.mjs';
 import { AccountWindow } from './account-window.mjs';
+import { AccountStore } from './account-store.mjs';
 import { resourcePath, trustedFrame, publicError } from '../dist/core/security.js';
 import { InputError, record, identifier, text, attachments, LIMITS } from '../dist/core/validation.js';
 import { findThread, exportThread, exportMarkdown } from '../dist/core/workspace.js';
@@ -43,14 +44,19 @@ async function launch() {
   // Windows is the release target. On other OSes, only an actual secure backend may be used for development.
   if (process.platform === 'linux' && safeStorage.getSelectedStorageBackend() === 'basic_text') throw new Error('No secure key store');
   const vault = new EncryptedVault(app.getPath('userData'), safeStorage);
-  const accountWindow=new AccountWindow({BrowserWindow,session},message=>account?.invalidate(message),host=>account?.blocked(host));
-  account=new AccountSession(accountWindow,()=>service?.accountChanged());
+  const accountWindow=new AccountWindow({BrowserWindow,session},message=>account?.invalidate(message),host=>account?.blocked(host),()=>account?.cookiesChanged());
+  // Staying signed in keeps Tinfoil's website session between launches, sealed by DPAPI. The smoke test never restores one.
+  const accountStore=smoke?null:new AccountStore(join(app.getPath('userData'),'account-session.bin'),safeStorage);
+  account=new AccountSession(accountWindow,()=>service?.accountChanged(),{store:accountStore});
   // Timers do not run during sleep; requests recheck expiry anyway, and resume drops a stale key at once.
   powerMonitor.on('resume',()=>account?.resume());
   service = new WorkbenchService(vault, createProvider, snapshot => {
     if (window && !window.isDestroyed()) window.webContents.send('workbench:changed', snapshot);
   }, runPython, {pdfRenderer:renderPDF,capabilityLoader:loadModelCapabilities,account});
   await service.initialize();
+  await account.setRemember(service.workspace.rememberAccount!==false);
+  // Restores in the background; the account view shows "Restoring" until it finishes.
+  void account.restore();
   protocol.handle('app', async request => {
     const path = resourcePath(request.url);
     if (request.method !== 'GET' || !path) return new Response('Not found', { status: 404 });
@@ -167,6 +173,7 @@ async function command(input) {
       if(service.busyThreadId||service.connection)throw new InputError('Stop the response or wait for verification before signing in.');
       if(accountFlow)throw new InputError('Sign-in is already open.');
       if(account.snapshot().status==='signed-in')throw new InputError('Sign out before connecting another account.');
+      if(account.snapshot().status==='restoring')throw new InputError('Workbench is restoring your saved sign-in. Wait a moment.');
       const flow=(async()=>{
         if(['expired','error'].includes(account.snapshot().status))await account.signOut();
         await service.execute({type:'connection.mode',mode:'chat-account'});
@@ -179,13 +186,16 @@ async function command(input) {
       if(account.snapshot().status!=='signing-in'&&account.snapshot().status!=='error')throw new InputError('No sign-in is waiting to be cancelled.');
       await account.signOut();break;
     }
+    case 'account.remember': {
+      const enabled=c.enabled===true;await service.execute({type:'account.remember',enabled});await account.setRemember(enabled);service.emit();break;
+    }
     case 'account.refresh':case 'account.manage': {
       if(service.busyThreadId||service.connection)throw new InputError('Finish or stop the response before managing your account.');
       if(c.type==='account.manage')await account.manage();else await account.refresh();break;
     }
     case 'account.signout': {
       const result=await dialog.showMessageBox(window,{type:'question',buttons:['Keep signed in','Sign out on this device'],defaultId:0,cancelId:0,
-        message:'Sign out of Tinfoil Chat?',detail:'This stops active responses and clears Workbench’s temporary website session and account tokens. Your local conversations and separately saved API key remain. No automatic API-key fallback is used. This does not sign out your regular browser.'});
+        message:'Sign out of Tinfoil Chat?',detail:'This stops active responses, ends Workbench’s website session, deletes the sign-in saved on this PC and clears account tokens. Your local conversations and separately saved API key remain. No automatic API-key fallback is used. This does not sign out your regular browser.'});
       if(result.response!==1)break;
       for(const ctrl of service.controllers.values())ctrl.abort();
       await account.signOut();service.resetConnection();service.emit();break;

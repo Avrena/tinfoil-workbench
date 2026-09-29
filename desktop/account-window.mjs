@@ -1,6 +1,7 @@
 import { randomUUID } from 'node:crypto';
-import { CHAT_ORIGIN, authOrigin, allowedAccountNavigation } from '../dist/core/account.js';
+import { CHAT_ORIGIN, authOrigin, allowedAccountNavigation, accountCookieDomain } from '../dist/core/account.js';
 import { InputError } from '../dist/core/validation.js';
+import { storableCookie } from './account-store.mjs';
 
 // These scripts read only Clerk's public identity API on the exact Tinfoil origin.
 // No selectors, password fields, arbitrary scripts, pasted cookies or native preload.
@@ -36,7 +37,7 @@ export function identityScript(expected){return `(()=>{
 export const SIGN_IN_URL=CHAT_ORIGIN+'/signin';
 /** Electron is injected so boundary behavior can be tested without native binaries. */
 export class AccountWindow {
-  constructor({BrowserWindow,session},onInvalid=()=>{},onBlocked=()=>{}){this.BrowserWindow=BrowserWindow;this.sessions=session;this.onInvalid=onInvalid;this.onBlocked=onBlocked;this.window=null;this.ses=null;this.children=new Set();this.rejectLogin=null;this.closing=false;this.epoch=0;}
+  constructor({BrowserWindow,session},onInvalid=()=>{},onBlocked=()=>{},onCookies=()=>{}){this.BrowserWindow=BrowserWindow;this.sessions=session;this.onInvalid=onInvalid;this.onBlocked=onBlocked;this.onCookies=onCookies;this.window=null;this.ses=null;this.children=new Set();this.rejectLogin=null;this.closing=false;this.epoch=0;}
   preferences(){return {session:this.ses,sandbox:true,contextIsolation:true,nodeIntegration:false,nodeIntegrationInWorker:false,nodeIntegrationInSubFrames:false,webSecurity:true,webviewTag:false,allowRunningInsecureContent:false,devTools:false,spellcheck:false};}
   secure(win){
     const wc=win.webContents;
@@ -53,14 +54,18 @@ export class AccountWindow {
     wc.on('render-process-gone',()=>{if(!this.closing)this.onInvalid('The Tinfoil sign-in page stopped. Sign in again.');});
     wc.on('will-prevent-unload',event=>event.preventDefault());
   }
-  async create(url=CHAT_ORIGIN+'/'){
+  /** A saved sign-in's cookies go into the new memory-only partition before the page loads; a restored session
+   * opens hidden. */
+  async create(url=CHAT_ORIGIN+'/',{show=true,cookies=[]}={}){
     if(this.window&&!this.window.isDestroyed())return this.window;
     this.closing=false;
     this.ses=this.sessions.fromPartition('tinfoil-account-'+randomUUID(),{cache:false});
     this.ses.setPermissionRequestHandler((_wc,_p,cb)=>cb(false));this.ses.setPermissionCheckHandler(()=>false);
     this.ses.on('will-download',event=>event.preventDefault());
     this.ses.webRequest.onBeforeRequest((details,cb)=>{let allow=false;try{const u=new URL(details.url);allow=['https:','wss:','data:','blob:','about:'].includes(u.protocol);}catch{}cb({cancel:!allow});});
-    const win=new this.BrowserWindow({width:1000,height:760,minWidth:420,minHeight:520,title:'Sign in — chat.tinfoil.sh',autoHideMenuBar:true,backgroundColor:'#1e1e1e',webPreferences:this.preferences()});
+    const ses=this.ses;ses.cookies.on('changed',(_event,cookie)=>{if(this.ses===ses&&accountCookieDomain(cookie?.domain??''))this.onCookies();});
+    for(const cookie of cookies){const valid=storableCookie({...cookie,domain:cookie.domain??new URL(cookie.url).hostname,hostOnly:cookie.domain===undefined});if(valid)await this.ses.cookies.set(valid).catch(()=>{});}
+    const win=new this.BrowserWindow({width:1000,height:760,minWidth:420,minHeight:520,title:'Sign in — chat.tinfoil.sh',autoHideMenuBar:true,backgroundColor:'#1e1e1e',show,webPreferences:this.preferences()});
     this.window=win;this.secure(win);
     // Keep an active session page available for on-demand token refresh, not polling.
     win.on('close',event=>{if(!this.closing){event.preventDefault();win.hide();if(this.rejectLogin){const reject=this.rejectLogin;this.rejectLogin=null;reject(new InputError('Sign-in was cancelled.'));}}});
@@ -112,14 +117,33 @@ export class AccountWindow {
     return value;
   }
   async identity(expected){return this.checked(await this.script(identityScript(expected)));}
+  /** The persistent cookies of Tinfoil's hosts in this sign-in's partition, for a saved sign-in. */
+  async cookies(){if(!this.ses)return [];return (await this.ses.cookies.get({})).map(storableCookie).filter(Boolean);}
+  /** Opens Tinfoil's page hidden with a saved sign-in's cookies and reads the session bound to it. Returns that read,
+   * {signedOut} or {changed}, or null if the page never became ready (for example offline), so it can be retried. */
+  async restore(saved,{timeout=30000,interval=1000}={}){
+    const epoch=++this.epoch;let timer;
+    if(this.window&&!this.window.isDestroyed())await this.window.loadURL(CHAT_ORIGIN+'/').catch(()=>{});
+    else await this.create(CHAT_ORIGIN+'/',{show:false,cookies:saved.cookies}).catch(()=>{});
+    try{
+      for(const deadline=Date.now()+timeout;epoch===this.epoch&&Date.now()<deadline;){
+        const value=await this.script(sessionScript(false,saved.binding)).catch(()=>null);
+        if(value)return value;
+        await new Promise(r=>{timer=setTimeout(r,interval);});
+      }
+      return null;
+    }finally{clearTimeout(timer);}
+  }
   async manage(expected){
     await this.readSession(false,expected);this.window.show();this.window.focus();
     await this.script(`(()=>{if(location.origin===${JSON.stringify(CHAT_ORIGIN)}&&window.Clerk?.user?.id===${JSON.stringify(expected.user)}&&window.Clerk.session?.id===${JSON.stringify(expected.session)}){window.Clerk.openUserProfile();return true;}return false;})()`);
   }
-  async clear(){
+  /** Closes the page and its partition. `end` also ends this app's Clerk session; quitting while staying signed in
+   * keeps it, so the saved sign-in stays valid. */
+  async clear({end=true}={}){
     this.epoch++;this.closing=true;this.rejectLogin?.(new InputError('Sign-in was cancelled.'));this.rejectLogin=null;
     // Revoke just this app's Clerk session where available; cleanup is unconditional.
-    try{await this.script(`(async()=>{if(location.origin===${JSON.stringify(CHAT_ORIGIN)}&&window.Clerk?.session)await window.Clerk.session.end();})()`);}catch{}
+    if(end)try{await this.script(`(async()=>{if(location.origin===${JSON.stringify(CHAT_ORIGIN)}&&window.Clerk?.session)await window.Clerk.session.end();})()`);}catch{}
     for(const child of this.children)if(!child.isDestroyed())child.destroy();this.children.clear();
     if(this.window&&!this.window.isDestroyed())this.window.destroy();this.window=null;
     const ses=this.ses;this.ses=null;if(ses)await Promise.allSettled([ses.closeAllConnections(),ses.clearStorageData(),ses.clearCache()]);
