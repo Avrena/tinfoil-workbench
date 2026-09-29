@@ -19,4 +19,13 @@ const paths: Record<string,string> = {
   image:'M4 5h16v14H4zM4 16l5-5 4 4 2-2 5 5M15 9h.01', tools:'M9 4H8a2 2 0 0 0-2 2v4l-2 2 2 2v4a2 2 0 0 0 2 2h1M15 4h1a2 2 0 0 1 2 2v4l2 2-2 2v4a2 2 0 0 1-2 2h-1',
 };
 export const icon = (name:string):string => `<svg viewBox="0 0 24 24" aria-hidden="true"><path d="${paths[name] ?? paths.chat}"/></svg>`;
+/** A dashboard gauge for the thinking effort: one segment per level the model offers, filled up to `level` (0 is the
+ * provider default: nothing filled, the needle upright, no accent). */
+export function effortGauge(level:number,levels:number):string {
+  const n=Math.max(1,levels),cx=12,cy=16,r=8,gap=n>1?7:0,at=(deg:number,radius:number)=>`${(cx+radius*Math.cos(deg*Math.PI/180)).toFixed(2)} ${(cy-radius*Math.sin(deg*Math.PI/180)).toFixed(2)}`;
+  let arcs='';
+  for(let i=0;i<n;i++){const from=180-i*180/n-(i?gap/2:0),to=180-(i+1)*180/n+(i<n-1?gap/2:0);arcs+=`<path class="${i<level?'on':'off'}" d="M${at(from,r)}A${r} ${r} 0 0 1 ${at(to,r)}"/>`;}
+  const needle=level?180-(level-.5)*180/n:90;
+  return `<svg viewBox="0 0 24 24" class="${level?'active':''}" data-level="${level}"><g fill="none" stroke-width="2.2" stroke-linecap="round">${arcs}</g><path class="needle" d="M${cx} ${cy}L${at(needle,r-3)}" fill="none" stroke-width="1.8" stroke-linecap="round"/><circle cx="${cx}" cy="${cy}" r="1.6"/></svg>`;
+}
 export const button = (action:string, label:string, glyph:string, extra=''):string => `<button type="button" data-action="${action}" title="${label}" aria-label="${label}" ${extra}>${icon(glyph)}</button>`;

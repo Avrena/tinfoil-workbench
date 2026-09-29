@@ -147,7 +147,20 @@
 .composer-tools { padding: 4px 8px 8px; gap: 4px; min-height: 44px; }
 .composer-tools > .icon-button { width: 32px; height: 32px; padding: 8px; }
 #composer-model { max-width: 230px; height: 32px; padding: 4px 8px; font-size: 11px; flex: 0 1 auto; }
-.quick-effort { min-width: 0; padding: 4px 8px; height: 32px; }
+/* Thinking effort: the native select covers the gauge, invisible, so the platform's list and assistive technology
+   still work; the gauge shows the level. */
+.quick-effort-wrap:hover { background: #ffffff0d; }
+.quick-effort-wrap:focus-within { outline: 2px solid var(--accent); outline-offset: 1px; }
+.quick-effort-wrap .quick-effort { position: absolute; inset: 0; width: 100% !important; max-width: none; height: 100%; min-height: 0; margin: 0; padding: 0; opacity: 0; cursor: pointer; }
+.quick-effort-wrap .quick-effort:disabled { cursor: default; }
+.effort-gauge svg { display: block; width: 20px; height: 20px; }
+.effort-gauge .off { stroke: #5d6168; }
+.effort-gauge .on { stroke: var(--accent); }
+.effort-gauge .needle { stroke: #8d9199; }
+.effort-gauge circle { fill: #8d9199; }
+.effort-gauge svg.active .needle { stroke: var(--accent); }
+.effort-gauge svg.active circle { fill: var(--accent); }
+.quick-effort-wrap:has(.quick-effort:disabled) { opacity: .5; }
 .composer-tools .spacer { min-width: 4px; }
 .composer-tools .send { width: 32px; min-width: 32px; height: 32px; flex-shrink: 0; }
 .composer-tools .stop { min-height: 32px; padding: 6px 8px; flex-shrink: 0; }
@@ -229,7 +242,7 @@ dialog:not(.message-editor) .modal-body { padding: 8px 20px 20px; }
   .composer-tools { min-height: 56px; }
   .composer-tools > .icon-button, .composer-tools .send { min-width: 44px; width: 44px; height: 44px; }
   #composer-model { height: 44px; }
-  .quick-effort { height: 40px; }
+  .quick-effort-wrap { width: 44px; height: 44px; }
   .composer-tools .stop { min-height: 44px; }
   .editor-format button { min-height: 40px; min-width: 40px; }
   .editor-footer-actions button { min-height: 44px; }
@@ -263,7 +276,7 @@ dialog:not(.message-editor) .modal-body { padding: 8px 20px 20px; }
   .composer-tools { padding: 0 8px 8px; gap: 2px; min-height: 52px; flex-wrap: wrap; }
   .composer textarea, #prompt { padding: 12px 12px 8px; font-size: 16px; min-height: 48px; }
   .composer-tools > .icon-button { min-width: 36px; width: 36px; height: 44px; padding: 10px; }
-  /* The model name is placed at 64px and grows into the free space, so a thinking-effort picker does not push Send
+  /* The model name is placed at 64px and grows into the free space, so the thinking-effort gauge does not push Send
      onto a second row on common phone widths; it takes most of the free space (the spacer grows too). When the row
      still wraps, Send stays at the right. On a 360px phone, with 2px between the tools, that leaves about 86px, so the
      button drops its chevron (it still opens the picker) and uses a smaller maker mark to keep the room for the name;
@@ -275,7 +288,7 @@ dialog:not(.message-editor) .modal-body { padding: 8px 20px 20px; }
   .composer-tools .send, .composer-tools .stop { min-width: 44px; height: 44px; }
   .composer-tools .send { margin-inline-start: auto; }
   .composer-tools .stop { padding: 8px; }
-  .quick-effort { max-width: 90px; min-height: 40px; padding: 4px; }
+  .quick-effort-wrap { width: 44px; height: 44px; }
   .composer-meta { margin-top: 4px; font-size: 9px; }
   .attachments { padding: 12px 12px 4px; }
   .jump { padding: 8px 10px; min-height: 36px; }
