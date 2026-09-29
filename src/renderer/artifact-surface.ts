@@ -1,5 +1,5 @@
 import type { Artifact } from '../core/types.js';
-import { artifactSource, chartSpec, chartSVG, chartLayout, formatShare, tableSpec, diagramSpec, diagramSVG, type TableSpec, visualPalette } from '../core/visual-tools.js';
+import { artifactSource, chartSpec, chartSVG, chartLayout, formatShare, tableSpec, diagramSpec, diagramSVG, timelineSpec, timelineMarkup, statsSpec, statsMarkup, type TableSpec, visualPalette } from '../core/visual-tools.js';
 import { chartHover } from './chart-hover.js';
 import { escapeHtml as e } from '../core/markdown.js';
 import { staticPreview, interactivePreview, renderDataPreview } from './artifacts.js';
@@ -56,6 +56,21 @@ export function mountArtifact(container: HTMLElement, a: Artifact, options: Surf
       const spec = diagramSpec(JSON.parse(source));
       if (options.tab === 'data') dispose=mountTable(container, {title:spec.title,description:spec.description,columns:['From','To','Label'],rows:spec.edges.map(edge=>[edge.from,edge.to,edge.label])}, options.compact);
       else container.innerHTML = `<div class="visual-canvas diagram-canvas">${diagramSVG(spec, 'diagram-' + ++surfaceId, false)}</div>`;
+      return cleanup;
+    }
+    // Timelines and stat cards are escaped markup in the reply's own type; the Data view lists every field.
+    if (a.kind === 'timeline' && source) {
+      const spec = timelineSpec(JSON.parse(source)), tentative = spec.events.some(event => event.tentative);
+      if (options.tab === 'data') dispose=mountTable(container, {title:spec.title,description:spec.description,columns:['Date','Event','Details',...(tentative?['Status']:[])],
+        rows:spec.events.map(event=>[event.date,event.title,event.description||null,...(tentative?[event.tentative?'Tentative':null]:[])])}, options.compact);
+      else container.innerHTML = `<div class="widget-canvas">${timelineMarkup(spec)}</div>`;
+      return cleanup;
+    }
+    if (a.kind === 'stats' && source) {
+      const spec = statsSpec(JSON.parse(source));
+      if (options.tab === 'data') dispose=mountTable(container, {title:spec.title,description:spec.description,columns:['Figure','Value','Change','Trend','Recent values'],
+        rows:spec.stats.map(s=>[s.label,s.value,s.delta??null,s.trend?s.trend+(s.good===undefined?'':s.good?' (good)':' (bad)'):null,s.sparkline?.join(', ')??null])}, options.compact);
+      else container.innerHTML = `<div class="widget-canvas">${statsMarkup(spec)}</div>`;
       return cleanup;
     }
     if (a.mime === 'application/pdf') {

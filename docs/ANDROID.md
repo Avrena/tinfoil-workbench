@@ -16,7 +16,7 @@ Tinfoil Workbench for Android is the same renderer and conversation service as t
 |---|---|
 | Chat, reasoning, comparison, branching, editing, projects, search | Same as Windows |
 | Optional system instructions (picker, saved library, starters) | Same as Windows. Back steps from the editor to the list, and the editor's actions stay above the on-screen keyboard |
-| Charts, tables, diagrams, documents and HTML previews | Same as Windows (interactive HTML stays opt-in, opaque and network-free) |
+| Charts, tables, diagrams, timelines, stat cards, documents and HTML previews | Same as Windows (interactive HTML stays opt-in, opaque and network-free) |
 | Enclave attestation and encrypted (EHBP) transport | Same SDK and settings as Windows (`desktop/provider.mjs`) |
 | Tinfoil web search, text-only delegation | Same; delegation is approved in a native Android dialog |
 | Local PDF preview (PDF.js) | Supported |

@@ -505,6 +505,25 @@ button{transition:background-color 130ms ease,color 130ms ease,border-color 130m
 .chart-tooltip .tip-row strong{color:#f0f0f0;font-weight:600;font-variant-numeric:tabular-nums}
 .chart-tooltip .tip-key{width:8px;height:8px;border-radius:2px;flex-shrink:0}.chart-tooltip .tip-key.line{width:10px;height:2px;border-radius:1px}
 @media(prefers-reduced-motion:reduce){.chart-tooltip{box-shadow:none}}
+/* Timelines and stat cards: the model's text in the reply's own type, a hairline rail and quiet tiles. Scoped to the
+   canvas so the reply's list, paragraph and icon rules do not reach them. */
+.widget-canvas{padding:4px 0 2px}
+.widget-canvas .wb-timeline{list-style:none;margin:0;padding:0 0 0 22px;position:relative}
+.widget-canvas .wb-timeline::before{content:"";position:absolute;left:4px;top:7px;bottom:10px;width:1px;background:#4a4a4a}
+.widget-canvas .wb-timeline li{position:relative;margin:0;padding:0 0 14px;min-width:0}.widget-canvas .wb-timeline li:last-child{padding-bottom:0}
+.widget-canvas .wb-timeline li::before{content:"";position:absolute;left:-22px;top:4px;width:9px;height:9px;border-radius:50%;background:#3987e5;box-shadow:0 0 0 3px var(--bg)}
+.widget-canvas .wb-timeline li.tentative::before{background:var(--bg);border:1.5px solid #3987e5}
+.widget-canvas .wb-timeline .when{display:flex;align-items:center;gap:8px;font-size:11px;line-height:1.5;color:#a6a6a6}
+.widget-canvas .wb-timeline .tentative-tag{font-size:10px;line-height:1.4;color:#bbbbbb;border:1px solid #454545;border-radius:4px;padding:0 5px}
+.widget-canvas .wb-timeline strong{display:block;font-weight:600;font-size:13px;line-height:1.45;color:#e8e8e8;overflow-wrap:anywhere}
+.widget-canvas .wb-timeline p{margin:2px 0 0;font-size:12.5px;line-height:1.55;color:#b8b8b8;overflow-wrap:anywhere}
+.widget-canvas .wb-stats{list-style:none;margin:0;padding:0;display:grid;grid-template-columns:repeat(auto-fill,minmax(148px,1fr));gap:8px}
+.widget-canvas .wb-stats li{display:flex;flex-direction:column;gap:2px;min-width:0;margin:0;padding:10px 12px;border-radius:6px;background:var(--raised)}
+.widget-canvas .stat-label{font-size:11px;line-height:1.4;color:#a6a6a6;overflow-wrap:anywhere}
+.widget-canvas .stat-value{font-size:22px;font-weight:600;line-height:1.25;color:#f0f0f0;overflow-wrap:anywhere}
+.widget-canvas .stat-delta{font-size:11px;line-height:1.4;color:#bbbbbb}
+.widget-canvas .stat-arrow{margin-right:4px;color:#bbbbbb}.widget-canvas .stat-arrow.good{color:#0ca30c}.widget-canvas .stat-arrow.bad{color:#d03b3b}
+.widget-canvas .stat-spark{display:block;width:96px;height:24px;max-width:100%;margin-top:6px;fill:initial;stroke:none}
 .visual-enter .chart-line{stroke-dasharray:1;animation:chart-draw 480ms var(--ease-out) both}
 .visual-enter .chart-area{animation:area-arrive 500ms ease-out both}
 .visual-enter rect.chart-mark{transform-box:fill-box;transform-origin:center bottom;animation:bar-grow 380ms var(--ease-out) both}

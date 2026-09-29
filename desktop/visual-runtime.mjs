@@ -1,6 +1,6 @@
 import { randomUUID } from 'node:crypto';
 import { InputError, text, identifier, validateArtifact } from '../dist/core/validation.js';
-import { visualArguments, chartSpec, chartSVG, tableSpec, tableHTML, diagramSpec, diagramSVG, artifactSource, artifactFileName } from '../dist/core/visual-tools.js';
+import { visualArguments, chartSpec, chartSVG, tableSpec, tableHTML, diagramSpec, diagramSVG, timelineSpec, timelineHTML, statsSpec, statsHTML, artifactSource, artifactFileName, RENDER_KINDS } from '../dist/core/visual-tools.js';
 
 /** Pure artifact production except for an injected, script-free PDF renderer.
  * No model-selected filesystem paths, network destinations or code execution. */
@@ -24,15 +24,17 @@ export async function executeVisual(name, raw, { artifacts = [], pdfRenderer = n
   } else if(name==='create_artifact') {
     kind=args.kind;if(!['html','svg','markdown','json','text','pdf'].includes(kind))throw new InputError('Unsupported artifact kind.');
     title=text(args.title,'Artifact title',160,true);source=text(args.source,'Artifact source',100000,true);description=args.description===undefined?'':text(args.description,'Description',2000);
-  } else if(['render_chart','render_table','render_diagram'].includes(name)) {
-    kind=name.slice(7);title=text(args.title,'Artifact title',160,true);source=JSON.stringify(args);description=args.description===undefined?'':text(args.description,'Description',2000);
+  } else if(Object.hasOwn(RENDER_KINDS,name)) {
+    kind=RENDER_KINDS[name];title=text(args.title,'Artifact title',160,true);source=JSON.stringify(args);description=args.description===undefined?'':text(args.description,'Description',2000);
   } else throw new InputError('Unregistered visualization tool.');
   let data,mime,ext;
-  if(kind==='chart'||kind==='table'||kind==='diagram') {
+  if(Object.values(RENDER_KINDS).includes(kind)) {
     let spec;try{spec=JSON.parse(source);}catch{throw new InputError('This artifact requires a JSON specification.');}
     spec={...spec,title,description};
     if(kind==='chart'){spec=chartSpec(spec);data=chartSVG(spec);mime='image/svg+xml';ext='svg';}
     else if(kind==='diagram'){spec=diagramSpec(spec);data=diagramSVG(spec);mime='image/svg+xml';ext='svg';}
+    else if(kind==='timeline'){spec=timelineSpec(spec);data=timelineHTML(spec);mime='text/html';ext='html';}
+    else if(kind==='stats'){spec=statsSpec(spec);data=statsHTML(spec);mime='text/html';ext='html';}
     else{spec=tableSpec(spec);data=tableHTML(spec);mime='text/html';ext='html';}
     source=JSON.stringify(spec);
   } else if(kind==='pdf') {

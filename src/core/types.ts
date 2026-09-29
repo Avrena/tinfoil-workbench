@@ -24,7 +24,7 @@ export interface GenerationSettings {
 }
 export interface Attachment { name: string; content: string }
 export interface Usage { input: number; output: number }
-export interface Artifact { id: string; name: string; mime: string; data: string; kind?: 'html' | 'svg' | 'markdown' | 'text' | 'json' | 'pdf' | 'chart' | 'table' | 'diagram'; title?: string; source?: string; description?: string; version?: number; parentId?: string; rootId?: string }
+export interface Artifact { id: string; name: string; mime: string; data: string; kind?: 'html' | 'svg' | 'markdown' | 'text' | 'json' | 'pdf' | 'chart' | 'table' | 'diagram' | 'timeline' | 'stats'; title?: string; source?: string; description?: string; version?: number; parentId?: string; rootId?: string }
 export interface DelegateRun {
   model: string; task: string; content: string; reasoning: string;
   phase: 'waiting' | 'thinking' | 'answering'; usage: Usage | null;

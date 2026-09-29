@@ -8,13 +8,13 @@ The renderer remains vanilla TypeScript; Electron main owns native dialogs, stat
 
 `artifacts.ts` has two paths: static sanitized HTML/SVG and explicitly selected interactive HTML. Both use an opaque srcdoc frame. Only interaction adds `allow-scripts`; it does not add same-origin privileges. Inline script nodes receive a constrained nonce after external-script/unsafe-element removal. Event attributes are not executed. CSS and embedded raster images are permitted only within the restrictive frame policy. No parent bridge or network is available.
 
-Typed charts/tables/diagrams use host-owned rendering from validated data, not model-generated JavaScript. Table operations, series visibility, data views and version selection do not call a provider. Source view never executes content.
+Typed charts, tables, diagrams, timelines and stat cards use host-owned rendering from validated data, not model-generated JavaScript. Table operations, series visibility, data views and version selection do not call a provider. Source view never executes content.
 
 `pdf-viewer.ts` loads the local PDF.js module and worker after dependency bootstrap. It receives only bytes, renders canvas/text, bounds rendered pixel count, disables eval/XFA/actions, and destroys the task when leaving the artifact. Zoom/page state is not replaced by transcript updates. Loading failures are visible; missing-library behavior is not a fake PDF preview.
 
 ## Registered tool execution
 
-`src/core/visual-tools.ts` defines schemas, bounds and structured renderers. `desktop/visual-runtime.mjs` implements six tools: chart, table, diagram, artifact create, immutable update and bounded source read. Its PDF renderer is injected so service tests do not pretend to exercise Electron.
+`src/core/visual-tools.ts` defines schemas, bounds and structured renderers. `desktop/visual-runtime.mjs` implements eight tools: chart, table, diagram, timeline, stat cards, artifact create, immutable update and bounded source read. `RENDER_KINDS` maps each structured tool to its artifact kind; timelines and stat cards are stored as their JSON specification with an escaped, script-free HTML rendering for saving and PDF export. Its PDF renderer is injected so service tests do not pretend to exercise Electron.
 
 `desktop/service.mjs` offers visual tools and Python independently, once per request (`offeredTools`), and the same set is used for the tool guide and every round. Known `toolCalling:false` suppresses all schemas and the guide. Calls are assembled from streamed fragments, matched to the offered registry, bounded by round/call limits, and returned as paired assistant/tool history. Unknown tools never reach a native executor. Visual tools have no approval step because they do not perform native arbitrary code execution or unsolicited disk writes. Python retains its separate single-use approval path and native exact-code dialog.
 

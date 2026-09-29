@@ -6,10 +6,17 @@ const makeTool = (name: string, description: string, properties: Record<string, 
 const primitive = { type: ['string','number','boolean','null'] };
 const shared = { title: string, description: { type: 'string', description: 'Accessible description and data/source caveats. Do not imply generated data are observations.' } };
 export const CHART_TYPES=['line','bar','area','scatter','pie'] as const;
+/** Artifact kinds the app renders from a JSON specification; they have a Data view and never run scripts. */
+export const STRUCTURED_KINDS=['chart','table','diagram','timeline','stats'] as const;
+/** The structured tools and the artifact kind each creates. Names and argument shapes of the timeline and stat cards
+ * follow Tinfoil Chat's widgets of the same name. */
+export const RENDER_KINDS:Record<string,typeof STRUCTURED_KINDS[number]>={render_chart:'chart',render_table:'table',render_diagram:'diagram',render_timeline:'timeline',render_stat_cards:'stats'};
 export const VISUAL_TOOLS = [
   makeTool('render_chart', 'Create an interactive chart inline in the answer (expandable into the workspace) without running Python: line, area, bar, scatter, or pie for one series of two to six parts of a total. Hovering shows every series at a point; the reader can toggle series and open the data table. Series that never share a label, such as reported values and a projection, are drawn as single centred bars. Supply actual numbers, never JavaScript or remote URLs.', { ...shared, type: { type:'string', enum:[...CHART_TYPES] }, labels: { type:'array', items:string, maxItems:200 }, x_values: { type:'array', items:{type:'number'}, maxItems:200, description:'Numeric x positions for line, area or scatter charts, one per label.' }, x_label:string, y_label:string, series: { type:'array', maxItems:8, items:{ type:'object', properties:{ name:string, values:{type:'array',items:{type:['number','null']},maxItems:200}},required:['name','values'],additionalProperties:false } }, stacked: { type:'boolean', description:'Bar or area only: stack the series to show parts of a total.' }, value_prefix: { type:'string', description:'Shown before each value, such as $.' }, value_suffix: { type:'string', description:'Shown after each value, such as % or ms.' } }, ['title','type','labels','series']),
   makeTool('render_table', 'Create a sortable, searchable table artifact. Values are data, never executable expressions. Maximum 500 rows and 20 columns. Use null for missing values.', { ...shared, columns:{type:'array',items:string,maxItems:20}, rows:{type:'array',maxItems:500,items:{type:'array',items:primitive,maxItems:20}} }, ['title','columns','rows']),
   makeTool('render_diagram', 'Create a labelled directed diagram from nodes and edges inline in the answer (expandable into the workspace). Layout is a simple grid or explicitly supplied column/row coordinates (0..15), not a full Mermaid layout engine. Maximum 50 nodes and 100 edges. Text is escaped.', { ...shared, nodes:{type:'array',maxItems:50,items:{type:'object',properties:{id:string,label:string,column:{type:'integer',minimum:0,maximum:15},row:{type:'integer',minimum:0,maximum:15}},required:['id','label'],additionalProperties:false}}, edges:{type:'array',maxItems:100,items:{type:'object',properties:{from:string,to:string,label:string},required:['from','to'],additionalProperties:false}} }, ['title','nodes','edges']),
+  makeTool('render_timeline', 'Show dated events in order as a timeline inline in the answer (expandable into the workspace): a history, a project\'s milestones, a news recap or a schedule. List the events oldest first and mark planned, projected or unconfirmed ones as tentative. Maximum 40 events. Text is escaped.', { ...shared, events:{type:'array',maxItems:40,items:{type:'object',properties:{date:{type:'string',description:'The date as it should be shown, such as "1969", "Mar 2025" or "Q3 2026".'},title:string,description:string,tentative:{type:'boolean',description:'Planned, projected or unconfirmed.'}},required:['date','title'],additionalProperties:false}} }, ['title','events']),
+  makeTool('render_stat_cards', 'Show a few headline figures as cards inline in the answer: each card has a label, its value and optionally the change against a named period and a small line of recent values. Use when two to eight key numbers matter more than their detail; use render_chart to compare many values. Maximum 8 cards.', { ...shared, stats:{type:'array',maxItems:8,items:{type:'object',properties:{label:string,value:{type:['string','number'],description:'A number, or text such as "$4.2B" or "99.9%".'},delta:{type:'string',description:'The signed change against a named period, such as "+12% vs 2024".'},trend:{type:'string',enum:['up','down','flat']},good:{type:'boolean',description:'Whether the change is good for the reader. Omit when it is neither.'},sparkline:{type:'array',items:{type:'number'},maxItems:24,description:'Two to 24 recent values, oldest first.'}},required:['label','value'],additionalProperties:false}} }, ['title','stats']),
   makeTool('create_artifact', 'Create a versioned HTML, SVG, Markdown, JSON, text or PDF artifact. PDF source is a self-contained HTML document, not base64. HTML previews are static by default; the user can enable isolated inline JavaScript for that preview. Use addEventListener in an inline script; inline event attributes, eval, modules and external scripts are unsupported. No network, external libraries, local files, or bridge APIs. Inline CSS and system fonts only. PDF generation runs without JavaScript. For inline visualizations use a transparent background (or neutral grey #252526), text #d4d4d4, system fonts and small VS Code-style accent colors. Blend into the answer: no outer card, border, shadow or large padded panel. Prefer the structured chart/table/diagram tools over custom HTML or Python when sufficient; they are cheaper to render and need less source. PDF pages may keep a print-appropriate white background. Preserve user-requested and authored colors. The preview appears inline with the response. This creates an in-app artifact, not a file on disk.', {...shared, kind:{type:'string',enum:['html','svg','markdown','json','text','pdf']}, source:{type:'string',description:'Complete UTF-8 source, at most 100,000 characters. For PDF, provide HTML with print CSS and page breaks.'}}, ['title','kind','source']),
   makeTool('update_artifact', 'Create a new immutable revision of an artifact visible in this conversation. Provide its returned artifact_id and complete replacement source. For chart/table/diagram source is the JSON specification. Older versions stay available. Do not change the kind.', { artifact_id:string, source:string, title:string, description:string }, ['artifact_id','source']),
   makeTool('read_artifact', 'Read bounded original source and metadata for an artifact from the selected conversation history or this response. This does not view rendered pixels, execute code, or inspect arbitrary local files. Binary artifacts without source return metadata only.', { artifact_id:string }, ['artifact_id']),
@@ -20,6 +27,10 @@ export interface TableSpec { title:string; description:string; columns:string[];
 export interface ChartSpec { title:string; description:string; type:typeof CHART_TYPES[number]; labels:string[]; x_values?:number[]; x_label:string; y_label:string; series:{name:string;values:(number|null)[]}[];
   /** Bar and area only: series stack to show parts of a total. */ stacked?:boolean; value_prefix?:string; value_suffix?:string }
 export interface DiagramSpec { title:string; description:string; nodes:{id:string;label:string;column:number;row:number}[]; edges:{from:string;to:string;label:string}[] }
+export interface TimelineSpec { title:string; description:string; events:{date:string;title:string;description:string;tentative?:boolean}[] }
+export const TRENDS=['up','down','flat'] as const;
+export interface StatSpec { label:string; value:string|number; delta?:string; trend?:typeof TRENDS[number]; good?:boolean; sparkline?:number[] }
+export interface StatsSpec { title:string; description:string; stats:StatSpec[] }
 function array(v: unknown, max: number, label: string): unknown[] { if (!Array.isArray(v)||v.length>max) throw new InputError(`${label} exceeds its size limit or is not an array.`); return v; }
 function finite(v: unknown): number { if (typeof v!=='number'||!Number.isFinite(v)||Math.abs(v)>1e12) throw new InputError('Visualization values must be finite numbers between -1e12 and 1e12.');return v; }
 function description(v: unknown):string {return v===undefined?'':text(v,'Description',2000);}
@@ -63,6 +74,62 @@ export function diagramSpec(value:unknown):DiagramSpec {
   const edges=array(v.edges,100,'Edges').map(item=>{const a=record(item);if(!ids.has(String(a.from))||!ids.has(String(a.to)))throw new InputError('A diagram edge refers to a missing node.');return{from:String(a.from),to:String(a.to),label:a.label===undefined?'':text(a.label,'Edge label',100)};});
   return{title:text(v.title,'Diagram title',160,true),description:description(v.description),nodes,edges};
 }
+const flag=(v:unknown,label:string):boolean|undefined=>{if(v!==undefined&&typeof v!=='boolean')throw new InputError(`${label} must be true or false.`);return v as boolean|undefined;};
+export function timelineSpec(value:unknown):TimelineSpec {
+  const v=record(value),events=array(v.events,40,'Timeline events').map(item=>{
+    const e=record(item),tentative=flag(e.tentative,'tentative');
+    return{date:text(e.date,'Event date',60,true),title:text(e.title,'Event title',160,true),description:e.description===undefined?'':text(e.description,'Event description',600),...(tentative?{tentative}:{})};
+  });
+  if(!events.length)throw new InputError('A timeline needs at least one event.');
+  return{title:text(v.title,'Timeline title',160,true),description:description(v.description),events};
+}
+export function statsSpec(value:unknown):StatsSpec {
+  const v=record(value),stats=array(v.stats,8,'Stat cards').map(item=>{
+    const s=record(item),good=flag(s.good,'good');
+    if(s.trend!==undefined&&!(TRENDS as readonly string[]).includes(String(s.trend)))throw new InputError('trend must be up, down or flat.');
+    let sparkline:number[]|undefined;
+    if(s.sparkline!==undefined){sparkline=array(s.sparkline,24,'Sparkline').map(finite);if(sparkline.length<2)throw new InputError('A sparkline needs at least two values.');}
+    const delta=s.delta===undefined?'':text(s.delta,'Change',60);
+    return{label:text(s.label,'Stat label',80,true),value:typeof s.value==='number'?finite(s.value):text(s.value,'Stat value',40,true),
+      ...(delta?{delta}:{}),...(s.trend!==undefined?{trend:s.trend as StatSpec['trend']}:{}),...(good!==undefined?{good}:{}),...(sparkline?{sparkline}:{})};
+  });
+  if(!stats.length)throw new InputError('Stat cards need at least one figure.');
+  return{title:text(v.title,'Stat cards title',160,true),description:description(v.description),stats};
+}
+/** A stat value as the card shows it: text as given; numbers grouped, and compact from 10,000 (12.9K, 4.2M). */
+export function statValue(v:string|number):string {
+  if(typeof v==='string')return v;
+  const body=Math.abs(v)>=1e4?new Intl.NumberFormat('en-US',{notation:'compact',maximumFractionDigits:1}).format(Math.abs(v)):Math.abs(v).toLocaleString('en-US',{maximumFractionDigits:2});
+  return (v<0?'−':'')+body;
+}
+const TREND_WORDS={up:['↑','Up'],down:['↓','Down'],flat:['→','Unchanged']} as const;
+/** Recent values in the de-emphasis grey, the latest point in the accent. Decorative: the Data view lists the values. */
+function sparklineSVG(values:number[]):string {
+  const w=96,h=24,low=Math.min(...values),high=Math.max(...values);
+  const points=values.map((v,i)=>[2+(w-4)*i/(values.length-1),high===low?h/2:2+(h-4)*(1-(v-low)/(high-low))] as const),[lx,ly]=points.at(-1)!;
+  return `<svg class="stat-spark" viewBox="0 0 ${w} ${h}" width="${w}" height="${h}" aria-hidden="true" focusable="false"><polyline points="${points.map(([x,y])=>`${f(x)},${f(y)}`).join(' ')}" fill="none" stroke="#8a8a8a" stroke-width="1.5" stroke-linejoin="round" stroke-linecap="round"/><circle cx="${f(lx)}" cy="${f(ly)}" r="2.5" fill="#3987e5"/></svg>`;
+}
+/** The timeline as escaped markup; the app and the standalone document style it. */
+export function timelineMarkup(spec:TimelineSpec):string {
+  return `<ol class="wb-timeline">${spec.events.map(e=>`<li${e.tentative?' class="tentative"':''}><span class="when">${escape(e.date)}${e.tentative?'<span class="tentative-tag">Tentative</span>':''}</span><strong>${escape(e.title)}</strong>${e.description?`<p>${escape(e.description)}</p>`:''}</li>`).join('')}</ol>`;
+}
+/** Stat cards as escaped markup. The arrow's colour says whether a change is good only when the model said so, and
+ * never alone: the arrow, the change text and the screen-reader words carry it too. */
+export function statsMarkup(spec:StatsSpec):string {
+  return `<ul class="wb-stats">${spec.stats.map(s=>{
+    const tone=s.good===undefined?'':s.good?' good':' bad',[arrow,word]=s.trend?TREND_WORDS[s.trend]:['',''];
+    const spoken=word||s.good!==undefined?`<span class="sr-only">${[word,s.good===undefined?'':s.good?'good':'bad'].filter(Boolean).join(', ')}: </span>`:'';
+    const delta=s.delta||arrow?`<span class="stat-delta">${arrow?`<span class="stat-arrow${tone}" aria-hidden="true">${arrow}</span>`:''}${spoken}${escape(s.delta??'')}</span>`:'';
+    return `<li><span class="stat-label">${escape(s.label)}</span><strong class="stat-value">${escape(statValue(s.value))}</strong>${delta}${s.sparkline?sparklineSVG(s.sparkline):''}</li>`;
+  }).join('')}</ul>`;
+}
+/** Light styles for the saved file and PDF export of a timeline or stat cards. No scripts, no external resources. */
+const WIDGET_DOCUMENT_STYLE='<style>.wb-doc{font:14px/1.5 system-ui,sans-serif;color:#20242b}.wb-doc h1{font-size:18px;margin:0 0 4px}.wb-doc>p{color:#555b66;margin:0 0 16px}.sr-only{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap}'
+  +'.wb-timeline{list-style:none;margin:0;padding:0 0 0 22px;border-left:1px solid #c9ced6}.wb-timeline li{position:relative;padding:0 0 14px;break-inside:avoid}.wb-timeline li::before{content:"";position:absolute;left:-27px;top:5px;width:9px;height:9px;border-radius:50%;background:#2a78d6}.wb-timeline li.tentative::before{background:#fff;border:1.5px solid #2a78d6;box-sizing:border-box}.wb-timeline .when{display:block;font-size:12px;color:#555b66}.wb-timeline .tentative-tag{margin-left:8px;font-size:11px;border:1px solid #c9ced6;border-radius:4px;padding:0 5px}.wb-timeline strong{display:block}.wb-timeline p{margin:2px 0 0;color:#3d434d}'
+  +'.wb-stats{list-style:none;margin:0;padding:0;display:grid;grid-template-columns:repeat(auto-fill,minmax(160px,1fr));gap:10px}.wb-stats li{padding:10px 12px;border:1px solid #d5d9df;border-radius:8px;break-inside:avoid;display:flex;flex-direction:column;gap:2px}.wb-stats .stat-label{font-size:12px;color:#555b66}.wb-stats .stat-value{font-size:22px}.wb-stats .stat-delta{font-size:12px;color:#3d434d}.stat-arrow{margin-right:4px}.stat-arrow.good{color:#0a7f0a}.stat-arrow.bad{color:#c02f2f}</style>';
+const widgetDocument=(title:string,desc:string,body:string)=>`${WIDGET_DOCUMENT_STYLE}<section class="wb-doc"><h1>${escape(title)}</h1>${desc?`<p>${escape(desc)}</p>`:''}${body}</section>`;
+export const timelineHTML=(spec:TimelineSpec):string=>widgetDocument(spec.title,spec.description,timelineMarkup(spec));
+export const statsHTML=(spec:StatsSpec):string=>widgetDocument(spec.title,spec.description,statsMarkup(spec));
 /** A file name from an artifact title: dashes survive as hyphens and other punctuation becomes a space, so
  * "Revenue, 2023–2026 (approx.)" gives "Revenue 2023-2026 approx", not "Revenue 20232026 approx". */
 export function artifactFileName(title:string,ext:string):string {

@@ -1,6 +1,7 @@
 import type { InlineGroup } from '../core/reply-layout.js';
 import type { ArtifactEntry } from './artifact-panel.js';
 import { mountArtifact, type ArtifactTab } from './artifact-surface.js';
+import { STRUCTURED_KINDS } from '../core/visual-tools.js';
 const expandIcon='<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M14 4h6v6M20 4l-7 7M10 20H4v-6M4 20l7-7"/></svg>';
 /** An inline figure, not a nested card. Three bounded view islands are retained
  * for the selected revision. Streaming never remounts a running HTML preview. */
@@ -62,7 +63,7 @@ class InlineFigure {
   private stopInteraction():void {if(this.interactive){this.interactive=false;this.disposeView('preview');}}
   private paint():void {
     const a=this.selected().artifact;
-    this.element.querySelectorAll<HTMLButtonElement>('[data-inline-tab]').forEach(b=>{b.setAttribute('aria-selected',String(b.dataset.inlineTab===this.tab));b.tabIndex=b.dataset.inlineTab===this.tab?0:-1;b.classList.toggle('hidden',b.dataset.inlineTab==='data'&&!['chart','table','diagram'].includes(a.kind??''));});
+    this.element.querySelectorAll<HTMLButtonElement>('[data-inline-tab]').forEach(b=>{b.setAttribute('aria-selected',String(b.dataset.inlineTab===this.tab));b.tabIndex=b.dataset.inlineTab===this.tab?0:-1;b.classList.toggle('hidden',b.dataset.inlineTab==='data'&&!(STRUCTURED_KINDS as readonly string[]).includes(a.kind??''));});
     const interact=this.element.querySelector<HTMLButtonElement>('.inline-interact')!;
     interact.classList.toggle('hidden',a.kind!=='html'||this.tab!=='preview'||this.folded);interact.textContent=this.interactive?'Stop interaction':'Enable interaction';
     interact.title='Run isolated inline JavaScript for this preview only. Leaving the preview stops it. No network or desktop bridge.';

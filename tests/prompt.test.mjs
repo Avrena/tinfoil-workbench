@@ -17,7 +17,7 @@ test('the guide covers only the tools offered on the request', () => {
   const offered = new Set(VISUAL_TOOLS.map(t => t.function.name));
   // Every tool the visual guide names is one that is offered with it, and the ones a model must choose between are named.
   for (const name of named(visual)) assert.ok(offered.has(name), `${name} is not a visual tool`);
-  for (const name of ['render_chart', 'render_table', 'render_diagram', 'create_artifact', 'update_artifact']) assert.ok(named(visual).has(name), name);
+  for (const name of ['render_chart', 'render_table', 'render_diagram', 'render_timeline', 'render_stat_cards', 'create_artifact', 'update_artifact']) assert.ok(named(visual).has(name), name);
   assert.ok(!named(visual).has('python') && !visual.includes('<python>'));
   assert.deepEqual([...named(py)], ['python'], 'the Python guide names no visual tool that is not offered');
   assert.ok(both.includes('<visuals>') && both.includes('<python>') && named(both).has('render_chart'));

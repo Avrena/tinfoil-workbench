@@ -6,7 +6,7 @@ import { tmpdir } from 'node:os';
 import { readFile, writeFile, open, stat } from 'node:fs/promises';
 import { renderPDF } from './pdf-renderer.mjs';
 import { loadModelCapabilities } from './model-catalog.mjs';
-import { artifactSource, chartSpec, chartSVG, diagramSpec, diagramSVG, tableSpec, tableHTML } from '../dist/core/visual-tools.js';
+import { artifactSource, chartSpec, chartSVG, diagramSpec, diagramSVG, tableSpec, tableHTML, timelineSpec, timelineHTML, statsSpec, statsHTML } from '../dist/core/visual-tools.js';
 import { markdown, escapeHtml } from '../dist/core/markdown.js';
 import { randomUUID } from 'node:crypto';
 import { EncryptedVault } from './vault.mjs';
@@ -305,6 +305,8 @@ async function command(input) {
         if(a.kind==='chart')source=chartSVG(chartSpec(JSON.parse(source)),[],{print:true});
         else if(a.kind==='diagram')source=diagramSVG(diagramSpec(JSON.parse(source)),'print-arrow',true,true);
         else if(a.kind==='table')source=tableHTML(tableSpec(JSON.parse(source)));
+        else if(a.kind==='timeline')source=timelineHTML(timelineSpec(JSON.parse(source)));
+        else if(a.kind==='stats')source=statsHTML(statsSpec(JSON.parse(source)));
         else if(a.mime==='text/markdown')source=markdown(source,{codeTools:false});
         else if(!['text/html','image/svg+xml','image/png'].includes(a.mime))source='<pre>'+escapeHtml(source)+'</pre>';
         data=await renderPDF({html:source});

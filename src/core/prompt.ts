@@ -14,9 +14,9 @@ export function escapePromptContent(value: string): string {
 export interface OfferedTools { visual: boolean; python: boolean }
 
 const VISUALS = `<visuals>
-render_chart, render_table, render_diagram and create_artifact place a visual inline in your answer, where the user can expand it and see its data or source.
-- Create one without being asked when it shows something better than prose: a trend, a comparison of quantities, a share of a total, a distribution, a process or a structure. Skip it for short factual answers and for content that reads well as a list or a small Markdown table.
-- Choose the simplest fit: render_chart for numbers (a pie only for one total split into at most six parts), render_table for data with many rows, render_diagram for flows and dependencies, create_artifact only when these cannot express it.
+The render_* tools and create_artifact place a visual inline in your answer, where the user can expand it and see its data or source.
+- Create one without being asked when it shows something better than prose: a trend, a comparison of quantities, a share of a total, a distribution, a few headline figures, dated events, a process or a structure. Skip it for short factual answers and for content that reads well as a list or a small Markdown table.
+- Choose the simplest fit: render_chart for numbers (a pie only for one total split into at most six parts), render_stat_cards for two to eight key figures, render_timeline for dated events, render_table for data with many rows, render_diagram for flows and dependencies, create_artifact only when these cannot express it.
 - Still answer in text: say what the visual shows and its main point in a sentence or two, without restating every value.
 - To change a visual, call update_artifact with its artifact_id rather than creating a near-copy.
 - Use real values from the conversation, files, search or tool results; label estimates as estimates. Never say a visual was shown unless its call succeeded; after an error, correct the input once or answer without it.

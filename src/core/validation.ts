@@ -201,7 +201,7 @@ export function validateArtifact(value: unknown): Artifact {
   if (!/^[A-Za-z0-9+/]*={0,2}$/.test(data) || data.length % 4 !== 0) throw new InputError('Invalid artifact encoding.');
   const extra: Partial<Artifact> = {};
   if (v.kind !== undefined) {
-    if (!['html','svg','markdown','text','json','pdf','chart','table','diagram'].includes(String(v.kind))) throw new InputError('Unsupported artifact kind.');
+    if (!['html','svg','markdown','text','json','pdf','chart','table','diagram','timeline','stats'].includes(String(v.kind))) throw new InputError('Unsupported artifact kind.');
     extra.kind = v.kind as Artifact['kind'];
   }
   if (v.source !== undefined) extra.source = text(v.source, 'Artifact source', 120000);

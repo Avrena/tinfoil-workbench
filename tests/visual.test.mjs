@@ -21,7 +21,7 @@ const live = (overrides = {}) => normalizeCapability({
   } },
 });
 
-test('new visual tools are actual function schemas with distinct registered names',()=>{assert.equal(VISUAL_TOOLS.length,6);assert.equal(new Set(VISUAL_TOOLS.map(t=>t.function.name)).size,6);for(const t of VISUAL_TOOLS){assert.equal(t.type,'function');assert.equal(t.function.parameters.additionalProperties,false);}});
+test('new visual tools are actual function schemas with distinct registered names',()=>{assert.equal(VISUAL_TOOLS.length,8);assert.equal(new Set(VISUAL_TOOLS.map(t=>t.function.name)).size,8);for(const t of VISUAL_TOOLS){assert.equal(t.type,'function');assert.equal(t.function.parameters.additionalProperties,false);}});
 test('Tinfoil effort mapping exposes unique actual wire levels',()=>{const cap=live();assert.deepEqual(cap.effort,['high','max']);assert.deepEqual(reasoningParameters(cap,'max'),{thinking:{type:'enabled'},reasoning_effort:'max'});});
 test('provider default omits all reasoning parameters',()=>{assert.deepEqual(reasoningParameters(live(),'default'),{});});
 test('thinking toggle is independent of effort visibility',()=>{const cap=live();assert.deepEqual(reasoningParameters(cap,'max','disabled'),{thinking:{type:'disabled'}});assert.deepEqual(reasoningParameters(cap,'default','enabled'),{thinking:{type:'enabled'}});});

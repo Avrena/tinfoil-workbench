@@ -1,5 +1,5 @@
 import type { Artifact } from '../core/types.js';
-import { artifactSource } from '../core/visual-tools.js';
+import { artifactSource, STRUCTURED_KINDS } from '../core/visual-tools.js';
 import { mountArtifact } from './artifact-surface.js';
 export interface ArtifactEntry { artifact:Artifact; toolId?:string; threadId:string; local?:boolean }
 interface PanelActions { save:(entry:ArtifactEntry)=>void; pdf:(entry:ArtifactEntry)=>void; copy:(source:string)=>void; openLocal:()=>void }
@@ -65,10 +65,10 @@ export class ArtifactPanel {
     const entry=this.current;if(!entry)return;const a=entry.artifact,source=artifactSource(a);
     const stage=this.get('artifact-stage');stage.replaceChildren();
     this.element.querySelectorAll<HTMLElement>('[role="tab"]').forEach(b=>b.setAttribute('aria-selected',String(b.dataset.panel===this.tab)));
-    this.element.querySelector('[data-panel="data"]')!.classList.toggle('hidden',!['chart','table','diagram'].includes(a.kind??''));
+    this.element.querySelector('[data-panel="data"]')!.classList.toggle('hidden',!(STRUCTURED_KINDS as readonly string[]).includes(a.kind??''));
     for(const action of ['save','pdf'])(this.element.querySelector(`[data-panel="${action}"]`) as HTMLButtonElement).disabled=!!entry.local;
     (this.element.querySelector('[data-panel="copy"]') as HTMLButtonElement).disabled=source===null;
-    const canInteract=a.mime==='text/html'&&a.kind!=='table'&&this.tab==='preview';
+    const canInteract=a.mime==='text/html'&&!(STRUCTURED_KINDS as readonly string[]).includes(a.kind??'')&&this.tab==='preview';
     this.element.querySelector('.artifact-interaction')!.classList.toggle('hidden',!canInteract);
     this.element.querySelector('[data-panel="interact"]')!.textContent=this.interactive?'Stop interaction':'Enable interaction';
     this.get('artifact-panel-caption').textContent=(entry.local?'Local preview · not shared with the model. ':`Revision ${a.version??1} · `)+(a.description??'');
