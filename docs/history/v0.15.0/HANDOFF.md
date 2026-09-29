@@ -1,8 +1,8 @@
-# Manual acceptance checklist — 0.15.1
+# Manual acceptance checklist — 0.15.0
 
 This checklist covers what automated checks cannot establish.
 
-For 0.15.1, the build steps in section 1 were already run on the build machine: bootstrap, doctor, tests, native smoke, packaging, the package check, the packaged smoke and a live verification of the inference and cloud sync enclaves through the packaged app; see VALIDATION.md for the upgrade over an installed 0.15.0. So were the Android emulator checks in section 6 marked *automated*. Tinfoil cloud chats (section 2) were checked with a real account from source, which also restored a real saved sign-in after a restart; neither has been checked in the installed app. Chat sign-in, including a key renewal after expiry, was checked with a real account for earlier releases, on Windows (from source) and on one Android phone (debug build); the sign-in code has not changed since. See [VALIDATION.md](VALIDATION.md). Repeat section 1 on a clean, standard-user Windows machine. Sections 2–5 and the manual part of section 6 remain open until someone performs them with a real account on real hardware.
+For 0.15.0, the build steps in section 1 were already run on the build machine: bootstrap, doctor, tests, native smoke, packaging, the package check, the packaged smoke, a live verification of the inference and cloud sync enclaves through the packaged app, and a silent upgrade over an installed 0.14.0 with the installed app's smoke and live verification. So were the Android emulator checks in section 6 marked *automated*. Tinfoil cloud chats (section 2) were checked with a real account from source, which also restored a real saved sign-in after a restart; neither has been checked in the installed app. Chat sign-in, including a key renewal after expiry, was checked with a real account for earlier releases, on Windows (from source) and on one Android phone (debug build); the sign-in code has not changed since. See [VALIDATION.md](VALIDATION.md). Repeat section 1 on a clean, standard-user Windows machine. Sections 2–5 and the manual part of section 6 remain open until someone performs them with a real account on real hardware.
 
 ## 1. Establish the build
 
@@ -18,7 +18,7 @@ npm run smoke:desktop
 npm start
 ```
 
-Stop at the first failing command and preserve its output. Bootstrap runs npm ci against the committed, reviewed lockfile and fetches the Electron binary, verified against the checksums shipped in the pinned electron package. A DNS/proxy failure is not resolved by deleting validation or enabling plaintext storage. Review npm’s audit output and notices; for 0.15.1 it reported no known vulnerabilities in runtime dependencies (see VALIDATION.md). Upgrades should be deliberate and retested, not an unconditional `--force` fix.
+Stop at the first failing command and preserve its output. Bootstrap runs npm ci against the committed, reviewed lockfile and fetches the Electron binary, verified against the checksums shipped in the pinned electron package. A DNS/proxy failure is not resolved by deleting validation or enabling plaintext storage. Review npm’s audit output and notices; for 0.15.0 it reported no known vulnerabilities in runtime dependencies (see VALIDATION.md). Upgrades should be deliberate and retested, not an unconditional `--force` fix.
 
 `doctor` must report all entries passing. A source-only pass says nothing about installation readiness. Native smoke must exit zero and print `DESKTOP_SMOKE_OK: encrypted storage, bridge, attested SDK import, native PDF print and PDF.js canvas`. It temporarily changes userData so it does not test against your real workspace. A smoke pass still does not exercise real authentication or the manual close interactions below.
 
@@ -66,7 +66,7 @@ After the checks above:
 npm run dist:win
 ```
 
-The command gates packaging behind doctor, tests and native smoke and never publishes. Expected outputs are `release/Tinfoil-Workbench-0.15.1-x64-Setup.exe` and `release/Tinfoil-Workbench-0.15.1-x64-Portable.exe`. Validate the generated filenames and test both on a clean standard-user Windows installation. Code signing is not configured; do not describe artifacts as signed or instructions to disable OS protection. ARM64 requires its own real machine/runner validation.
+The command gates packaging behind doctor, tests and native smoke and never publishes. Expected outputs are `release/Tinfoil-Workbench-0.15.0-x64-Setup.exe` and `release/Tinfoil-Workbench-0.15.0-x64-Portable.exe`. Validate the generated filenames and test both on a clean standard-user Windows installation. Code signing is not configured; do not describe artifacts as signed or instructions to disable OS protection. ARM64 requires its own real machine/runner validation.
 
 Optional PowerShell orchestration: `./scripts/Local-Build.ps1 -Bootstrap -Package`. This script’s native execution remains untested here; the npm commands above are the reference sequence.
 
