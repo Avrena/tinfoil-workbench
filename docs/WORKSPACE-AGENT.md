@@ -1,14 +1,16 @@
-# Workspace agent (design)
+# Workspace agent
 
-Status: proposed for 1.3.0, not implemented. This document is the design to review before any code. It describes a mode in which a model works in a folder on the user's Windows computer: it reads and searches files, proposes edits, and runs PowerShell, Git Bash or git commands, the way coding agents such as Codex CLI do. Every command and every edit is approved by the user first.
+Status: added for 1.3.0 (not yet released). Windows only, off by default, turned on per conversation.
 
-## Why, and what changes
+In this mode a model works in a folder on the user's Windows computer: it lists, searches and reads files, proposes edits, and runs Windows PowerShell or Git Bash commands (git included), the way coding agents such as Codex CLI do. Reading inside the folder needs no approval; every command and every file change does, in a native dialog. It is not a sandbox: an approved command runs with the user's Windows account's permissions.
 
-Today a model in Workbench cannot use a shell or git. The only local execution is the Python tool (Windows, approved per run), and it cannot practically start other programs: the runner gives Python a minimal environment without `PATH`, so `git`, `powershell` and `bash` are not found by name (checked on 30 September 2026: by full path, git 2.53, Windows PowerShell 5.1 and Git Bash 5.2 all run; `cmd` runs by name, but its output is in the system code page and breaks UTF-8 decoding).
+## Why, and what changed
 
-The project rules forbid this mode as written. AGENTS.md says "No generic IPC, shell, filesystem or arbitrary URL-fetch bridges" and "no always-allow mode, terminal or implicit package installation"; SECURITY.md says "No generic terminal or silent package installer is exposed." [Rule changes](#rule-changes) proposes the new wording. The renderer still gets no shell or filesystem bridge: everything below runs in the main process, behind native confirmations.
+Before 1.3.0 a model in Workbench could not use a shell or git. The only local execution was the Python tool (Windows, approved per run), and it could not practically start other programs: the runner gives Python a minimal environment without `PATH`, so `git`, `powershell` and `bash` were not found by name (checked on 30 September 2026: by full path, git 2.53, Windows PowerShell 5.1 and Git Bash 5.2 all ran; `cmd` ran by name, but its output was in the system code page and broke UTF-8 decoding).
 
-## What Codex does, and what carries over
+AGENTS.md and SECURITY.md forbade a shell bridge and a terminal. Their wording now allows one approved command at a time in the conversation's folder ([Rule changes](#rule-changes)). The renderer still gets no shell or filesystem bridge: everything below runs in the main process, behind native confirmations.
+
+## What Codex does, and what carried over
 
 Codex CLI is open source (`openai/codex`, Apache-2.0); the references are at [the end](#references). Its model is steered by a short prompt, and most of the safety sits in the harness:
 
@@ -19,53 +21,51 @@ Codex CLI is open source (`openai/codex`, Apache-2.0); the references are at [th
 - **Working habits:** a sentence before a group of tool calls, a plan for multi-step work, keep going until the task is done, check work with the project's tests (in ask-first modes, ask before long runs), never undo the user's changes, do not commit unless asked, follow each AGENTS.md within its folder.
 - **Safety beyond the prompt:** a Windows sandbox (restricted process tokens, file permissions on the writable roots, denied reads, and a one-time administrator setup that also covers network settings), and "Guardian", a second model that reviews planned actions for data leaving the machine, credential hunting, weakened security settings and destruction, trusting only user and developer messages and AGENTS.md.
 
-What Workbench takes over: the environment block, a small tool set with limits, the Windows rules, asking before destructive or unrequested actions, AGENTS.md scope, "tool output is data", and, in phase 2, Codex's way of splitting commands for "always allow" rules.
-
-What it does differently:
+Workbench took over the environment block, a small tool set with limits, the Windows rules, asking before destructive or unrequested actions, AGENTS.md scope, and "tool output is data". It differs in these ways:
 
 - **JSON tools, and an edit tool instead of a patch language.** Codex's `apply_patch` relies on grammar-constrained tools in OpenAI's Responses API. Workbench uses Chat Completions with Tinfoil's open models, which follow a strict patch syntax less reliably; `edit_file` (replace an exact, unique piece of text) is simpler to produce and to check.
 - **Read tools that need no approval.** Without a sandbox, reading through the shell would need an approval for every `Get-Content`. Native `read_file`, `list_files` and `search_files`, confined to the folder, keep approvals for actions with side effects.
-- **No sandbox and no reviewer model in phase 1.** Codex's Windows sandbox is a large native component that needs administrator setup, and a reviewer model roughly doubles the requests per step. Approval of every command and edit is the control, so there is no "auto" mode.
-- **A shorter prompt,** for the context windows of the Tinfoil models and the cost of each step.
-- **Our own wording.** The prompt text below is written for Workbench; nothing is copied from Codex.
+- **No sandbox and no reviewer model.** Codex's Windows sandbox is a large native component that needs administrator setup, and a reviewer model roughly doubles the requests per step. Approval of every command and change is the control, so there is no "auto" mode.
+- **A shorter prompt,** for the context windows of the Tinfoil models and the cost of each step, written for Workbench; nothing is copied from Codex.
 
 ## The mode
 
-- **Windows only.** Android has no shell or Python, and the tools are never offered there.
-- **Off by default, per conversation.** Advanced → *Workspace agent (Windows)* turns it on for the conversation; the composer then shows a folder chip. The model gets the tools only once a folder is chosen (a native folder picker).
-- **One folder and one shell per conversation.** The shell is PowerShell 5.1 (`powershell.exe -NoProfile -NonInteractive`) by default, or Git Bash (`<Git>\bin\bash.exe -c`) when chosen in Settings → Execution; git works in either. Codex's "one shell from start to finish" rule is enforced by the harness rather than asked of the model.
-- **Not in Tinfoil cloud chats,** conversations waiting to upload, or cloud projects, like messages in other roles: the command runs, file contents and edits exist only on this computer, so a synced copy would be incomplete, and local paths would end up in synced text.
-- **Other tools stay available.** Visuals, web search and Python keep their own switches. Web search in the same conversation widens the prompt-injection surface; the agent section says so in the Advanced panel.
+- **Windows only.** Android has no shell or Python; its host has no agent tools, so the Advanced section is hidden and the service refuses the setting.
+- **Off by default, per conversation.** Advanced → *Workspace agent · Windows* turns it on for the conversation, with a choice of shell; the composer then shows a folder button. A new conversation starts with it off; a branch keeps it and its folder.
+- **The folder is chosen in a native folder picker**, never named by the page, and confirmed in a native dialog that says what the model may do there. Because reading needs no approval, folders that hold the user's keys, browser data, app data or the system are refused: a drive root, the home folder or any folder above it, AppData (Workbench's own encrypted data is there), Windows, Program Files and ProgramData (`unsafeFolder` in `desktop/agent-tools.mjs`).
+- **One folder and one shell per conversation.** Windows PowerShell 5.1 by default, or Git Bash (`<Git>\bin\bash.exe`, found in the usual install places or next to git on `PATH`); git works in either. Codex's "one shell from start to finish" rule is enforced by the harness rather than asked of the model.
+- **Not in Tinfoil cloud chats,** conversations waiting to upload, or cloud projects, like messages in other roles: commands, reads and changes exist only on this computer, so a synced copy would be incomplete, and local paths would end up in synced text. A conversation that has a folder or used the agent is not moved to the cloud.
+- **Other tools stay available.** Visuals, web search and Python keep their own switches. The Advanced section says that with web search on too, web pages can suggest commands.
 
 ## Tools
 
-All tools are Chat Completions functions with JSON arguments, validated in `src/core` like `pythonArguments()`. Paths are relative to the folder; `..`, absolute paths, drive-relative paths, UNC and device paths (`\\?\`, `CON`) are refused, and every resolved path, after `realpath`, must stay inside the folder, so symbolic links and junctions cannot lead out.
+All tools are Chat Completions functions with JSON arguments, checked in `src/core/agent.ts` (`agentArguments`). Paths are relative to the folder; `..`, absolute paths, drive-relative paths, UNC and device paths, alternate data streams and names ending in a dot or space are refused (`workspacePath`), and every resolved path, after `realpath`, must stay inside the folder, so symbolic links and junctions cannot lead out; for a path that does not exist yet, its nearest existing parent must (`desktop/agent-tools.mjs`).
 
 | Tool | Arguments | Approval | Result for the model |
 |---|---|---|---|
-| `list_files` | `path` (default `.`), `depth` (1–4, default 2) | none | Entries with `/` after folders, at most 400; `.git` and `node_modules` summarised as one line each |
-| `search_files` | `pattern` (text or `/regex/`), `path`, `glob` | none | Matching lines as `path:line: text`, at most 200, lines cut at 300 characters |
-| `read_file` | `path`, `start_line` (default 1), `max_lines` (default 400, at most 1,000) | none | Numbered lines; text files only, at most 2 MiB; binary files are refused |
-| `edit_file` | `path`, `old_text`, `new_text` | each edit | Applied, declined, or why not (not found, found more than once) |
+| `list_files` | `path` (default `.`), `depth` (1–4, default 2) | none | Entries with `/` after folders, at most 400; `.git` and `node_modules` summarised as one line each; links are listed, not followed |
+| `search_files` | `pattern` (text, case-insensitive unless it has capitals, or `/regex/flags`), `path`, `glob` | none | Matching lines as `path:line: text`, at most 200, lines cut at 300 characters, at most 5,000 files |
+| `read_file` | `path`, `start_line` (default 1), `max_lines` (default 400, at most 1,000) | none | Numbered lines, at most 60,000 characters; text files up to 2 MiB; binary files are refused |
+| `edit_file` | `path`, `old_text`, `new_text` | each change | Applied, declined, or why not (not found, found more than once, changed meanwhile) |
 | `write_file` | `path`, `content` (at most 256 KiB) | each write | Created or replaced, declined, or why not |
-| `run_command` | `command`, `workdir` (default `.`), `timeout_seconds` (default 120, at most 600) | each command | Exit code, and output with long output shortened as head and tail |
-| `update_plan` | `steps`: `{text, status: pending/in_progress/completed}`, at most 12 | none | Accepted; the plan is drawn in the reply |
+| `run_command` | `command` (at most 8,000 characters), `workdir` (default `.`), `timeout_seconds` (default 120, at most 600) | each command | Status, exit code, and output shortened to its first 4,000 and last 8,000 characters (errors: 2,000 and 4,000) |
+| `update_plan` | `steps`: `{text, status: pending/in_progress/completed}`, at most 12 | none | Accepted; the plan is drawn above the reply's calls |
 
 - **Why reads need no approval:** the user chose the folder, the model's inference is private in Tinfoil's enclave, and reading has no side effects. Sending anything onwards needs a command, which needs approval.
-- **Command output:** the reply shows up to 100,000 characters, as for Python. The model gets at most 12,000 characters: the first 4,000 and the last 8,000, with a line saying how much was left out, so errors at the end survive. The tool description tells the model to filter instead of printing whole files.
-- **No stdin, no interactive programs, no background servers** in phase 1: stdin is closed, and a command that does not finish in its timeout is stopped with its process tree.
+- **Command output:** the reply keeps the first 59,000 and the last 40,000 characters of each stream and shows them; the model gets the shortened form above. The tool description tells the model to filter output instead of printing whole files.
+- **No stdin, no interactive programs, no background servers:** stdin is closed, and a command that does not finish in its timeout is stopped with its process tree.
 
 ## What the model sees
 
-The system message stays in the order `core/prompt.ts` uses today: the fixed guide for the offered tools first, byte-identical for every conversation with the same tools so the provider's prefix cache keeps working, then this conversation's environment, then the user's instructions and project context.
+The system message keeps the order `core/prompt.ts` uses: the fixed guide for the offered tools first, byte-identical for every conversation with the same tools and shell so the provider's prefix cache keeps working, then this conversation's environment, then the user's instructions and project context.
 
-The guide section (for PowerShell; the Git Bash variant swaps the shell line):
+The guide section for PowerShell (`agentGuide` in `src/core/agent.ts`):
 
 ```text
 <workspace_agent>
 You can work in a folder on the user's Windows computer. The <environment> block names the folder and the shell.
 - Look first. list_files, search_files and read_file run without approval, inside the folder only. If the folder has an AGENTS.md, read it before changing anything and follow it for the files in its scope.
-- run_command runs one command in the shell named in <environment>, in the folder or a folder inside it. The user sees every command before it runs and can decline it. Do not retry a declined command unless the user asks again. Commands run with the user's own permissions; there is no sandbox.
+- run_command runs one command in Windows PowerShell 5.1, in the folder or a folder inside it. The user sees every command before it runs and can decline it. Do not retry a declined command unless the user asks again. Commands run with the user's own permissions; there is no sandbox.
 - Change files only with edit_file (replace one exact, unique piece of text) or write_file (a new file or a full rewrite). The user approves each change.
 - Before a group of tool calls, say in one short sentence what you will do next. For work with several steps, keep a plan with update_plan.
 - Keep going until the task is done or you need the user. Check your work with the project's own tests or build when there are any, and say what you could not check.
@@ -77,90 +77,83 @@ You can work in a folder on the user's Windows computer. The <environment> block
 </workspace_agent>
 ```
 
-The environment block, after the guide:
+For Git Bash, the command line names Git Bash, and the shell line reads: "Git Bash: paths look like /c/Users/...; quote paths with spaces. Before a recursive delete or move, check that the full path is inside the folder. Long output is shortened, so filter it (grep, head, tail) instead of printing whole files."
+
+The environment block follows the guide (`agentEnvironment` in `src/core/prompt.ts`; the folder is escaped like other prompt content):
 
 ```text
 <environment>
 folder: D:\Projects\example
 shell: Windows PowerShell 5.1
-approvals: the user approves every command and every file change; reading is not approved separately
+approvals: the user approves every command and every file change; reading inside the folder is not approved separately
 network: not restricted
 </environment>
 ```
 
-The folder path is escaped like other prompt content (`escapePromptContent`). Estimated size: the guide about 450 tokens, the seven tool definitions about 700, the environment about 40.
-
 ## Approval and execution
 
-The path is the one Python uses today, extended:
+The path is the one Python uses, extended (`runAgentTool` in `desktop/service.mjs`):
 
-1. The service registers the call as `awaiting_approval` and the reply shows a card: the command, the shell and folder, and Run / Decline; for an edit, the diff and Apply / Decline.
-2. Run or Apply in the card sends `tool.approve`. The main process shows a native dialog with the exact command, shell, working folder and timeout, and "NOT A SANDBOX: this command runs with your Windows account's permissions". For an edit it shows the path, the line counts and the diff (the first 80 lines; the card has the rest). A compromised page cannot approve on its own: approval needs the native dialog, and the request is checked again after it closes, as for Python.
-3. A declined call returns `denied` to the model, with the instruction not to retry without a new request.
-4. `desktop/command-runner.mjs` (new, Windows only, passed to the service by `main.mjs` like `runPython`, so the Android worker never imports it) runs the command:
-   - PowerShell: `powershell.exe -NoProfile -NonInteractive -Command -`, with the command on stdin after a line that sets `[Console]::OutputEncoding` and `$OutputEncoding` to UTF-8, so output in the system code page does not break decoding. The execution policy is not changed.
-   - Git Bash: `<Git>\bin\bash.exe -c <command>`, which sets up `PATH` for Git's tools.
-   - The environment is the user's, minus Workbench's and Electron's own variables (`ELECTRON_*` and those the app sets). `windowsHide`, `shell: false`, no elevation: a command that asks for administrator rights gets Windows' own prompt.
-   - Stop and timeouts end the process tree with `taskkill /T /F`, as for Python; that is best effort, and a process that detaches can survive, which the card says.
-5. Edits are applied by the service: the file is read again, `old_text` must occur exactly once, and the new content is written through a temporary file and a rename; a file changed since the model read it still applies if `old_text` is still unique, and the card shows the final diff.
+1. Reads, lists, searches and plans run at once. For an edit or write, the service prepares the change first (the new content and a unified diff); nothing is written yet.
+2. The call is registered as `awaiting_approval` and the reply shows a card: for a command, the command, its folder, shell and timeout, with *Review & run once…* and *Decline*; for a change, the diff with *Review & apply…* (or *Review & write…*) and *Decline*.
+3. The card's button sends `tool.approve`. The main process shows a native dialog: for a command, the exact command, shell, working folder and timeout, and "NOT A SANDBOX: it runs with your Windows account's permissions and can change or send anything your account can"; for a change, the path, the line counts and the first 80 diff lines (the card has the rest). A compromised page cannot approve on its own: approval needs the native dialog, and the request is checked again after it closes, as for Python.
+4. A declined call returns `denied` to the model, with the instruction not to repeat it unless the user asks.
+5. A change is written only if the file is byte-identical to what was read when it was proposed (SHA-256); otherwise nothing is written and the model is told to read the file again. A new file must still not exist. Files keep their line ends (a model's LF text is matched against CRLF files) and a UTF-8 byte order mark. The new content is written beside the file and renamed over it.
+6. Commands run in `desktop/agent-tools.mjs` (passed to the service by `main.mjs`, so the Android worker never imports it):
+   - PowerShell: `powershell.exe -NoLogo -NoProfile -NonInteractive -OutputFormat Text -EncodedCommand …`. The script's first line sets `[Console]::OutputEncoding` and `$OutputEncoding` to UTF-8, hides progress records and resets `$LASTEXITCODE`, then the command follows on the same line, so line numbers in PowerShell's errors match the command; the script ends with the last native program's exit code. PowerShell writes its error, warning and information streams as CLIXML when started this way; they are turned back into plain lines (`readableStderr`). The execution policy is not changed.
+   - Git Bash: `<Git>\bin\bash.exe -c 'eval "$WORKBENCH_COMMAND"'`, with the command in that environment variable, so no quoting on the command line can change it.
+   - The environment is the user's, without Electron's own variables (`ELECTRON_*`). `windowsHide`, `shell: false`, no elevation: a command that asks for administrator rights gets Windows' own prompt.
+   - A timeout or Stop ends the process tree with `taskkill /T /F`, as for Python. That is best effort: a process that detached itself from the tree can survive.
 
 ## Limits and cost
 
-- **Rounds:** agent conversations get 30 tool rounds per send instead of 5 (Advanced, 10 to 50), 4 calls per response as today, and 60 calls per send. The reply shows "Step n of 30" and Stop.
-- **Time:** a reply is limited to 10 minutes today, including time spent waiting for an approval. For agent replies the limit is 60 minutes and counts only time spent waiting for the model and running tools, not time waiting for the user.
-- **Tokens:** each step sends the whole conversation again. A task of 15 steps whose context grows to 30,000 tokens sends roughly 250,000 input tokens. The reply's usage line shows the running total, and the prefix order above lets Tinfoil reuse cached prefixes if it caches them, which has not been measured.
-- **Context:** tool results older than the last ten steps are sent shortened to their first 1,000 characters in later steps; the full results stay in the conversation. (Phase 1 can ship without this if tests show the windows are large enough.)
+- **Rounds:** an agent conversation gets 30 tool rounds per message instead of 5, 4 calls per response as before, and 60 calls per message. The status line shows "step n of 30". At the limit the reply stops and says so; sending a message lets it continue.
+- **Time:** a reply is limited to 10 minutes, including time spent waiting for an approval. An agent reply may take 60 minutes, counting only time spent waiting for the model and running tools, not time waiting for the user.
+- **Tokens:** each step sends the whole conversation again. A task of 15 steps whose context grows to 30,000 tokens sends roughly 250,000 input tokens. Results of agent calls older than the last ten are sent as a 1,000-character excerpt that says so (`compactAgentHistory`); the conversation keeps them whole. The prefix order above lets Tinfoil reuse cached prefixes if it caches them, which has not been measured.
+- **Storage:** a reply may now hold 128 tool runs and 160 tool-history messages (they were 96 and 24).
 
 ## Storage, display and export
 
-- A conversation's `settings` gain `agent: { folder, shell }`; the folder chip and the environment block read it. Setting it requires a native folder choice; the renderer cannot type a path.
-- Tool runs keep today's shape (`ToolRun`); commands store their exit code and output as `stdout`/`stderr`, edits store the applied diff, and plans are drawn from the latest `update_plan` arguments.
-- The activity list shows each kind with its own row: a command with its exit code and output, a read or search with its path, an edit with its diff, and the plan as a checklist.
-- Retry asks the model again; nothing is re-run without new approvals. Branch copies the conversation with its folder.
-- The Markdown export lists commands and edits; the JSON export keeps everything, including the folder path, and its plaintext warning says so.
+- A conversation's settings gain `agentMode` (`off`/`ask`) and `agentShell` (`powershell`/`bash`); the folder is `Thread.agentFolder`, set only by the main process after the native picker (`setAgentFolder`), and must be an absolute path on a drive.
+- Agent calls keep the `ToolRun` shape, with `agent: { folder, shell?, diff? }`: the folder and shell they ran in and, for a change, the diff that was shown for approval. Command output is kept as `stdout` and `stderr` with the exit code.
+- The activity list names each call (Read file, Command, Edit file and so on) with its path, pattern or command's first line; a change shows its diff with added and removed lines coloured, a command its folder, shell and exit code, and the latest plan stays in view above the reply's calls.
+- Retry asks the model again; nothing is re-run or re-applied without new approvals. Branch copies the conversation with its folder.
+- Both exports are plaintext and include folder paths: the Markdown export lists each call with its arguments, output, folder and shell, and a change as a diff; the JSON export keeps everything.
 
 ## Security
 
-| Threat | Control in phase 1 | What remains |
+| Threat | Control | What remains |
 |---|---|---|
-| Prompt injection from a file, command output or web page | "Output is data" in the guide; every command and edit approved in a native dialog | An approved command does whatever it says; the user must read it |
+| Prompt injection from a file, command output or web page | "Output is data" in the guide; every command and change approved in a native dialog | An approved command does whatever it says; the user must read it |
 | Data sent to the network | Commands are approved; reads stay in the folder | An approved command can send anything the user's account can read |
+| Reading keys, browser data or app data without approval | Folders that hold them cannot be chosen; reads are confined to the folder, links and junctions included | Secrets kept inside a chosen project folder (a `.env` file) can be read |
 | Destructive commands | The guide forbids unrequested ones; the dialog shows the exact command | No undo; no sandbox |
-| Credentials | The guide forbids reading them; read tools are confined to the folder | Commands run as the user and can read the user's files, including Workbench's own encrypted data, which any program running as the user can decrypt |
-| Escaping the folder | Read and edit paths resolved and confined, links followed and checked | Commands are not confined |
-| A compromised page approving actions | Native dialogs in the main process, checked again after they close | — |
-| Runaway loops and cost | Rounds, calls and time limits; Stop; the step counter and usage line | — |
-
-The mode is off by default, per conversation, Windows only, and not available in cloud chats. The Advanced panel and the first folder choice say plainly that it is not a sandbox.
+| Credentials | The guide forbids reading them | Commands run as the user and can read the user's files, including Workbench's own encrypted data, which any program running as the user can decrypt |
+| Escaping the folder | Read and change paths resolved and confined | Commands are not confined |
+| A change to a file edited meanwhile | Written only if the file is unchanged since the proposal | — |
+| A compromised page acting for the user | Native folder picker and dialogs in the main process, checked again after they close | — |
+| Runaway loops and cost | Rounds, calls and time limits; Stop; the step count | — |
 
 ## Rule changes
 
-- **AGENTS.md, line 5:** "No generic IPC, shell, filesystem or arbitrary URL-fetch bridges." becomes "The renderer gets no generic IPC, shell, filesystem or URL-fetch bridge. The workspace agent's commands and file tools run in the main process only, each command and edit after its own native confirmation (docs/WORKSPACE-AGENT.md)."
-- **AGENTS.md, Python paragraph:** "no always-allow mode, terminal or implicit package installation" becomes "no always-allow mode, interactive terminal session or implicit package installation. The workspace agent runs one approved command at a time in the conversation's folder."
-- **SECURITY.md:** a section "The workspace agent is not a sandbox", with the table above.
+- **AGENTS.md:** "No generic IPC, shell, filesystem or arbitrary URL-fetch bridges" became "The renderer gets no generic IPC, shell, filesystem or URL-fetch bridge; the workspace agent's commands and file tools run in the main process only, each command and change after its own native confirmation." The Python paragraph's "no always-allow mode, terminal or implicit package installation" became "no always-allow mode, interactive terminal session or implicit package installation", followed by a paragraph on the workspace agent.
+- **SECURITY.md:** a section "The workspace agent is not a sandbox".
+
+## Compatibility
+
+Settings, the folder and the `agent` field of tool runs are optional; 1.2.0 ignores them. A reply with more than 24 tool-history messages or 96 tool runs, which only the workspace agent produces, cannot be opened by 1.2.0: its workspace check refuses the whole workspace.
 
 ## Tests
 
-- **Core (Node):** argument validation for each tool; path confinement (`..`, absolute, drive-relative, UNC, device names, a symbolic link and a junction pointing out); read limits and binary refusal; `edit_file` with a unique, missing and repeated `old_text`; the output head-and-tail cut; the guide's byte stability per tool set; the tools never offered on Android, in cloud chats, or without a folder.
-- **Service:** a scripted model that lists, reads, edits and runs over several rounds; nothing runs or changes without approval; a declined command returns `denied`; Stop and timeouts end a running command; the round, call and time limits; the time limit paused during approvals.
-- **Runner (Windows):** PowerShell and Git Bash exit codes; UTF-8 output with Chinese text on a system with a non-UTF-8 code page; a command that starts a child process (`Start-Sleep`) ended by Stop; the environment without `ELECTRON_*`; a smoke check in `--smoke-test` and the packaged app.
-- **Browser suites:** the folder chip, the approval cards for commands and edits, the diff, the plan checklist, the step counter and Stop; Escape never approves.
-- **Live, with a real account, after you approve the budget:** a small fixture project in a temporary folder with one failing test. Two tasks per model: "What does this project do and how are its tests run?" (reading only) and "Make the failing test pass" (reading, one edit, running the tests). Kimi K3, GLM-5.3 and DeepSeek V4 Pro, one sample each at temperature 0. Estimate: about 40,000 input tokens for the first task and 180,000 for the second, so about 700,000 input tokens and 60,000 output tokens in all.
+- `tests/agent.test.mjs`: argument and path checks; search patterns and globs; output shortening; diffs; the guide and environment; excerpts of older results; new conversations and branches; refused folders; CLIXML errors. On Windows also: reads, lists and searches confined through a junction; changes that keep CRLF and a byte order mark and are refused once the file changed; PowerShell with UTF-8 output, exit codes and plain errors; timeouts and Stop ending a command and its children; Git Bash with a quoted command; and through the service: tools offered only with a folder in a local conversation of the Windows app, reads without approval, changes and commands only after approval, declined calls, a change refused after the file changed, a path outside the folder, the 30-round limit, and the move to a cloud project refused.
+- `tests/ui-activity.py`: the Advanced switch, the folder button, the cards for a change and a command, the plan, the step count, finished calls in the history, and the offline preview refusing to run or apply anything.
+- `--smoke-test`: one PowerShell command in a scratch folder, with its UTF-8 output and exit code.
+- **Live, with a real account:** not run yet. Proposed: a small fixture project in a temporary folder with one failing test; two tasks per model: "What does this project do and how are its tests run?" (reading only) and "Make the failing test pass" (reading, one change, running the tests); Kimi K3, GLM-5.3 and DeepSeek V4 Pro, one sample each at temperature 0; about 700,000 input and 60,000 output tokens in all.
 
-## Phases
+## Later
 
-1. **1.3.0:** the mode as above: one folder and shell per conversation, the seven tools, approval of every command and edit, limits, display, export, rule changes and tests.
-2. **Later: fewer approvals, without an allow-all.** Per conversation "always allow this command" rules using Codex's splitting (never for commands with redirection, substitution, variables or wildcards, never for `rm`/`Remove-Item`, interpreters or git history rewrites), and "allow edits inside this folder". Long-running processes with `write_stdin`-style polling, for development servers.
-3. **Research:** a real sandbox on Windows (Codex's approach needs administrator setup and a native helper; Windows Sandbox is another route) and a reviewer model for planned actions.
-
-## Open decisions
-
-1. Cloud chats: excluded (proposed), or allowed with commands and edits kept local.
-2. Default shell: PowerShell 5.1 (proposed) or Git Bash.
-3. Reading inside the folder without approval (proposed), or approval for every read too.
-4. Round limit per send: 30 (proposed).
-5. The live-test budget above.
-6. The name: *Workspace agent* (proposed) or *Agent mode*.
+- **Fewer approvals, without an allow-all:** per conversation "always allow this command" rules using Codex's splitting (never for commands with redirection, substitution, variables or wildcards, never for deletion, interpreters or git history rewrites), and "allow changes inside this folder". Long-running processes with `write_stdin`-style polling, for development servers.
+- **Research:** a real sandbox on Windows (Codex's approach needs administrator setup and a native helper; Windows Sandbox is another route) and a reviewer model for planned actions.
 
 ## References
 

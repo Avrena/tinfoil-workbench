@@ -84,6 +84,8 @@ Visual tools create charts, tables, diagrams, timelines, stat cards and versione
 
 Tool batches execute sequentially with per-action approvals. Tinfoil-managed MCP records show provider-reported activity and cannot invoke a local tool. Hosted search and text-only delegation are opt-in; see [activity](docs/ACTIVITY.md). On Windows, Python runs locally with the current user's file and network permissions: **it is not a security sandbox**. Each run needs exact-code approval and a native confirmation.
 
+On Windows, the workspace agent (Advanced, off by default, per conversation) lets a model work in a folder you choose: it lists, searches and reads files there without asking, and runs Windows PowerShell or Git Bash commands (git included) and changes files only after you approve each one in a native dialog that shows the command, or the change as a diff. It is not a sandbox either: an approved command runs with your Windows account's permissions. See [workspace agent](docs/WORKSPACE-AGENT.md).
+
 ## Data and backups
 
 Conversations are stored only on the device, in an encrypted workspace:
@@ -103,6 +105,7 @@ Keyboard shortcuts on Windows: Ctrl+N new thread; Ctrl+K commands; Ctrl+F conver
 - **Tinfoil cloud chats (Windows):** Workbench lists your 300 most recent cloud chats and does not download their images, so when you continue a chat the model does not see earlier images. Of Tinfoil Chat's widgets, charts, timelines and stat cards are drawn; the others are listed as not displayed. Visuals made in Workbench are not written back, so Tinfoil Chat shows those answers as text. Cloud projects are managed in Tinfoil Chat.
 - **Sign-in methods:** Chat sign-in has been checked on Windows and Android. Additional sign-in methods have not been tried.
 - **Python** (Windows) runs with your user account's permissions. It is not a sandbox.
+- **Workspace agent** (Windows): approved commands run with your account's permissions and are not confined to the folder; there is no sandbox and no interactive or long-running commands. Not in Tinfoil cloud chats or on Android.
 - **Android, replies in progress:** Android can pause the app in the background, and a reply being written then stops; the reply says so. Ask again with Retry.
 - **Models:** a model can fail to follow the tool guide. When one writes a chart, table, diagram, timeline or stat-card call into its answer as text instead of making it (GLM-5.3 Flash has), Workbench draws it and marks it as written as text; other calls written as text stay text.
 
@@ -115,7 +118,7 @@ Keyboard shortcuts on Windows: Ctrl+N new thread; Ctrl+K commands; Ctrl+F conver
 ## Documentation
 
 - [Android app](docs/ANDROID.md) · [Android sign-in](docs/ANDROID-ACCOUNT.md) · [Tinfoil cloud chats](docs/CLOUD.md) · [Releasing](docs/RELEASING.md) · [Validation](docs/VALIDATION.md) · [Manual acceptance](docs/HANDOFF.md)
-- [Architecture](docs/ARCHITECTURE.md) · [Security](SECURITY.md) · [Accounts](docs/ACCOUNT.md) · [Activity and tools](docs/ACTIVITY.md) · [Editing and mobile layout](docs/EDITING-AND-MOBILE.md) · [Spacing](docs/SPACING.md) · [Rendering](docs/RENDERING.md)
+- [Architecture](docs/ARCHITECTURE.md) · [Security](SECURITY.md) · [Accounts](docs/ACCOUNT.md) · [Activity and tools](docs/ACTIVITY.md) · [Editing and mobile layout](docs/EDITING-AND-MOBILE.md) · [Workspace agent](docs/WORKSPACE-AGENT.md) · [Spacing](docs/SPACING.md) · [Rendering](docs/RENDERING.md)
 - [Changelog](CHANGELOG.md) · [Notices](NOTICE.md) · Earlier records in [docs/history](docs/history)
 
 Original application code is private and UNLICENSED; third-party notices are in [NOTICE.md](NOTICE.md). This is an unofficial client, not endorsed by Tinfoil.

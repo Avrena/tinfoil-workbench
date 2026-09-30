@@ -1,5 +1,14 @@
 # Changelog
 
+## 1.3.0 — workspace agent (unreleased)
+
+- Workspace agent (Windows): Advanced → Workspace agent turns it on for a conversation, and the folder button on the message box chooses its folder in a native picker, with a confirmation. The model lists, searches and reads files in the folder without asking. It runs Windows PowerShell 5.1 or Git Bash commands (git included) and changes files only after you approve each one in a native dialog that shows the exact command, or the change as a diff. It is not a sandbox: an approved command runs with your Windows account's permissions. Drive roots, your home folder, AppData, Windows and program folders cannot be chosen. A change is written only if the file has not changed since it was proposed. See docs/WORKSPACE-AGENT.md.
+- An agent reply may take 30 tool rounds and 60 calls per message and 60 minutes, not counting time spent waiting for your approval. Results older than the last ten go to the model as excerpts.
+- Each agent call is shown by kind: a command with its folder, shell and exit code, a change as a coloured diff, and the model's current plan above them, with the step count in the status line. The Markdown export includes the folder and the diffs.
+- Not in Tinfoil cloud chats or on Android; a conversation that used the agent stays on this computer.
+- A reply may now hold 128 tool runs and 160 tool-history messages. 1.2.0 cannot open a workspace with a reply over its limits of 96 and 24, which only the workspace agent produces.
+- AGENTS.md and SECURITY.md allow the workspace agent's approved commands; the page still has no shell or filesystem bridge.
+
 ## 1.2.0 — versions inside a conversation
 
 - Versions: an edited message, Retry, and an edited answer or thinking text make a new version of that point in the same conversation instead of a new conversation in the sidebar. ‹ 2/3 › arrows on a message switch between its different wordings, each showing its latest answer; arrows on a reply switch between the answers to the same message. Only the version shown is sent to a model, exported as Markdown and written to a Tinfoil cloud chat; the JSON export keeps all of them. Branch still copies the conversation shown into a new one.

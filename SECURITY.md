@@ -20,9 +20,15 @@ PDF creation occurs in a separate no-preload, JavaScript-disabled window with ne
 
 ## Python is not a sandbox
 
-Native Python has the user's account permissions and can access files/network. Isolated mode, a reduced environment, temporary cwd, no shell interpolation, time/output limits and best-effort tree termination do not provide OS containment. Only explicitly approved code should run. No generic terminal or silent package installer is exposed.
+Native Python has the user's account permissions and can access files/network. Isolated mode, a reduced environment, temporary cwd, no shell interpolation, time/output limits and best-effort tree termination do not provide OS containment. Only explicitly approved code should run. No generic terminal or silent package installer is exposed; the workspace agent's commands are approved one at a time (below).
 
 Each native run requires a pending service proposal plus a fresh native exact-code/interpreter confirmation, rechecked after the dialog. No always-allow option exists. Rendering, loading history, importing or startup cannot authorize execution. Manual code runs derive from a stored completed block rather than renderer-supplied replacement source, and their outputs are excluded from model context by default. A Python process can create output beyond what the collector retains; artifact collection limits do not contain the process.
+
+## The workspace agent is not a sandbox (1.3)
+
+On Windows, a conversation can let the model work in a folder ([docs/WORKSPACE-AGENT.md](docs/WORKSPACE-AGENT.md)). It lists, searches and reads files inside that folder without approval. Every command and every file change needs its own native confirmation, which shows the exact command with its shell and folder, or the change as a diff, and the request is checked again after the dialog closes. There is no always-allow option.
+
+Commands run with the user's Windows account permissions: they can read, change and send anything that account can, including Workbench's own encrypted data, which any program running as the user can decrypt. Only reads and changes are confined to the folder, by resolved path (links and junctions are followed and must stay inside); commands are not. The folder comes only from a native picker, and drive roots, the home folder and the folders above it, AppData, Windows and program folders are refused, so reading without approval cannot reach the user's keys, browser data or app data. A change is written only if the file is byte-identical to what was read when it was proposed. Commands get no stdin and no elevation, and a timeout or Stop ends their process tree (best effort: a process that detached itself can survive). File contents, command output and web pages can try to steer the model; reading each command before approving it is the control. The mode is off by default, set per conversation, and not available on Android or in Tinfoil cloud chats.
 
 ## Scope and native actions
 
