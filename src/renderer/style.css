@@ -877,6 +877,14 @@ dialog[open]{transform:translateZ(0);isolation:isolate}
   --safe-width:calc(100% - var(--safe-left) - var(--safe-right));--safe-height:calc(var(--app-height,100dvh) - var(--safe-top) - var(--safe-bottom))}
 [data-platform=android] body{box-sizing:border-box;padding:var(--safe-top) var(--safe-right) var(--safe-bottom) var(--safe-left)}
 [data-platform=android] #app{height:100%}
+/* On a phone the title bar would only repeat the app's name: there is no window to move or close, and its search is
+   hidden at this width. The drawers start at the top of the shell instead. */
+@media(max-width:600px){
+  [data-platform=android] .titlebar{display:none}
+  :root[data-platform=android] .shell{grid-template-rows:0 minmax(0,1fr) 22px!important}
+  [data-platform=android] .shell .sidebar,[data-platform=android] .shell .inspector,[data-platform=android] #drawer-backdrop{top:0}
+  [data-platform=android] .shell.with-artifacts .artifact-panel{top:0}
+}
 
 /* Reading type: answers, prompts and editor previews share one size; secondary text stays quieter. */
 .reply-content,.editor-markdown{font-size:var(--reading-size);line-height:var(--reading-leading)}

@@ -109,6 +109,11 @@ with sync_playwright() as p:
   bp.evaluate("()=>{const t=document.createElement('div');t.className='toast';t.id='inset-toast';t.textContent='Saved.';document.body.append(t);}");outside.append(bp.evaluate(inside,['#inset-toast',inset]))
   assert not [o for o in outside if o],(name,inset,[o for o in outside if o])
   checks.append(f'{name}: with system-bar insets {inset}, the shell, all eleven dialogs including the message editor, and a toast stay clear of the bars and cutout')
+  # A phone has no window title bar: the toolbar and the navigation drawer start under the status bar.
+  bp.evaluate("()=>document.querySelector('[data-action=sidebar]').click()");bp.wait_for_timeout(250)
+  top=bp.evaluate("()=>({bar:getComputedStyle(document.querySelector('.titlebar')).display,main:Math.round(document.querySelector('.main').getBoundingClientRect().top),side:Math.round(document.querySelector('.sidebar').getBoundingClientRect().top)})")
+  if w<=600:assert top=={'bar':'none','main':inset['top'],'side':inset['top']},(name,top);checks.append(f'{name}: no title bar; the toolbar and the navigation drawer start right under the status bar')
+  else:assert top['bar']!='none',(name,top);checks.append(f'{name}: wider than a phone, the title bar with its search stays')
   bars.close()
  assert not errors;checks.append('responsive matrix produced no unhandled JavaScript errors')
  context.close();b.close()
