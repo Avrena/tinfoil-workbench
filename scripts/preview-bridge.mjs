@@ -8,12 +8,15 @@ import { viewPreferences } from '/core/preferences.js';
 // Development preview only. This file is outside dist/desktop and is NOT packaged in the Windows application.
 import {newWorkspace,findThread,addThread,beginTurn,retryTurn,addMessage,chooseReply,forkThread} from '/core/workspace.js';
 import {settings,attachments,InputError} from '/core/validation.js';
+import {agentFolderName} from '/core/agent.js';
+// The workspace agent's root for new folders: synthetic, like every preview path; set by the Choose… button in Advanced.
+let previewAgentRoot=null;
 let previewAccount=signedOutAccount(),previewMode='api-key',previewRemember=true;
 // Cloud sync is shown with synthetic state only; the preview never connects to Tinfoil cloud.
 let previewCloud={state:'off',keyId:null,user:null,lastSyncAt:null,message:null,chats:0,projects:0,older:0},previewLoading=[];
 const workspace=newWorkspace(),listeners=new Set();let sequence=0,busy=null,stopped=false;
 Object.assign(workspace.threads[0].settings,{model:'demo/writer',compareModel:'demo/analyst'});
-const snapshot=()=>({sequence:++sequence,account:structuredClone(previewAccount),connectionMode:previewMode,rememberAccount:previewRemember,cloud:structuredClone(previewCloud),cloudLoading:[...previewLoading],workspace:structuredClone({version:workspace.version,activeId:workspace.activeId,threads:workspace.threads,projects:workspace.projects,instructionPresets:workspace.instructionPresets,view:workspace.view}),pythonConfigured:false,agent:{available:true,gitBash:true},hasKey:false,models:['demo/writer','demo/analyst','deepseek-v4-pro','kimi-k3'],capabilities:structuredClone(previewCatalog),modelCatalog:'ready',verification:{state:'idle',checkedAt:null,steps:[]},busyThreadId:busy,storage:'preview',notice:'OFFLINE PREVIEW · Synthetic responses · No API connection or local persistence'});
+const snapshot=()=>({sequence:++sequence,account:structuredClone(previewAccount),connectionMode:previewMode,rememberAccount:previewRemember,cloud:structuredClone(previewCloud),cloudLoading:[...previewLoading],workspace:structuredClone({version:workspace.version,activeId:workspace.activeId,threads:workspace.threads,projects:workspace.projects,instructionPresets:workspace.instructionPresets,view:workspace.view}),pythonConfigured:false,agent:{available:true,gitBash:true,root:previewAgentRoot},hasKey:false,models:['demo/writer','demo/analyst','deepseek-v4-pro','kimi-k3'],capabilities:structuredClone(previewCatalog),modelCatalog:'ready',verification:{state:'idle',checkedAt:null,steps:[]},busyThreadId:busy,storage:'preview',notice:'OFFLINE PREVIEW · Synthetic responses · No API connection or local persistence'});
 const emit=()=>{const s=snapshot();for(const fn of listeners)fn(s);};
 // Synthetic picker metadata. Display-only (`known: false`), so the bundled reasoning profiles still apply.
 function previewModel(id,display){return {id,label:display.name,known:false,source:'unknown',reasoning:false,effort:[],toggle:false,defaultEnabled:true,enable:{},disable:{},toolCalling:null,
@@ -139,6 +142,7 @@ window.tinfoil=Object.freeze({
       // No folder picker here: a synthetic path stands in, and nothing is read from it.
       case 'agent.folder':if(c.id===busy)throw new InputError('Stop the response first.');findThread(workspace,c.id).agentFolder='C:\\Preview\\example-project';break;
       case 'agent.folder.clear':delete findThread(workspace,c.id).agentFolder;break;
+      case 'agent.root':previewAgentRoot='C:\\Preview\\Tinfoil';break;
       case 'artifact.pdf':case 'artifact.open':case 'python.pick':case 'code.run':case 'artifact.save':throw new InputError('Offline preview does not execute Python or create files. Use the desktop app.');
       case 'open.url':throw new InputError('Offline preview does not open external links.');
       case 'thread.new':{const t=newProjectThread(workspace,c.projectId);if(c.cloud===true&&previewCloud.state!=='off'&&t.projectId==null)t.cloudPending=true;break;}
@@ -159,7 +163,10 @@ window.tinfoil=Object.freeze({
       case 'thread.delete':if(c.id===busy)throw new InputError('Stop the response first.');workspace.threads=workspace.threads.filter(t=>t.id!==c.id);if(!workspace.threads.length)addThread(workspace);workspace.activeId=workspace.threads[0].id;break;
       case 'thread.fork':forkThread(workspace,c.id,c.turnId,c.before,c.replyId);break;
       case 'reply.select':chooseReply(findThread(workspace,c.id),c.turnId,c.replyId);break;
-      case 'send':case 'turn.retry':if(busy)throw new InputError('A response is already running.');{const t=findThread(workspace,c.id),jobs=c.type==='send'?beginTurn(t,c.text,attachments(c.attachments),'',c.replace):retryTurn(t,c.turnId);busy=t.id;stopped=false;void simulate(t,jobs);break;}
+      case 'send':case 'turn.retry':if(busy)throw new InputError('A response is already running.');{const t=findThread(workspace,c.id);
+        // As in the app, a conversation without a folder gets a new one under the root; nothing is created here.
+        if(t.settings.agentMode==='ask'&&!t.agentFolder){if(!previewAgentRoot)throw new InputError('Choose where the workspace agent keeps new work (Advanced → Workspace agent), or choose a project folder there.');t.agentFolder=previewAgentRoot+'\\'+agentFolderName(t.turns.length?t.title:c.text??'',new Date(),t.id);}
+        const jobs=c.type==='send'?beginTurn(t,c.text,attachments(c.attachments),'',c.replace):retryTurn(t,c.turnId);busy=t.id;stopped=false;void simulate(t,jobs);break;}
       case 'stop':stopped=true;break;
       case 'attachments.pick':extra=[{name:'outline.md',content:'A fictional scene outline. Preview-only attachment.'}];break;
       case 'clipboard':await navigator.clipboard.writeText(c.text);break;

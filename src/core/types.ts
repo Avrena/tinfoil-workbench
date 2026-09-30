@@ -105,6 +105,8 @@ export interface Workspace {
   connectionMode?: ConnectionMode; /** false turns staying signed in off; absent means on. */ rememberAccount?: false;
   /** Tinfoil cloud sync: the chat key (`key_…`), its key ID and the Tinfoil user it belongs to. Never in snapshots. */
   cloud?: CloudConfig; apiKey: string; cacheSecret: string; view: ViewPreferences; pythonPath: string;
+  /** Where the workspace agent makes a new folder for a conversation that has none (Windows; set by the host's picker). */
+  agentRoot?: string;
 }
 /** `writer` and `clock` are this installation's edit clock for Tinfoil's conflict order (docs/CLOUD.md). */
 export interface CloudConfig { key: string; keyId: string; user: string; writer: string; clock: number }
@@ -129,7 +131,7 @@ export interface Snapshot {
   busyThreadId: string | null; storage: 'os-encrypted' | 'preview';
   notice: string | null; pythonConfigured?: boolean;
   /** The workspace agent: available in the Windows app, and whether Git Bash was found there. */
-  agent?: { available: boolean; gitBash: boolean };
+  agent?: { available: boolean; gitBash: boolean; root: string | null };
   /** Set only by the Android host; absent on the Windows desktop. */
   platform?: 'android';
   /** Android only: whether this WebView can host Tinfoil's sign-in page (docs/ANDROID-ACCOUNT.md). */
@@ -159,6 +161,8 @@ export type Command =
   /** The workspace agent's folder: chosen in the host's native picker, or cleared. The page never names a path. */
   | { type: 'agent.folder'; id: string }
   | { type: 'agent.folder.clear'; id: string }
+  /** Where new folders for the workspace agent are made: chosen in the host's native picker. */
+  | { type: 'agent.root' }
   | { type: 'tool.cancel'; id: string; toolId: string }
   | { type: 'tool.approve'; id: string; toolId: string; approve: boolean }
   | { type: 'code.run'; id: string; replyId: string; index: number }

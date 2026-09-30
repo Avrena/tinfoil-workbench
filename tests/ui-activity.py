@@ -81,12 +81,17 @@ with sync_playwright() as p:
  # The workspace agent (docs/WORKSPACE-AGENT.md): off by default, turned on in Advanced, its folder chosen natively (a
  # synthetic path in the preview), its calls drawn by kind; the offline preview never applies or runs anything.
  context=browser.new_context(viewport={'width':1280,'height':900});page=context.new_page();page.on('pageerror',lambda e:errors.append(str(e)));page.on('request',lambda r:requests.append(r.url));page.set_content(html)
- expect(page.locator('#composer-folder')).to_be_hidden();page.locator('.toolbar [data-action=inspector]').click();expect(page.locator('#agent-settings')).to_be_visible();expect(page.locator('#agent-mode')).not_to_be_checked()
- page.locator('#agent-mode').check();page.locator('#apply-settings').click();page.locator('#inspector [data-action=inspector]').click()
- chip=page.locator('#composer-folder');expect(chip).to_be_visible();expect(chip).to_have_class(re.compile(r'\bunset\b'));expect(chip).to_have_text('Choose folder')
- chip.click();expect(page.locator('#composer-folder-name')).to_have_text('example-project');expect(chip).not_to_have_class(re.compile(r'\bunset\b'));expect(chip).to_have_attribute('title',re.compile(r'C:\\Preview\\example-project'))
- checks.append('the workspace agent is off by default, turned on in Advanced, and its folder is shown on the composer once chosen')
- page.locator('#prompt').fill('workspace agent demo');page.locator('#send').click()
+ page.locator('.toolbar [data-action=inspector]').click();expect(page.locator('#agent-settings')).to_be_visible();expect(page.locator('#agent-mode')).not_to_be_checked()
+ page.locator('#agent-mode').check();page.locator('#apply-settings').click();assert page.locator('.composer [data-action=agent-folder]').count()==0
+ current,made_in=page.locator('#agent-folder-current'),page.locator('#agent-root-current')
+ expect(current).to_contain_text('None yet');expect(current).to_have_class(re.compile(r'\bunset\b'));expect(made_in).to_have_text('Not chosen');expect(page.locator('#agent-folder-new')).to_be_hidden()
+ page.locator('#inspector [data-action=inspector]').click();page.locator('#prompt').fill('workspace agent demo');page.locator('#send').click();expect(page.locator('#toast')).to_contain_text('Choose where the workspace agent keeps new work')
+ checks.append('the workspace agent is off by default and turned on in Advanced, with no folder button on the message box; with neither a folder nor a place for new ones, sending says where to choose')
+ page.locator('.toolbar [data-action=inspector]').click();page.locator('[data-action=agent-root]').click();expect(made_in).to_have_text('C:\\Preview\\Tinfoil');expect(current).to_have_text('A new folder in C:\\Preview\\Tinfoil, made when you send')
+ page.locator('[data-action=agent-folder]').click();expect(current).to_have_text('C:\\Preview\\example-project');expect(page.locator('#agent-folder-new')).to_be_visible()
+ page.locator('#agent-folder-new').click();expect(current).to_have_text('A new folder in C:\\Preview\\Tinfoil, made when you send');expect(page.locator('#agent-folder-new')).to_be_hidden()
+ checks.append('Advanced shows the conversation\'s folder and where new ones are made, both chosen natively; a project folder can be chosen, and dropped for a new folder')
+ page.locator('#inspector [data-action=inspector]').click();expect(page.locator('#prompt')).to_have_value('workspace agent demo');page.locator('#send').click()
  row=page.locator('.reply .activity-strip');expect(row.locator('> summary .tick:not(.tick-out)')).to_contain_text('List files',timeout=8000);expect(row.locator('> summary .tick-out')).to_contain_text('Plan')
  expect(row.locator('> summary .tick:not(.tick-out)')).to_contain_text('npm test',timeout=8000);expect(row.locator('> summary .tick-out')).to_contain_text('Read file');assert page.locator('.reply .activity-strip').count()==1
  checks.append('as the agent works, each call rolls into one row in turn: the running call with its path or command, the one before it rolling out')
@@ -106,6 +111,9 @@ with sync_playwright() as p:
  expect(failed.locator('.tool-stdout')).to_contain_text('TypeError');expect(failed.locator('.tool-metadata')).to_contain_text('exit 1')
  edit.locator('[data-action=approve-tool]').click();expect(page.locator('#toast')).to_contain_text('does not execute Python, run commands, change files')
  checks.append('finished agent calls keep their results in the history, and the offline preview refuses to apply or run anything')
+ made=re.compile(r'^C:\\Preview\\Tinfoil\\\d{4}-\d{2}-\d{2} workspace agent demo [0-9a-f]{4}$');expect(command.locator('.agent-where')).to_contain_text('C:\\Preview\\Tinfoil\\')
+ page.locator('.toolbar [data-action=inspector]').click();expect(current).to_have_text(made);expect(page.locator('#agent-folder-new')).to_be_visible();page.locator('#inspector [data-action=inspector]').click()
+ checks.append('sending without a folder gives the conversation a new one, named after the date and its first message, under the chosen place')
  page.screenshot(path=str(root/'docs'/'agent-1280.png'));context.close()
  assert not errors,errors;assert not [u for u in requests if u.startswith(('http:','https:'))],requests;checks.append('activity checks produced no unhandled JavaScript errors or external requests')
  browser.close()

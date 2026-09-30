@@ -1,9 +1,9 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { mkdtempSync, mkdirSync, readFileSync, rmSync, symlinkSync, writeFileSync } from 'node:fs';
+import { mkdtempSync, mkdirSync, readdirSync, readFileSync, realpathSync, rmSync, symlinkSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
-import { join } from 'node:path';
-import { AGENT_LIMITS, AGENT_TOOLS, agentArguments, agentGuide, compactAgentHistory, diffCounts, globMatcher, outsidePaths, searchPattern, shortenOutput, unifiedDiff, workspacePath } from '../dist/core/agent.js';
+import { basename, join } from 'node:path';
+import { AGENT_LIMITS, AGENT_TOOLS, agentArguments, agentFolderName, agentGuide, compactAgentHistory, diffCounts, globMatcher, outsidePaths, searchPattern, shortenOutput, unifiedDiff, workspacePath } from '../dist/core/agent.js';
 import { agentEnvironment, toolGuide, withToolGuide } from '../dist/core/prompt.js';
 import { validateWorkspace } from '../dist/core/validation.js';
 import { exportMarkdown, forkThread, newThread } from '../dist/core/workspace.js';
@@ -109,6 +109,15 @@ test('folders that hold keys, app data or the system cannot be the agent folder'
     ['C:\\Users\\Ada\\AppData', /application data/], ['C:\\Windows\\System32', /system/], ['C:\\Program Files\\Git', /system/]])
     assert.match(unsafeFolder(folder, env) ?? '', reason, folder);
   for (const folder of ['C:\\Users\\Ada\\Projects\\demo', 'D:\\Projects\\demo', 'C:\\Users\\Ada\\Documents']) assert.equal(unsafeFolder(folder, env), null, folder);
+});
+
+test('a new folder is named after the date, the start of the message and the conversation', () => {
+  const day = new Date(2026, 8, 30, 12);
+  assert.equal(agentFolderName('Fix the failing cart test', day, '3F2A9c1e-0000'), '2026-09-30 Fix the failing cart test 3f2a');
+  assert.equal(agentFolderName('读取 C:\\Users\\a.md: why?  <now>', day, 'ab-cd'), '2026-09-30 读取 C Users a.md why now abcd');
+  assert.equal(agentFolderName('Done...', day, 'x1'), '2026-09-30 Done x1');
+  assert.equal(agentFolderName(' \n ', day, 'x1'), '2026-09-30 Conversation x1');
+  assert.equal(agentFolderName('一'.repeat(60), day, 'x1'), `2026-09-30 ${'一'.repeat(40)} x1`);
 });
 
 test('PowerShell errors written as CLIXML become plain lines', () => {
@@ -227,19 +236,19 @@ test('the agent is offered only with its folder, in a local conversation of the 
   assert.deepEqual(requests[0].tools.map(tool => tool.function.name), ['list_files', 'search_files', 'read_file', 'edit_file', 'write_file', 'run_command', 'update_plan']);
   const system = requests[0].messages[0].content;
   assert.match(system, /<workspace_agent>/); assert.ok(system.includes(`<environment>\nfolder: ${dir}\nshell: Windows PowerShell 5.1`));
-  assert.deepEqual(s.snapshot().agent, { available: true, gitBash: false });
+  assert.deepEqual(s.snapshot().agent, { available: true, gitBash: false, root: null });
 
   const off = await agentSetup(t, { mode: 'off', script: () => answer('Done.') });
   await send(off.s); await done(off.s); assert.ok(!('tools' in off.requests[0]));
   const noFolder = await agentSetup(t, { folder: false, script: () => answer('Done.') });
-  await assert.rejects(send(noFolder.s), /Choose a folder for the workspace agent/); assert.equal(noFolder.requests.length, 0);
+  await assert.rejects(send(noFolder.s), /Choose where the workspace agent keeps new work/); assert.equal(noFolder.requests.length, 0);
   const cloud = await agentSetup(t, { script: () => answer('Done.') }); cloud.thread.cloudPending = true;
   await assert.rejects(send(cloud.s), new RegExp(AGENT_CLOUD.slice(0, 40)));
   const bash = await agentSetup(t, { script: () => answer('Done.') }); bash.thread.settings.agentShell = 'bash';
   await assert.rejects(send(bash.s), /Git Bash was not found/);
   const android = await agentSetup(t, { tools: false, mode: 'off', script: () => answer('Done.') });
   await assert.rejects(android.s.execute({ type: 'thread.settings', id: android.thread.id, settings: { ...android.thread.settings, agentMode: 'ask' } }), new RegExp(AGENT_UNAVAILABLE));
-  assert.deepEqual(android.s.snapshot().agent, { available: false, gitBash: false });
+  assert.deepEqual(android.s.snapshot().agent, { available: false, gitBash: false, root: null });
   await assert.rejects(android.s.setAgentFolder(android.thread.id, 'D:\\Projects'), new RegExp(AGENT_UNAVAILABLE));
 });
 
@@ -323,6 +332,25 @@ test('one agent step may hold 16 calls, run one after another; a 17th fails the 
   await send(over.s); await done(over.s);
   const failed = over.s.workspace.threads[0].turns[0].replies[0];
   assert.equal(failed.status, 'error'); assert.match(failed.error, /more than 16 tool calls in one response/); assert.equal(failed.tools.length, 0);
+});
+
+test('a conversation without a folder gets a new, empty one under the root when it first sends', windows, async t => {
+  const root = join(scratch(t, 'workbench-agent-root-'), 'Tinfoil');
+  const { s, requests, thread } = await agentSetup(t, { folder: false, script: () => answer('Done.') });
+  // The scratch root is under Temp, which is an application data folder; the refusals are checked below.
+  const tools = createAgentTools(); s.agentTools.createWorkFolder = (base, name) => tools.createWorkFolder(base, name, {});
+  await assert.rejects(send(s), /Choose where the workspace agent keeps new work/); assert.equal(requests.length, 0);
+  await s.setAgentRoot(root); assert.equal(s.snapshot().agent.root, root);
+  await send(s); await done(s);
+  const folder = thread.agentFolder;
+  assert.equal(folder, join(realpathSync(root), basename(folder))); assert.match(basename(folder), /^\d{4}-\d{2}-\d{2} Fix the answer [0-9a-f]{4}$/);
+  assert.deepEqual(readdirSync(folder), []); assert.ok(requests[0].messages[0].content.includes(`<environment>\nfolder: ${folder}\n`));
+  await send(s); await done(s); assert.equal(thread.agentFolder, folder, 'later messages keep the folder');
+  assert.equal(await tools.createWorkFolder(root, basename(folder), {}), `${folder} (2)`, 'an existing folder is never reused');
+  const stored = validateWorkspace(structuredClone(s.workspace)); assert.equal(stored.agentRoot, root);
+  assert.throws(() => validateWorkspace({ ...structuredClone(s.workspace), agentRoot: 'Tinfoil' }), /absolute path/);
+  await assert.rejects(tools.createWorkFolder('C:\\Users', 'x', { USERPROFILE: 'C:\\Users\\Ada' }), /home folder/);
+  await assert.rejects(tools.createWorkFolder('D:\\', 'x', {}), /whole drive/);
 });
 
 test('a conversation that used the agent cannot move into a cloud project', windows, async t => {

@@ -217,6 +217,7 @@ export function validateWorkspace(value: unknown): Workspace {
   if (!threads.some(t => t.id === activeId)) throw new InputError('Active conversation is missing.');
   return {
     version: 1, activeId, threads, projects, instructionPresets, ...(v.connectionMode?{connectionMode:v.connectionMode as Workspace['connectionMode']}:{}), ...(v.rememberAccount===false?{rememberAccount:false as const}:{}), ...(v.cloud===undefined?{}:{cloud:cloudConfig(v.cloud)}), view: viewPreferences(v.view), pythonPath: text(v.pythonPath ?? '', 'Python interpreter path', 4096),
+    ...(v.agentRoot === undefined ? {} : {agentRoot: agentFolder(v.agentRoot)}),
     apiKey: text(v.apiKey, 'API key', 4096), cacheSecret: text(v.cacheSecret, 'Cache secret', 200, true),
   };
 }

@@ -672,13 +672,16 @@ dialog:not(.message-editor) .modal-body { padding: 8px 20px 20px; }
 .inline-editor-discard button { font-size: 12px; padding: 4px 10px; }
 @media (pointer: coarse), (hover: none) { .inline-editor > button, .inline-editor-discard button { min-height: 40px; } }
 
-/* Workspace agent (docs/WORKSPACE-AGENT.md): the folder on the composer, and each call's command, change or plan. */
-.agent-folder { display: inline-flex; align-items: center; gap: 6px; flex: 0 1 auto; min-width: 0; max-width: 180px; height: 32px; padding: 0 8px; border: 1px solid #3a3c41; border-radius: 6px; background: transparent; font-size: 11px; color: #c7cad0; }
-.agent-folder span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.agent-folder svg { width: 14px; height: 14px; flex: none; }
-.agent-folder.unset { border-style: dashed; color: #e6c07a; }
-.agent-folder.hidden { display: none; }
-@media (max-width: 600px) { .agent-folder { max-width: 120px; height: 44px; } }
+/* Workspace agent (docs/WORKSPACE-AGENT.md): its folders in Advanced, and each call's command, change or plan. */
+.agent-folders { display: grid; gap: 6px; margin: 12px 0 4px; }
+.agent-folder-row { display: grid; gap: 2px; min-width: 0; }
+.agent-folder-label { font-size: 11px; color: #8f949c; }
+.agent-folder-path { font-size: 12px; color: #c7cad0; overflow-wrap: anywhere; }
+.agent-folder-path.unset { color: #e6c07a; }
+.agent-folder-actions { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 8px; }
+.agent-folder-actions button { font-size: 12px; padding: 4px 10px; }
+.agent-folder-actions button[hidden] { display: none; }
+@media (pointer: coarse), (hover: none) { .agent-folder-actions button { min-height: 40px; } }
 .agent-subject { min-width: 0; max-width: 45%; padding: 1px 6px; overflow: hidden; border-radius: 4px; background: #ffffff0d; font-size: 11px; white-space: nowrap; text-overflow: ellipsis; color: #c7cad0; }
 .agent-command { margin: 6px 0 4px; white-space: pre-wrap; overflow-wrap: anywhere; }
 .agent-where { margin: 0 0 6px; font-size: 11px; color: #8f949c; overflow-wrap: anywhere; }

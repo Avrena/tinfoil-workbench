@@ -328,6 +328,19 @@ async function command(input) {
       break;
     }
     case 'agent.folder.clear': await service.setAgentFolder(identifier(c.id), null); break;
+    // Where a conversation without a folder gets a new one. The agent works only inside that new folder, never in the
+    // root itself, so the same places are refused as for a folder.
+    case 'agent.root': {
+      if (!service.agentTools) throw new InputError('The workspace agent needs the Windows app.');
+      const selected = await dialog.showOpenDialog(window, { title: 'Choose where the workspace agent makes a folder for each new conversation', properties: ['openDirectory', 'createDirectory'] });
+      if (selected.canceled || !selected.filePaths[0]) break;
+      const folder = selected.filePaths[0];
+      if (!isAbsolute(folder) || !(await stat(folder)).isDirectory()) throw new InputError('Choose a folder.');
+      const unsafe = unsafeFolder(folder);
+      if (unsafe) throw new InputError(`The workspace agent cannot keep its work in ${unsafe}. Choose a folder such as D:\\Work\\Tinfoil.`);
+      await service.setAgentRoot(folder);
+      break;
+    }
     case 'artifact.open': {
       const selected=await dialog.showOpenDialog(window,{title:'Open a local preview (not shared with the model)',properties:['openFile'],filters:[{name:'Artifacts',extensions:['pdf','html','svg','png','md','txt','json','csv']}]});
       if(selected.canceled||!selected.filePaths[0])break;

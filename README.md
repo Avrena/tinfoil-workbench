@@ -84,7 +84,7 @@ Visual tools create charts, tables, diagrams, timelines, stat cards and versione
 
 Tool batches execute sequentially with per-action approvals. Tinfoil-managed MCP records show provider-reported activity and cannot invoke a local tool. Hosted search and text-only delegation are opt-in; see [activity](docs/ACTIVITY.md). On Windows, Python runs locally with the current user's file and network permissions: **it is not a security sandbox**. Each run needs exact-code approval and a native confirmation.
 
-On Windows, the workspace agent (Advanced, off by default, per conversation) lets a model work in a folder you choose: it lists, searches and reads files there without asking, and runs Windows PowerShell or Git Bash commands (git included) and changes files only after you approve each one in a native dialog that shows the command, or the change as a diff. It is not a sandbox either: an approved command runs with your Windows account's permissions. See [workspace agent](docs/WORKSPACE-AGENT.md).
+On Windows, the workspace agent (Advanced, off by default, per conversation) lets a model work in a folder: a new one for each conversation under a place you choose once, or a project folder you choose. It lists, searches and reads files there without asking, and runs Windows PowerShell or Git Bash commands (git included) and changes files only after you approve each one in a native dialog that shows the command, or the change as a diff. It is not a sandbox either: an approved command runs with your Windows account's permissions. See [workspace agent](docs/WORKSPACE-AGENT.md).
 
 ## Data and backups
 

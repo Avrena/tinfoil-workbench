@@ -103,7 +103,7 @@ export function createCommandHandler({ service, native, account = null, uuid = (
       }
       case 'python.pick': case 'code.run':
         throw new InputError(PYTHON_UNAVAILABLE);
-      case 'agent.folder': case 'agent.folder.clear':
+      case 'agent.folder': case 'agent.folder.clear': case 'agent.root':
         throw new InputError('The workspace agent needs the Windows app.');
       case 'thread.settings':
         if (record(c.settings).toolsMode === 'ask') throw new InputError(PYTHON_SETTING);

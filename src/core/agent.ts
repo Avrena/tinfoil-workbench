@@ -167,6 +167,16 @@ const WINDOWS_PATH = String.raw`(?:[a-zA-Z]:[\\/]|\\\\)`;
 /** Paths outside the workspace folder that a command names, as far as its text shows: drive, UNC and Git Bash paths
  * (`/c/Users/...`), the home and app data folders, and `..` above the folder. A command can reach paths without naming
  * them; this only points out the ones it names, for the approval card and dialog. */
+/** The name of the folder made for a conversation under the agent's root (docs/WORKSPACE-AGENT.md): the local date, the
+ * start of the message or title, and a piece of the conversation's ID, such as "2026-09-30 Fix the cart tests 3f2a".
+ * Characters Windows does not allow in names are left out, and so are trailing dots and spaces. */
+export function agentFolderName(text: string, date: Date, id: string): string {
+  const day = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
+  const words = text.replace(/[\x00-\x1f<>:"/\\|?*]+/g, ' ').replace(/\s+/g, ' ').trim();
+  const slug = [...words].slice(0, 40).join('').trim().replace(/[. ]+$/, '');
+  return [day, slug || 'Conversation', id.replace(/[^a-z0-9]/gi, '').slice(0, 4).toLowerCase()].filter(Boolean).join(' ');
+}
+
 export function outsidePaths(command: string, folder: string, workdir = '.'): string[] {
   const norm = (path: string) => path.replace(/\//g, '\\').replace(/\\+$/, '').toLowerCase(), root = norm(folder);
   const found = new Set<string>(), add = (path: string) => { const n = norm(path); if (n !== root && !n.startsWith(root + '\\')) found.add(path); };

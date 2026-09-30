@@ -120,6 +120,21 @@ export function createAgentTools({ systemRoot = process.env.SystemRoot || 'C:\\W
     gitBash: null,
     async detect() { tools.gitBash = await findGitBash(); return tools; },
 
+    /** A new, empty folder for one conversation's work under `root`, which is made when it is missing. An existing
+     * folder is never reused: a name that is taken gets " (2)", " (3)" and so on. */
+    async createWorkFolder(root, name, env = process.env) {
+      if (!isAbsolute(root)) throw new InputError('The folder for new work must be an absolute path.');
+      const unsafe = unsafeFolder(root, env);
+      if (unsafe) throw new InputError(`The workspace agent cannot keep its work in ${unsafe}. Choose another folder for new work in Advanced.`);
+      await mkdir(root, { recursive: true });
+      const base = await realpath(root);
+      for (let n = 1; n <= 50; n++) {
+        const folder = join(base, n === 1 ? name : `${name} (${n})`);
+        try { await mkdir(folder); return folder; } catch (error) { if (error?.code !== 'EEXIST') throw error; }
+      }
+      throw new InputError('Could not make a new folder for this conversation. Choose a folder in Advanced.');
+    },
+
     async list({ folder, path, depth }) {
       const { base, real } = await place(folder, path);
       if (!real) throw new InputError(`${path} does not exist.`);

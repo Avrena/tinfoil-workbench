@@ -9,7 +9,7 @@ import { extractCodeBlocks } from '../dist/core/markdown.js';
 import { ToolCallAccumulator, PYTHON_TOOL, pythonArguments, findTextToolCalls } from '../dist/core/tools.js';
 import { VISUAL_TOOLS, VISUAL_TOOL_NAMES, RENDER_KINDS } from '../dist/core/visual-tools.js';
 import { toolGuide, withToolGuide, agentEnvironment } from '../dist/core/prompt.js';
-import { AGENT_TOOLS, AGENT_TOOL_NAMES, AGENT_APPROVED, AGENT_LIMITS, agentArguments, compactAgentHistory, shortenOutput } from '../dist/core/agent.js';
+import { AGENT_TOOLS, AGENT_TOOL_NAMES, AGENT_APPROVED, AGENT_LIMITS, agentArguments, agentFolderName, compactAgentHistory, shortenOutput } from '../dist/core/agent.js';
 import { capabilityFor, reasoningParameters, normalizeCapability } from '../dist/core/capabilities.js';
 import { executeVisual } from './visual-runtime.mjs';
 import { DELEGATE_TOOL, delegateArguments, toolActive } from '../dist/core/activity.js';
@@ -84,7 +84,7 @@ export class WorkbenchService {
       pythonConfigured: !!this.workspace.pythonPath, models: [...this.models], capabilities: structuredClone(this.capabilities), modelCatalog: this.catalogState, verification: structuredClone(this.verification),
       account: this.options.account?.snapshot()??signedOutAccount(), connectionMode:this.workspace.connectionMode??'api-key', rememberAccount:this.workspace.rememberAccount!==false,
       cloud: this.cloud?.snapshot() ?? { state: 'off', keyId: null, user: null, lastSyncAt: null, message: null, chats: 0, projects: 0, older: 0 }, cloudLoading: this.cloud ? [...this.cloud.loading] : [],
-      agent: { available: !!this.agentTools, gitBash: !!this.agentTools?.gitBash },
+      agent: { available: !!this.agentTools, gitBash: !!this.agentTools?.gitBash, root: this.agentTools ? this.workspace.agentRoot ?? null : null },
       busyThreadId: this.busyThreadId, storage: 'os-encrypted', notice: this.notice };
   }
   emit() { this.onChange(this.snapshot()); }
@@ -116,6 +116,12 @@ export class WorkbenchService {
     if (this.cloudBound(t)) throw new InputError(AGENT_CLOUD);
     if (folder === null) delete t.agentFolder; else t.agentFolder = agentFolder(folder);
     t.updatedAt = Date.now(); await this.save(); this.emit(); return this.snapshot();
+  }
+  /** Where a conversation without a folder gets a new one when it first sends (main process, after its native picker). */
+  async setAgentRoot(folder) {
+    if (!this.agentTools) throw new InputError(AGENT_UNAVAILABLE);
+    this.workspace.agentRoot = agentFolder(folder);
+    await this.save(); this.emit(); return this.snapshot();
   }
   editable(id) {
     identifier(id);
@@ -416,9 +422,9 @@ export class WorkbenchService {
     if (this.workspace.projects.find(p => p.id === id)?.cloud) throw new InputError(`${action} Tinfoil cloud projects in Tinfoil Chat.`);
   }
   /** Sends a message: a new turn, or with `replace` a new version of that turn (an edited message). */
-  send(threadId, prompt, files, replace) { return this.start(threadId, (thread, context) => beginTurn(thread, prompt, files, context, replace)); }
+  send(threadId, prompt, files, replace) { return this.start(threadId, (thread, context) => beginTurn(thread, prompt, files, context, replace), prompt); }
   /** Starts the replies that `begin` sets up in the conversation (core/workspace.ts), and writes a cloud chat back after them. */
-  async start(threadId, begin) {
+  async start(threadId, begin, prompt = '') {
     if (this.storageFailed) throw new InputError(this.notice);
     if (this.busyThreadId) throw new InputError('A response is already running. Stop it before starting another.');
     if(this.workspace.connectionMode!=='chat-account'&&!this.workspace.apiKey)throw new InputError('Add a Tinfoil API key or sign in to Tinfoil Chat in Account.');
@@ -429,8 +435,16 @@ export class WorkbenchService {
     if (thread.settings.agentMode === 'ask') {
       if (!this.agentTools) throw new InputError(AGENT_UNAVAILABLE);
       if (this.cloudBound(thread)) throw new InputError(AGENT_CLOUD);
-      if (!thread.agentFolder) throw new InputError('Choose a folder for the workspace agent first, with the folder button on the message box.');
       if (thread.settings.agentShell === 'bash' && !this.agentTools.gitBash) throw new InputError('Git Bash was not found. Install Git for Windows, or choose PowerShell in Advanced.');
+      if (!thread.agentFolder) {
+        // A conversation without a folder gets a new, empty one under the root, named after its first message.
+        if (!this.workspace.agentRoot) throw new InputError('Choose where the workspace agent keeps new work (Advanced → Workspace agent), or choose a project folder there.');
+        const name = agentFolderName(thread.turns.length ? thread.title : prompt, new Date(), thread.id);
+        const folder = await this.agentTools.createWorkFolder(this.workspace.agentRoot, name);
+        if (this.busyThreadId) throw new InputError('A response is already running. Stop it before starting another.');
+        if (!this.workspace.threads.includes(thread)) throw new InputError('This conversation was deleted.');
+        if (!thread.agentFolder) thread.agentFolder = agentFolder(folder);
+      }
     }
     if (thread.settings.toolsMode === 'ask' && (!this.toolExecutor || !this.workspace.pythonPath)) throw new InputError('Choose an installed Python interpreter in Settings → Execution before enabling model-requested Python.');
     const project = thread.projectId ? this.workspace.projects.find(p => p.id === thread.projectId) : null;
