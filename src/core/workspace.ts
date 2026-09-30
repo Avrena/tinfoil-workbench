@@ -107,9 +107,14 @@ function place(thread: Thread, replace?: string): number {
   if (at < 0) throw new InputError('The message being edited is no longer in this conversation.');
   return at;
 }
-function startTurn(thread: Thread, prompt: string, files: Attachment[], context: string, at: number): GenerationJob[] {
+/** Every lane has a model. The service also checks this before it makes a workspace agent folder for a send. */
+export function checkLanes(thread: Thread): string[] {
   const models = thread.settings.compare ? [thread.settings.model, thread.settings.compareModel] : [thread.settings.model];
   if (models.some(m => !m.trim())) throw new InputError('Choose a model for every lane before sending.');
+  return models;
+}
+function startTurn(thread: Thread, prompt: string, files: Attachment[], context: string, at: number): GenerationJob[] {
+  const models = checkLanes(thread);
   const messages = buildHistory(thread, at, context);
   messages.push({ role: 'user', content: userContent(prompt, files) });
   if (JSON.stringify(messages).length > LIMITS.context)

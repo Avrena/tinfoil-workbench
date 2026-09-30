@@ -2,7 +2,7 @@ import { editReply } from '../dist/core/editing.js';
 import { createProject,renameProject,removeProject,moveThread,newProjectThread } from '../dist/core/projects.js';
 import { saveInstructionPreset, deleteInstructionPreset } from '../dist/core/instructions.js';
 import { InputError, record, text, identifier, settings, attachments, validateWorkspace, LIMITS, validateTool, agentFolder } from '../dist/core/validation.js';
-import { newWorkspace, findThread, addThread, beginTurn, retryTurn, addMessage, chooseReply, forkThread, recoverInterrupted, importThread, outputLimitNotice } from '../dist/core/workspace.js';
+import { newWorkspace, findThread, addThread, beginTurn, retryTurn, addMessage, chooseReply, forkThread, recoverInterrupted, importThread, outputLimitNotice, checkLanes } from '../dist/core/workspace.js';
 import { showVersion } from '../dist/core/versions.js';
 import { viewPreferences } from '../dist/core/preferences.js';
 import { extractCodeBlocks } from '../dist/core/markdown.js';
@@ -443,6 +443,7 @@ export class WorkbenchService {
       if (!thread.agentFolder) {
         // A conversation without a folder gets a new, empty one under the root, named after its first message.
         if (!this.workspace.agentRoot) throw new InputError('Choose where the workspace agent keeps new work (Advanced → Workspace agent), or choose a project folder there.');
+        checkLanes(thread); // no folder for a send that cannot start
         const name = agentFolderName(thread.turns.length ? thread.title : prompt, new Date(), thread.id);
         const folder = await this.agentTools.createWorkFolder(this.workspace.agentRoot, name);
         if (this.busyThreadId) throw new InputError('A response is already running. Stop it before starting another.');

@@ -341,6 +341,9 @@ test('a conversation without a folder gets a new, empty one under the root when 
   const tools = createAgentTools(); s.agentTools.createWorkFolder = (base, name) => tools.createWorkFolder(base, name, {});
   await assert.rejects(send(s), /Choose where the workspace agent keeps new work/); assert.equal(requests.length, 0);
   await s.setAgentRoot(root); assert.equal(s.snapshot().agent.root, root);
+  thread.settings.model = '';
+  await assert.rejects(send(s), /Choose a model/); assert.equal(thread.agentFolder, undefined, 'no folder for a send that cannot start');
+  thread.settings.model = 'fixture';
   await send(s); await done(s);
   const folder = thread.agentFolder;
   assert.equal(folder, join(realpathSync(root), basename(folder))); assert.match(basename(folder), /^\d{4}-\d{2}-\d{2} Fix the answer [0-9a-f]{4}$/);
