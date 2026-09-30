@@ -7,6 +7,7 @@ Workbench can show the chats and projects that Tinfoil Chat keeps in the cloud f
 1. Sign in to Tinfoil Chat in **Account & connection**.
 2. Under **Tinfoil cloud chats**, paste your chat key (it starts with `key_`) and choose **Connect**, or choose **Open key file** for the key file you downloaded from Tinfoil Chat. The key is in Tinfoil Chat under Settings → Cloud sync. Workbench checks it against your account's current key before keeping it.
 3. Your cloud chats appear in the sidebar with a cloud icon, and cloud projects appear among the projects. A chat's messages are fetched when you open it.
+4. While the chat key is connected, **Cloud** and **Local** under the Threads heading switch the list between cloud chats and local conversations, and the Threads heading has a **Sync** button. A new conversation started while the Cloud list shows becomes a cloud chat after its first reply. Hovering a thread offers **Delete** and, for a local conversation with messages outside projects, **Move to Tinfoil cloud**.
 
 What changes in your Tinfoil account:
 
@@ -18,7 +19,7 @@ What changes in your Tinfoil account:
 
 Cloud projects are read here and managed in Tinfoil Chat: Workbench does not rename or delete them. For a chat in a cloud project, Workbench adds the project's name, description, instructions and document text to the request, after the conversation's own instructions if it has any, as Tinfoil Chat does.
 
-Workbench syncs after sign-in, every ten minutes while it is open, and on **Sync now**. It lists your 300 most recent cloud chats. **Remove chat key** forgets the key and removes cloud chats and projects from this PC; they stay in your account.
+Workbench syncs after sign-in, every ten minutes while it is open, and on **Sync now** (in the account view) or the sidebar's **Sync** button. It lists your 300 most recent cloud chats. **Remove chat key** forgets the key and removes cloud chats and projects from this PC; they stay in your account.
 
 ## How it works
 
