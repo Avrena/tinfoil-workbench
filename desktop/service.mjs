@@ -9,7 +9,7 @@ import { extractCodeBlocks } from '../dist/core/markdown.js';
 import { ToolCallAccumulator, PYTHON_TOOL, pythonArguments, findTextToolCalls } from '../dist/core/tools.js';
 import { VISUAL_TOOLS, VISUAL_TOOL_NAMES, RENDER_KINDS } from '../dist/core/visual-tools.js';
 import { toolGuide, withToolGuide, agentEnvironment } from '../dist/core/prompt.js';
-import { AGENT_TOOLS, AGENT_TOOL_NAMES, AGENT_APPROVED, AGENT_LIMITS, agentArguments, agentFolderName, compactAgentHistory, shortenOutput } from '../dist/core/agent.js';
+import { AGENT_TOOLS, AGENT_TOOL_NAMES, AGENT_APPROVED, AGENT_LIMITS, agentArguments, agentFolderName, askAnyway, compactAgentHistory, shortenOutput } from '../dist/core/agent.js';
 import { capabilityFor, reasoningParameters, normalizeCapability } from '../dist/core/capabilities.js';
 import { executeVisual } from './visual-runtime.mjs';
 import { DELEGATE_TOOL, delegateArguments, toolActive } from '../dist/core/activity.js';
@@ -119,6 +119,16 @@ export class WorkbenchService {
     if (!this.agentTools) throw new InputError(AGENT_UNAVAILABLE);
     if (this.cloudBound(t)) throw new InputError(AGENT_CLOUD);
     if (folder === null) delete t.agentFolder; else t.agentFolder = agentFolder(folder);
+    t.updatedAt = Date.now(); await this.save(); this.emit(); return this.snapshot();
+  }
+  /** How many of the agent's calls run without asking. Only the main process raises it, after its own confirmation;
+   * lowering takes effect at the next call, even during a response. */
+  async setAgentApproval(id, level) {
+    const t = findThread(this.workspace, identifier(id));
+    if (!this.agentTools) throw new InputError(AGENT_UNAVAILABLE);
+    if (!['ask', 'changes', 'auto'].includes(level)) throw new InputError('Unknown approval level.');
+    if (level === 'ask') delete t.settings.agentApproval;
+    else { if (this.cloudBound(t)) throw new InputError(AGENT_CLOUD); t.settings.agentApproval = level; }
     t.updatedAt = Date.now(); await this.save(); this.emit(); return this.snapshot();
   }
   /** Where a conversation without a folder gets a new one when it first sends (main process, after its native picker). */
@@ -390,6 +400,11 @@ export class WorkbenchService {
         if(next.agentMode==='ask'&&t.settings.agentMode!=='ask'){if(!this.agentTools)throw new InputError(AGENT_UNAVAILABLE);if(this.cloudBound(t))throw new InputError(AGENT_CLOUD);}
         if(t.settings.model!==next.model){next.reasoningEffort='default';next.thinkingMode='default';}
         if(t.settings.compareModel!==next.compareModel){next.compareReasoningEffort='default';next.compareThinkingMode='default';}
+        // The page can lower the agent's approval level, never raise it (setAgentApproval, after the host's confirmation);
+        // turning the agent off returns it to asking.
+        const rank={ask:0,changes:1,auto:2};
+        if(next.agentMode!=='ask'||rank[next.agentApproval??'ask']>rank[t.settings.agentApproval??'ask'])next.agentApproval=next.agentMode==='ask'?t.settings.agentApproval:undefined;
+        if(next.agentApproval===undefined||next.agentApproval==='ask')delete next.agentApproval;
         t.settings=next; break;
       }
       case 'thread.fork': {
@@ -763,15 +778,23 @@ export class WorkbenchService {
       const change = args.name === 'edit_file' ? await tools.prepareEdit({ folder: agent.folder, ...args })
         : args.name === 'write_file' ? await tools.prepareWrite({ folder: agent.folder, ...args }) : null;
       if (change) tool.agent.diff = change.diff;
-      tool.status = 'awaiting_approval'; reply.status = 'awaiting_approval';
-      const approved = new Promise(resolve => this.approvals.set(tool.id, { threadId: job.threadId, tool, resolve }));
-      await this.save(); this.emit();
-      let allow; clock.pause();
-      try { allow = await abortable(approved, ctrl.signal); } finally { this.approvals.delete(tool.id); clock.resume(); }
-      if (!allow) {
-        tool.status = 'denied';
-        tool.stderr = change ? 'The user declined this change. Do not make it again unless the user asks.' : 'The user declined this command. Do not run it again unless the user asks.';
-        return;
+      // The conversation's approval level, read at each call, so lowering it takes effect at once. A change in the folder
+      // runs without asking from "changes" up; a command only at "auto", and not when askAnyway() gives a reason.
+      const level = findThread(this.workspace, job.threadId).settings.agentApproval ?? 'ask';
+      const asked = !change && level === 'auto' ? askAnyway(args.command, agent.folder, args.workdir) : null;
+      if (change ? level !== 'ask' : level === 'auto' && !asked) tool.agent.auto = true;
+      else {
+        if (asked) tool.agent.asked = asked;
+        tool.status = 'awaiting_approval'; reply.status = 'awaiting_approval';
+        const approved = new Promise(resolve => this.approvals.set(tool.id, { threadId: job.threadId, tool, resolve }));
+        await this.save(); this.emit();
+        let allow; clock.pause();
+        try { allow = await abortable(approved, ctrl.signal); } finally { this.approvals.delete(tool.id); clock.resume(); }
+        if (!allow) {
+          tool.status = 'denied';
+          tool.stderr = change ? 'The user declined this change. Do not make it again unless the user asks.' : 'The user declined this command. Do not run it again unless the user asks.';
+          return;
+        }
       }
       if (ctrl.signal.aborted) throw new InputError('Cancelled.');
       tool.status = 'running'; reply.status = 'executing'; await this.save(); this.emit();

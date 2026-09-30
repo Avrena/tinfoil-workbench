@@ -2,7 +2,7 @@ import type { AccountSnapshot, ConnectionMode } from './account.js';
 import type { ModelCapability, ThinkingMode } from './capabilities.js';
 import type { ViewPreferences } from './preferences.js';
 import type { CloudChatLink, CloudProjectLink } from './cloud.js';
-import type { AgentShell } from './agent.js';
+import type { AgentApproval, AgentShell } from './agent.js';
 export type ReplyStatus = 'queued' | 'streaming' | 'complete' | 'stopped' | 'error' | 'interrupted' | 'awaiting_approval' | 'executing';
 export interface GenerationSettings {
   toolsMode: 'off' | 'ask';
@@ -12,6 +12,9 @@ export interface GenerationSettings {
   /** The workspace agent (docs/WORKSPACE-AGENT.md), Windows only; it also needs the conversation's agentFolder. */
   agentMode: 'off' | 'ask';
   agentShell: AgentShell;
+  /** Which of the agent's calls run without asking: none, file changes in the folder, or commands too (except those
+   * `commandRisk` or `outsidePaths` flag). Raised only by the host after its own confirmation; a new conversation asks. */
+  agentApproval?: AgentApproval;
   thinkingMode: ThinkingMode;
   compareReasoningEffort: string;
   compareThinkingMode: ThinkingMode;
@@ -45,7 +48,8 @@ export interface ToolRun {
   provider?: ProviderActivity;
   contentOffset?: number;
   /** A workspace agent call: the folder and shell it ran in, and for a change the diff shown for approval. */
-  agent?: { folder: string; shell?: AgentShell; diff?: string };
+  /** `auto`: approved by the conversation's approval level, not by the person; `asked`: why a command asked anyway. */
+  agent?: { folder: string; shell?: AgentShell; diff?: string; auto?: true; asked?: string };
   id: string; callId: string; name: string; arguments: string;
   /** 'text': a drawing call the model wrote into its answer as text, which Workbench drew (see recoverTextCalls). */
   origin: 'model' | 'manual' | 'provider' | 'text'; status: 'queued' | 'awaiting_approval' | 'running' | 'complete' | 'error' | 'denied' | 'cancelled';
@@ -166,6 +170,8 @@ export type Command =
   | { type: 'agent.folder.clear'; id: string }
   /** Where new folders for the workspace agent are made: chosen in the host's native picker. */
   | { type: 'agent.root' }
+  /** How many of the agent's calls run without asking; the host confirms a higher level. */
+  | { type: 'agent.approval'; id: string; level: AgentApproval }
   | { type: 'tool.cancel'; id: string; toolId: string }
   | { type: 'tool.approve'; id: string; toolId: string; approve: boolean }
   | { type: 'code.run'; id: string; replyId: string; index: number }

@@ -142,6 +142,7 @@ window.tinfoil=Object.freeze({
       // No folder picker here: a synthetic path stands in, and nothing is read from it.
       case 'agent.folder':if(c.id===busy)throw new InputError('Stop the response first.');findThread(workspace,c.id).agentFolder='C:\\Preview\\example-project';break;
       case 'agent.folder.clear':delete findThread(workspace,c.id).agentFolder;break;
+      case 'agent.approval':{const t=findThread(workspace,c.id);if(c.level==='ask')delete t.settings.agentApproval;else t.settings.agentApproval=c.level;break;}
       case 'agent.root':previewAgentRoot='C:\\Preview\\Tinfoil';break;
       case 'artifact.pdf':case 'artifact.open':case 'python.pick':case 'code.run':case 'artifact.save':throw new InputError('Offline preview does not execute Python or create files. Use the desktop app.');
       case 'open.url':throw new InputError('Offline preview does not open external links.');

@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import { mkdtempSync, mkdirSync, readdirSync, readFileSync, realpathSync, rmSync, symlinkSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { basename, join } from 'node:path';
-import { AGENT_LIMITS, AGENT_TOOLS, agentArguments, agentFolderName, agentGuide, compactAgentHistory, diffCounts, globMatcher, outsidePaths, searchPattern, shortenOutput, unifiedDiff, workspacePath } from '../dist/core/agent.js';
+import { AGENT_LIMITS, AGENT_TOOLS, agentArguments, agentFolderName, agentGuide, askAnyway, commandRisk, compactAgentHistory, diffCounts, globMatcher, outsidePaths, searchPattern, shortenOutput, unifiedDiff, workspacePath } from '../dist/core/agent.js';
 import { agentEnvironment, toolGuide, withToolGuide } from '../dist/core/prompt.js';
 import { changeApproval, commandApproval, pythonApproval } from '../dist/core/approval.js';
 import { validateWorkspace } from '../dist/core/validation.js';
@@ -321,6 +321,51 @@ test('a path outside the folder is refused without an approval, and the model is
   await send(s); await done(s);
   assert.equal(s.approvals.size, 0); const [result] = toolMessages(requests[1]);
   assert.equal(result.status, 'error'); assert.match(result.error, /cannot go above the workspace folder/);
+});
+
+test('at the automatic level a command still asks when its words say it deletes, touches git history, changes the system, uses the network or installs', () => {
+  const folder = 'D:\\Projects\\demo';
+  for (const [command, reason] of [['Remove-Item -Recurse build', /deletes/], ['rm -rf dist', /deletes/], ['git push origin main', /git history/], ['git reset --hard HEAD~1', /git history/],
+    ['git -C sub clean -fdx', /git history/], ['Set-ExecutionPolicy Bypass', /system settings/], ['Start-Process pwsh -Verb RunAs', /administrator/],
+    ['Invoke-WebRequest https://example.com -OutFile x.zip', /network/], ['curl -O https://example.com/x', /network/], ['npm.cmd install left-pad', /installs/],
+    ['npx create-thing', /installs/], ['python -m pip install requests', /installs/], ['winget install Git.Git', /installs/]])
+    assert.match(commandRisk(command) ?? '', reason, command);
+  for (const command of ['npm.cmd test', 'node --test', 'Get-ChildItem -Recurse | Format-Table Name', 'git status', 'git diff', 'git log --oneline -5',
+    'Rename-Item -LiteralPath a.txt -NewName b.txt', 'Get-Content README.md -Encoding UTF8'])
+    assert.equal(commandRisk(command), null, command);
+  assert.equal(askAnyway("Rename-Item -LiteralPath 'C:\\Users\\Ada\\Downloads\\Miku' -NewName 'TDA Maid'", folder), 'it names a path outside the folder (C:\\Users\\Ada\\Downloads\\Miku)');
+  assert.equal(askAnyway('Rename-Item -LiteralPath src\\a.js -NewName b.js', folder), null);
+});
+
+test('approval levels: changes, then commands too, run without asking; risky commands still ask; only the host raises the level', windows, async t => {
+  const { s, dir, runs, thread } = await agentSetup(t, { script: n => [
+    call('edit_file', { path: 'app.js', old_text: 'answer = 41', new_text: 'answer = 42' }, 'call_e'),
+    call('run_command', { command: 'npm.cmd test' }, 'call_c1'), call('run_command', { command: 'Remove-Item -Recurse build' }, 'call_c2'), answer('Done.')][n - 1] });
+  await s.execute({ type: 'thread.settings', id: thread.id, settings: { ...thread.settings, agentApproval: 'auto' } });
+  assert.equal(thread.settings.agentApproval, undefined, 'the page cannot raise the level');
+  await s.setAgentApproval(thread.id, 'auto');
+  await send(s);
+  const pending = await nextApproval(s);
+  assert.equal(pending.tool.name, 'run_command'); assert.equal(pending.tool.agent.asked, 'it deletes files or folders');
+  assert.equal(readFileSync(join(dir, 'app.js'), 'utf8'), 'const answer = 42;\nconsole.log(answer);\n', 'the change was written without asking');
+  assert.deepEqual(runs.map(r => r.command), ['npm.cmd test'], 'the safe command ran without asking');
+  await approve(s, pending, false); await done(s);
+  const tools = s.workspace.threads[0].turns[0].replies[0].tools;
+  assert.deepEqual(tools.map(x => [x.name, x.status, !!x.agent.auto]), [['edit_file', 'complete', true], ['run_command', 'complete', true], ['run_command', 'denied', false]]);
+  assert.doesNotThrow(() => validateWorkspace(structuredClone(s.workspace)));
+  assert.match(exportMarkdown(s.workspace.threads[0]), /approved automatically/);
+  await s.execute({ type: 'thread.settings', id: thread.id, settings: { ...thread.settings, agentApproval: 'changes' } });
+  assert.equal(thread.settings.agentApproval, 'changes', 'the page can lower it');
+  await s.execute({ type: 'thread.settings', id: thread.id, settings: { ...thread.settings, agentMode: 'off' } });
+  assert.equal(thread.settings.agentApproval, undefined, 'turning the agent off asks again');
+  assert.equal(newThread({ ...thread.settings, agentApproval: 'auto' }).settings.agentApproval, 'ask', 'a new conversation or branch asks');
+
+  const changes = await agentSetup(t, { script: n => [call('edit_file', { path: 'app.js', old_text: 'answer = 41', new_text: 'answer = 43' }, 'call_e'), call('run_command', { command: 'npm.cmd test' }, 'call_c'), answer('Done.')][n - 1] });
+  await changes.s.setAgentApproval(changes.thread.id, 'changes'); await send(changes.s);
+  const asked = await nextApproval(changes.s);
+  assert.equal(asked.tool.name, 'run_command'); assert.equal(asked.tool.agent.asked, undefined);
+  assert.equal(readFileSync(join(changes.dir, 'app.js'), 'utf8').includes('43'), true, 'at "changes" the edit needs no approval');
+  await approve(changes.s, asked, true); await done(changes.s); assert.equal(changes.runs.length, 1);
 });
 
 test('an agent reply may take 30 rounds, then stops and says so', windows, async t => {

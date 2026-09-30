@@ -12,11 +12,12 @@ export interface ApprovalRequest {
 /** Lines of a diff shown in the window; the conversation's card keeps all of them. */
 export const APPROVAL_DIFF_LINES = 2000;
 
-export function commandApproval(command: string, folder: string, workdir: string, shell: AgentShell, timeoutSeconds: number): ApprovalRequest {
+/** `asked` says why a command asks although the conversation runs commands without asking (`askAnyway`). */
+export function commandApproval(command: string, folder: string, workdir: string, shell: AgentShell, timeoutSeconds: number, asked?: string): ApprovalRequest {
   const where = workdir === '.' ? folder : `${folder.replace(/\\+$/, '')}\\${workdir.replaceAll('/', '\\')}`;
   return {
     kind: 'command', title: 'Run this command on your computer?', approve: 'Run this command once', decline: 'Do not run', text: command,
-    facts: [`Runs in ${where}`, `${AGENT_SHELLS[shell]} · stopped after ${timeoutSeconds} seconds`],
+    facts: [`Runs in ${where}`, `${AGENT_SHELLS[shell]} · stopped after ${timeoutSeconds} seconds`, ...(asked ? [`Asking although this conversation runs commands without asking: ${asked}.`] : [])],
     outside: outsidePaths(command, folder, workdir),
     warning: 'Not a sandbox: it runs with your Windows account’s permissions and can change or send anything your account can. Approving runs this exact command once.',
   };

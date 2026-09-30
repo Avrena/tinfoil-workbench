@@ -62,12 +62,13 @@ function entry(tool:ToolRun,nested=false):string {
   // In the opened activity row a call is one line that opens its own details. An agent call names only what is unusual
   // about it (the row already says it is the workspace agent's); its shell and folder are in the details.
   if(nested&&!pending&&!(running&&delegated)){
-    const brief=agent?[tool.status==='complete'?'':e(tool.status.replaceAll('_',' ')),tool.name==='run_command'&&tool.exitCode?`exit ${tool.exitCode}`:''].filter(Boolean).join(' · '):meta;
+    const brief=agent?[tool.status==='complete'?'':e(tool.status.replaceAll('_',' ')),tool.name==='run_command'&&tool.exitCode?`exit ${tool.exitCode}`:'',tool.agent?.auto?'approved automatically':''].filter(Boolean).join(' · '):meta;
     return `<section data-key="tool-${e(tool.id)}" class="tool-run compact" data-tool-id="${e(tool.id)}" data-state="${tool.status}"><details class="activity-item-details" data-disclosure="item-${e(tool.id)}"><summary class="tool-run-header">${heading(brief)}</summary>${body}</details></section>`;
   }
   return `<section data-key="tool-${e(tool.id)}" class="tool-run ${pending?'approval-required':''}" data-tool-id="${e(tool.id)}" data-state="${tool.status}">
     <div class="tool-run-header">${heading(meta)}</div>
     ${pending?`<p class="approval-warning">${warning}</p>`:''}
+    ${pending&&tool.agent?.asked?`<p class="agent-asked">Asking although this conversation runs commands without asking: ${e(tool.agent.asked)}.</p>`:''}
     ${!pending&&(nested||(running&&(delegated||tool.provider||agent)))?`<details class="activity-item-details" data-disclosure="item-${e(tool.id)}"><summary>${delegated?'Task & live response':tool.provider?'Provider details':agent?'Details':'Arguments & result'}</summary>${body}</details>`:body}
     ${pending?`<div class="approval-actions"><button class="primary" data-action="approve-tool" data-tool="${e(tool.id)}">${approve}</button><button data-action="deny-tool" data-tool="${e(tool.id)}">Decline</button></div>`:''}
     ${running&&delegated?`<button class="delegate-stop" data-action="cancel-delegate" data-tool="${e(tool.id)}">Stop sub-agent</button>`:''}

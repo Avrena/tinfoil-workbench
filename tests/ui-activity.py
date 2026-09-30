@@ -100,6 +100,11 @@ with sync_playwright() as p:
  page.locator('#agent-mode').check();page.locator('#apply-settings').click();assert page.locator('.composer [data-action=agent-folder]').count()==0
  current,made_in=page.locator('#agent-folder-current'),page.locator('#agent-root-current')
  expect(current).to_contain_text('None yet');expect(current).to_have_class(re.compile(r'\bunset\b'));expect(made_in).to_have_text('Not chosen');expect(page.locator('#agent-folder-new')).to_be_hidden()
+ level=page.locator('#agent-approval');expect(level).to_be_enabled();expect(level.locator('option')).to_have_count(3);expect(level).to_have_value('ask');expect(page.locator('#agent-badge')).to_be_hidden()
+ level.select_option('auto');expect(page.locator('#agent-badge')).to_have_text('Agent · runs without asking');expect(page.locator('#agent-approval-note')).to_contain_text('not a sandbox')
+ level.select_option('changes');expect(page.locator('#agent-badge')).to_have_text('Agent · changes without asking')
+ level.select_option('ask');expect(page.locator('#agent-badge')).to_be_hidden();expect(page.locator('#agent-approval-note')).to_be_hidden()
+ checks.append('with the agent on, Advanced offers three approval levels; a level above asking shows on the message box, and the note says what still asks')
  page.locator('#inspector [data-action=inspector]').click();page.locator('#prompt').fill('workspace agent demo');page.locator('#send').click();expect(page.locator('#toast')).to_contain_text('Choose where the workspace agent keeps new work')
  checks.append('the workspace agent is off by default and turned on in Advanced, with no folder button on the message box; with neither a folder nor a place for new ones, sending says where to choose')
  page.locator('.toolbar [data-action=inspector]').click();page.locator('[data-action=agent-root]').click();expect(made_in).to_have_text('C:\\Preview\\Tinfoil');expect(current).to_have_text('A new folder in C:\\Preview\\Tinfoil, made when you send')

@@ -293,7 +293,7 @@ async function command(input) {
         const tool = pending.tool, args = agentArguments(tool.name, tool.arguments), folder = tool.agent?.folder;
         if (!folder) throw new InputError('This action is not ready for approval.');
         approve = await approvals.ask(window, args.name === 'run_command'
-          ? commandApproval(args.command, folder, args.workdir, tool.agent.shell ?? 'powershell', args.timeout_seconds)
+          ? commandApproval(args.command, folder, args.workdir, tool.agent.shell ?? 'powershell', args.timeout_seconds, tool.agent.asked)
           : changeApproval(args.name, args.path, folder, tool.agent?.diff ?? ''));
       } else if (c.approve && pending.tool.name === 'delegate_task') {
         const child=pending.tool.delegate;
@@ -328,6 +328,21 @@ async function command(input) {
       break;
     }
     case 'agent.folder.clear': await service.setAgentFolder(identifier(c.id), null); break;
+    // How many of the agent's calls run without asking. Raising it is confirmed here, never by the page alone.
+    case 'agent.approval': {
+      if (!service.agentTools) throw new InputError('The workspace agent needs the Windows app.');
+      const level = c.level;
+      if (level === 'changes' || level === 'auto') {
+        const result = await dialog.showMessageBox(window, { type: 'warning', buttons: ['Keep asking', level === 'auto' ? 'Run without asking' : 'Change files without asking'], defaultId: 0, cancelId: 0, noLink: true,
+          message: level === 'auto' ? 'Let the workspace agent run commands and change files without asking?' : 'Let the workspace agent change files in its folder without asking?',
+          detail: level === 'auto'
+            ? "In this conversation, commands run and files in its folder change as soon as the model asks. A command still asks when it names a path outside the folder, deletes files, changes git history or talks to a remote, changes system settings or asks for administrator rights, downloads or sends data, or installs packages.\n\nThat check reads the command's words. It is not a sandbox: a command can do more than it says, and commands run with your Windows account's permissions. Stop ends a response at any time."
+            : 'In this conversation, edits and new files inside its folder are written as soon as the model asks, each shown in the conversation. Commands still ask.' });
+        if (result.response !== 1) break;
+      } else if (level !== 'ask') throw new InputError('Unknown approval level.');
+      await service.setAgentApproval(identifier(c.id), level);
+      break;
+    }
     // Where a conversation without a folder gets a new one. The agent works only inside that new folder, never in the
     // root itself, so the same places are refused as for a folder.
     case 'agent.root': {

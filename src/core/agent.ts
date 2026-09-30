@@ -6,6 +6,8 @@ import { InputError, LIMITS } from './validation.js';
  * the model is offered and the checks on what it asks for; the Windows side is desktop/agent-tools.mjs. */
 
 export type AgentShell = 'powershell' | 'bash';
+/** Which calls run without asking (docs/WORKSPACE-AGENT.md): none; file changes in the folder; or commands too. */
+export type AgentApproval = 'ask' | 'changes' | 'auto';
 export const AGENT_SHELLS: Record<AgentShell, string> = { powershell: 'Windows PowerShell 5.1', bash: 'Git Bash' };
 
 export const AGENT_LIMITS = Object.freeze({
@@ -167,6 +169,26 @@ const WINDOWS_PATH = String.raw`(?:[a-zA-Z]:[\\/]|\\\\)`;
 /** Paths outside the workspace folder that a command names, as far as its text shows: drive, UNC and Git Bash paths
  * (`/c/Users/...`), the home and app data folders, and `..` above the folder. A command can reach paths without naming
  * them; this only points out the ones it names, for the approval card and dialog. */
+// Commands that ask even when commands run without asking, by what their words say they do. This reads words, not
+// effects: it is a safety net for the automatic level, not a sandbox, and a command can do more than it says.
+const RISKS: ReadonlyArray<readonly [RegExp, string]> = [
+  [/\b(?:remove-item(?:property)?|rm|rmdir|rd|del|erase|ri)\b|\bclear-recyclebin\b/i, 'it deletes files or folders'],
+  [/\bgit\b[^\n;&|]*\s(?:push|pull|fetch|reset|clean|rebase|restore|clone|remote|filter-branch|filter-repo|checkout\s+(?:--|\.)|branch\s+-D|stash\s+(?:drop|clear)|commit\s+--amend)\b/i, 'it changes git history or talks to a remote'],
+  [/\b(?:set-executionpolicy|format-volume|shutdown|restart-computer|stop-computer|reg|regedit|set-itemproperty|new-itemproperty|new-service|set-service|schtasks|bcdedit|diskpart|takeown|icacls|runas|netsh|sc)\b|-verb\s+runas\b|\bformat\s+[a-z]:/i, 'it changes system settings or asks for administrator rights'],
+  [/\b(?:invoke-webrequest|invoke-restmethod|iwr|irm|curl|wget|start-bitstransfer|bitsadmin|certutil|ftp|scp|sftp|ssh|send-mailmessage)\b|net\.webclient|net\.http\.httpclient/i, 'it downloads or sends data over the network'],
+  [/\b(?:npm|pnpm|yarn)(?:\.cmd)?\s+(?:i|install|add|ci|update|upgrade)\b|\bnpx\b|\bpip3?(?:\.exe)?\s+install\b|-m\s+pip\s+install\b|\b(?:winget|choco|scoop)\b|\b(?:install-module|install-package)\b|\b(?:gem|cargo)\s+install\b|\bdotnet\s+(?:add|tool\s+install)\b/i, 'it installs packages'],
+];
+/** Why a command asks anyway at the automatic level, or null. */
+export function commandRisk(command: string): string | null {
+  for (const [pattern, reason] of RISKS) if (pattern.test(command)) return reason;
+  return null;
+}
+/** A path outside the folder that the command names asks first; then what its words say it does. */
+export function askAnyway(command: string, folder: string, workdir = '.'): string | null {
+  const outside = outsidePaths(command, folder, workdir);
+  return outside.length ? `it names a path outside the folder (${outside[0]})` : commandRisk(command);
+}
+
 /** The name of the folder made for a conversation under the agent's root (docs/WORKSPACE-AGENT.md): the local date, the
  * start of the message or title, and a piece of the conversation's ID, such as "2026-09-30 Fix the cart tests 3f2a".
  * Characters Windows does not allow in names are left out, and so are trailing dots and spaces. */

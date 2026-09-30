@@ -64,6 +64,7 @@ export function settings(value: unknown): GenerationSettings {
     webSearch: v.webSearch === true,
     delegateMode: v.delegateMode === 'ask' ? 'ask' : 'off',
     agentMode: v.agentMode === 'ask' ? 'ask' : 'off', agentShell: v.agentShell === 'bash' ? 'bash' : 'powershell',
+    ...(v.agentApproval === 'changes' || v.agentApproval === 'auto' ? { agentApproval: v.agentApproval } : {}),
     thinkingMode: ['enabled','disabled'].includes(String(v.thinkingMode)) ? v.thinkingMode as 'enabled'|'disabled' : 'default',
     compareReasoningEffort: ['minimal','low','medium','high','xhigh','max','ultra'].includes(String(v.compareReasoningEffort)) ? v.compareReasoningEffort as string : 'default',
     compareThinkingMode: ['enabled','disabled'].includes(String(v.compareThinkingMode)) ? v.compareThinkingMode as 'enabled'|'disabled' : 'default',
@@ -286,7 +287,8 @@ export function agentFolder(value: unknown): string {
 function validateAgentRun(value: unknown): NonNullable<ToolRun['agent']> {
   const v = record(value);
   return { folder: agentFolder(v.folder), ...(v.shell === 'powershell' || v.shell === 'bash' ? { shell: v.shell } : {}),
-    ...(v.diff === undefined ? {} : { diff: text(v.diff, 'Change', 300_000) }) };
+    ...(v.diff === undefined ? {} : { diff: text(v.diff, 'Change', 300_000) }),
+    ...(v.auto === true ? { auto: true as const } : {}), ...(v.asked === undefined ? {} : { asked: text(v.asked, 'Approval reason', 200) }) };
 }
 function integer(value: unknown, low: number, high: number): number {
   const n=numeric(value,low,high); if(!Number.isInteger(n)) throw new InputError('Expected an integer.'); return n;

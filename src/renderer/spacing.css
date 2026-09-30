@@ -674,6 +674,10 @@ dialog:not(.message-editor) .modal-body { padding: 8px 20px 20px; }
 @media (pointer: coarse), (hover: none) { .inline-editor > button, .inline-editor-discard button { min-height: 40px; } }
 
 /* Workspace agent (docs/WORKSPACE-AGENT.md): its folders in Advanced, and each call's command, change or plan. */
+.agent-approval-note { margin: 6px 0 0; font-size: 11px; line-height: 1.5; color: #d9b98a; }
+.agent-approval-note:empty { display: none; }
+.agent-asked { margin: 0 0 8px; font-size: 12px; color: #e6c07a; }
+.agent-badge { color: #e6c07a; border-color: #5a4a28; }
 .agent-folders { display: grid; gap: 6px; margin: 12px 0 4px; }
 .agent-folder-row { display: grid; gap: 2px; min-width: 0; }
 .agent-folder-label { font-size: 11px; color: #8f949c; }
