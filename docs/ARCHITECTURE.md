@@ -30,7 +30,7 @@ The service uses independently constructed request histories/capabilities for co
 
 Model PDF creation stores output in the encrypted workspace. User PDF export first obtains an explicit save path, renders supported source/data (or reuses original PDF bytes), and writes that file. The PDF export is script-free but unencrypted. Saving raw HTML/SVG warns that external applications do not inherit preview restrictions.
 
-Local Open file is a native picker with regular-file and bounded-read checks. The response returns temporary bytes directly to the renderer, not to the model service's artifact scope. Python remains local account-permission execution, not a sandbox. It alone uses the explicit configured interpreter and execution approvals.
+Local Open file is a native picker with regular-file and bounded-read checks. The response returns temporary bytes directly to the renderer, not to the model service's artifact scope. Python remains local account-permission execution, not a sandbox. It alone uses the configured interpreter (found by `desktop/python-find.mjs` without running it, or chosen in the native picker) and execution approvals.
 
 ## Capability negotiation
 
@@ -42,7 +42,7 @@ Catalog data takes precedence over narrow bundled provider profiles. DeepSeek V4
 
 The encrypted version-1 workspace gains additive visual settings and artifact metadata. Missing visualization settings migrate off, while new conversations opt in. Pending operations become interrupted/cancelled on recovery. Import regenerates conversation/turn/reply/tool record IDs but preserves artifact IDs scoped to the imported thread, so model references and revision ancestry remain consistent. No import resumes execution.
 
-Snapshots exclude API key, cache secret and Python path. Artifacts and source are private conversation data, encrypted at rest but present in renderer memory while the app is open. Source/JSON export and explicitly saved files are unencrypted copies.
+Snapshots exclude API key and cache secret. They carry the Python interpreter's path and version for Settings → Execution (`python`); the page can set the interpreter only to one the host found, and the native picker sets any other. Artifacts and source are private conversation data, encrypted at rest but present in renderer memory while the app is open. Source/JSON export and explicitly saved files are unencrypted copies.
 
 Build compiles TypeScript and copies renderer assets. PDF.js module/worker/license are copied from the declared dependency when installed. No font binaries are copied. The reviewed npm lockfile is committed. Desktop smoke checks actual DPAPI/bridge initialization and a production PDF print→PDF.js canvas round trip on Windows (run for every release; see VALIDATION.md). Windows CI packages only after tests/smoke succeed.
 

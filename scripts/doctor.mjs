@@ -14,7 +14,7 @@ export function inspect(root, { sourceOnly = false, nodeVersion = process.versio
   add('Package metadata', !!pkg && pkg.private === true && pkg.main === 'desktop/main.mjs', 'Private source package with a fixed desktop entry point');
   const pins = { ...pkg?.dependencies, ...pkg?.devDependencies };
   add('Direct dependency pins', Object.keys(pins).length >= 5 && Object.values(pins).every(v => /^\d+\.\d+\.\d+$/.test(v)), 'Exact versions required; latest/ranges are not accepted for this handoff');
-  for (const path of ['desktop/main.mjs','desktop/preload.cjs','desktop/approval-preload.cjs','desktop/approval-window.mjs','src/renderer/approval.html','desktop/close-coordinator.mjs','src/renderer/app.ts','src/renderer/index.html','assets/icon.ico','tsconfig.json']) {
+  for (const path of ['desktop/main.mjs','desktop/preload.cjs','desktop/approval-preload.cjs','desktop/approval-window.mjs','desktop/python-find.mjs','src/renderer/approval.html','desktop/close-coordinator.mjs','src/renderer/app.ts','src/renderer/index.html','assets/icon.ico','tsconfig.json']) {
     add(path, existsSync(join(root,path)), 'Required source/build input');
   }
   if (!sourceOnly) {

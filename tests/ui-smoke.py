@@ -107,6 +107,10 @@ with sync_playwright() as p:
  page.keyboard.press('Control+n');expect(page.locator('#prompt')).to_have_value('');page.locator('#thread-list button.thread').nth(1).click();assert '中文' in page.locator('#prompt').input_value()
  checks.append('drafts and IME-friendly multiline input survive thread changes')
  page.keyboard.press('Control+k');page.locator('#palette-search').fill('settings');page.locator('#palette-search').press('Enter');expect(page.locator('#settings-dialog')).to_be_visible()
+ page.locator('.execution-settings summary').click();expect(page.locator('#python-status .python-name')).to_have_text('Python 3.13.2 · on PATH');expect(page.locator('#python-status .python-path')).to_have_text('C:\\Preview\\Python313\\python.exe')
+ expect(page.locator('#python-choice')).to_be_visible();assert page.locator('#python-found option').count()==2;expect(page.locator('#python-find')).to_have_text('Search again');expect(page.locator('#python-get')).to_be_hidden()
+ page.locator('#python-found').select_option('C:\\Preview\\Python311\\python.exe');expect(page.locator('#python-status .python-name')).to_have_text('Python 3.11.9');page.locator('.execution-settings summary').click()
+ checks.append('opening Settings → Execution finds installed Python, uses the one on PATH, and another one found can be picked')
  page.locator('#api-key').fill('preview-must-not-store');page.locator('#save-key').click();expect(page.locator('#api-key')).to_have_value('');expect(page.locator('#toast')).to_contain_text('cannot accept API keys');page.keyboard.press('Escape')
  checks.append('command palette opens settings; preview rejects and clears credentials')
  # All fixture content below is synthetic; test hook exists only in this in-memory page.

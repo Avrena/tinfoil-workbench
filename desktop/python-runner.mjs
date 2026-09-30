@@ -8,7 +8,7 @@ import { InputError } from '../dist/core/validation.js';
 const TYPES = { '.pdf': 'application/pdf', '.html': 'text/html', '.png': 'image/png', '.svg': 'image/svg+xml', '.csv': 'text/csv', '.json': 'application/json', '.md': 'text/markdown', '.txt': 'text/plain' };
 
 /** Native Python is NOT an OS sandbox. This entry point must only receive an
- * exact, user-approved code string and an interpreter chosen in a native dialog.
+ * exact, user-approved code string and an interpreter chosen in a native dialog or found by python-find.mjs.
  * -I, a fresh cwd and a minimal environment are hygiene, not access controls.
  */
 export async function runPython({ code, interpreter, signal, timeoutMs = 30000, onOutput = () => {} }) {

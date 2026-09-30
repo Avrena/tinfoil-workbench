@@ -11,12 +11,15 @@ import {settings,attachments,InputError} from '/core/validation.js';
 import {agentFolderName} from '/core/agent.js';
 // The workspace agent's root for new folders: synthetic, like every preview path; set by the Choose… button in Advanced.
 let previewAgentRoot=null;
+// Synthetic interpreters for Settings → Execution; nothing is searched or run.
+const previewPythons=[{path:'C:\\Preview\\Python313\\python.exe',version:'3.13.2',onPath:true},{path:'C:\\Preview\\Python311\\python.exe',version:'3.11.9'}];
+let previewPython={current:null,found:null,searching:false};
 let previewAccount=signedOutAccount(),previewMode='api-key',previewRemember=true;
 // Cloud sync is shown with synthetic state only; the preview never connects to Tinfoil cloud.
 let previewCloud={state:'off',keyId:null,user:null,lastSyncAt:null,message:null,chats:0,projects:0,older:0},previewLoading=[];
 const workspace=newWorkspace(),listeners=new Set();let sequence=0,busy=null,stopped=false;
 Object.assign(workspace.threads[0].settings,{model:'demo/writer',compareModel:'demo/analyst'});
-const snapshot=()=>({sequence:++sequence,account:structuredClone(previewAccount),connectionMode:previewMode,rememberAccount:previewRemember,cloud:structuredClone(previewCloud),cloudLoading:[...previewLoading],workspace:structuredClone({version:workspace.version,activeId:workspace.activeId,threads:workspace.threads,projects:workspace.projects,instructionPresets:workspace.instructionPresets,view:workspace.view}),pythonConfigured:false,agent:{available:true,gitBash:true,root:previewAgentRoot},hasKey:false,models:['demo/writer','demo/analyst','deepseek-v4-pro','kimi-k3'],capabilities:structuredClone(previewCatalog),modelCatalog:'ready',verification:{state:'idle',checkedAt:null,steps:[]},busyThreadId:busy,storage:'preview',notice:'OFFLINE PREVIEW · Synthetic responses · No API connection or local persistence'});
+const snapshot=()=>({sequence:++sequence,account:structuredClone(previewAccount),connectionMode:previewMode,rememberAccount:previewRemember,cloud:structuredClone(previewCloud),cloudLoading:[...previewLoading],workspace:structuredClone({version:workspace.version,activeId:workspace.activeId,threads:workspace.threads,projects:workspace.projects,instructionPresets:workspace.instructionPresets,view:workspace.view}),pythonConfigured:!!previewPython.current,python:structuredClone(previewPython),agent:{available:true,gitBash:true,root:previewAgentRoot},hasKey:false,models:['demo/writer','demo/analyst','deepseek-v4-pro','kimi-k3'],capabilities:structuredClone(previewCatalog),modelCatalog:'ready',verification:{state:'idle',checkedAt:null,steps:[]},busyThreadId:busy,storage:'preview',notice:'OFFLINE PREVIEW · Synthetic responses · No API connection or local persistence'});
 const emit=()=>{const s=snapshot();for(const fn of listeners)fn(s);};
 // Synthetic picker metadata. Display-only (`known: false`), so the bundled reasoning profiles still apply.
 function previewModel(id,display){return {id,label:display.name,known:false,source:'unknown',reasoning:false,effort:[],toggle:false,defaultEnabled:true,enable:{},disable:{},toolCalling:null,
@@ -144,6 +147,8 @@ window.tinfoil=Object.freeze({
       case 'agent.folder.clear':delete findThread(workspace,c.id).agentFolder;break;
       case 'agent.approval':{const t=findThread(workspace,c.id);if(c.level==='ask')delete t.settings.agentApproval;else t.settings.agentApproval=c.level;break;}
       case 'agent.root':previewAgentRoot='C:\\Preview\\Tinfoil';break;
+      case 'python.find':previewPython.found=structuredClone(previewPythons);if(!previewPython.current)previewPython.current=structuredClone(previewPythons[0]);break;
+      case 'python.use':{const found=previewPython.found?.find(p=>p.path===c.path);if(!found)throw new InputError('Choose one of the Python interpreters Workbench found, or choose python.exe yourself.');previewPython.current=structuredClone(found);break;}
       case 'artifact.pdf':case 'artifact.open':case 'python.pick':case 'code.run':case 'artifact.save':throw new InputError('Offline preview does not execute Python or create files. Use the desktop app.');
       case 'open.url':throw new InputError('Offline preview does not open external links.');
       case 'thread.new':{const t=newProjectThread(workspace,c.projectId);if(c.cloud===true&&previewCloud.state!=='off'&&t.projectId==null)t.cloudPending=true;break;}

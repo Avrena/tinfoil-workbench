@@ -928,3 +928,11 @@ dialog[open]{transform:translateZ(0);isolation:isolate}
 .instructions-confirm span{flex:1 1 220px}
 .instructions-confirm-actions{display:flex;flex-wrap:wrap}
 @media(forced-colors:active){.instruction-option[aria-current=true]{outline:1px solid Highlight}}
+.python-status{display:grid;gap:2px;margin-top:14px;font-size:11px;color:#bac5d4}
+.python-name{font-size:12px;font-weight:600;color:#e3e7ee}
+.python-name.warn{color:#e6c07a}
+.python-path{color:#9aa3b0;overflow-wrap:anywhere}
+.python-choice{margin-top:10px}
+.python-choice label{font-size:11px;color:#8f949c}
+.python-choice select{margin-top:4px;font-size:12px;padding:6px 8px}
+.python-actions{display:flex;flex-wrap:wrap;gap:0 8px}

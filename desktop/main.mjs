@@ -12,6 +12,7 @@ import { randomUUID } from 'node:crypto';
 import { EncryptedVault } from './vault.mjs';
 import { WorkbenchService } from './service.mjs';
 import { runPython } from './python-runner.mjs';
+import { findPythons, describePython } from './python-find.mjs';
 import { createAgentTools, unsafeFolder } from './agent-tools.mjs';
 import { agentArguments } from '../dist/core/agent.js';
 import { commandApproval, changeApproval, pythonApproval } from '../dist/core/approval.js';
@@ -60,7 +61,7 @@ async function launch() {
   const agentTools = process.platform === 'win32' ? await createAgentTools().detect() : null;
   service = new WorkbenchService(vault, createProvider, snapshot => {
     if (window && !window.isDestroyed()) window.webContents.send('workbench:changed', snapshot);
-  }, runPython, {pdfRenderer:renderPDF,capabilityLoader:loadModelCapabilities,account,agentTools,autoConnect:!smoke,cloud:host=>new CloudSync({host,account,client:new CloudClient({
+  }, runPython, {pdfRenderer:renderPDF,capabilityLoader:loadModelCapabilities,account,agentTools,python:{find:()=>findPythons(),describe:path=>describePython(path)},autoConnect:!smoke,cloud:host=>new CloudSync({host,account,client:new CloudClient({
     // Tinfoil's sync enclave, attested like inference; the SDK is loaded only when cloud sync is used.
     secureClient: () => syncEnclave(service.workspace.cacheSecret),
     token: async force => (await account.sessionToken(force)).bearer,
@@ -279,10 +280,12 @@ async function command(input) {
       if (selected.canceled || !selected.filePaths[0]) break;
       const path = selected.filePaths[0];
       if (!isAbsolute(path) || !(await stat(path)).isFile() || (process.platform === 'win32' && extname(path).toLowerCase() !== '.exe')) throw new InputError('Choose a regular Python executable.');
-      if (service.busyThreadId) throw new InputError('Stop the active operation before changing the Python interpreter.');
-      service.workspace.pythonPath = path; await service.save(); service.emit();
+      await service.usePython(path, true);
       break;
     }
+    // Installed Python, found without running it; the page may then pick one of the interpreters found.
+    case 'python.find': await service.findPython(); break;
+    case 'python.use': await service.usePython(text(c.path, 'Python interpreter path', 4096, true)); break;
     case 'tool.approve': {
       const pending = service.approvals.get(identifier(c.toolId));
       if (!pending || pending.threadId !== identifier(c.id) || typeof c.approve !== 'boolean') throw new InputError('This execution request is no longer awaiting approval.');
@@ -402,7 +405,7 @@ async function command(input) {
       if (!choice.canceled && choice.filePath) await writeFile(choice.filePath, Buffer.from(artifact.data, 'base64'), { mode: 0o600 });
       break;
     }
-    case 'open.docs': await shell.openExternal('https://docs.tinfoil.sh/get-api-key'); break;
+    case 'open.docs': await shell.openExternal(c.topic === 'python' ? 'https://www.python.org/downloads/windows/' : 'https://docs.tinfoil.sh/get-api-key'); break;
     case 'cloud.key.file': {
       // The key file is read here, so the key does not pass through the page.
       const picked = await dialog.showOpenDialog(window, { properties: ['openFile'], title: 'Open your Tinfoil chat key file', filters: [{ name: 'Tinfoil chat key', extensions: ['pem', 'txt'] }] });

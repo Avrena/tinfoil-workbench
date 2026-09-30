@@ -22,6 +22,7 @@ const idleVerification = () => ({ state: 'idle', checkedAt: null, steps: [] });
 /** A reply cut off because the Android app left the screen (see the `backgroundedSince` host option). */
 export const AGENT_CLOUD = 'Tinfoil cloud chats cannot use the workspace agent: its commands, reads and file changes exist only on this computer. Use a local conversation.';
 export const AGENT_UNAVAILABLE = 'The workspace agent needs the Windows app.';
+export const NO_PYTHON = 'Workbench found no Python on this computer. Install Python from python.org, or choose python.exe in Settings → Execution.';
 export const ROLE_MESSAGES_CLOUD = 'Tinfoil cloud chats have no place for messages added in another role. Keep this conversation on this device to add them.';
 export const BACKGROUND_INTERRUPTION = 'The reply stopped because Workbench left the screen: Android pauses apps in the background, which ends their connections. Partial output was preserved. Retry asks again in a new version.';
 const bounded = (v, max = 100) => typeof v === 'string' ? v.slice(0, max) : '';
@@ -59,6 +60,9 @@ export class WorkbenchService {
   constructor(vault, providerFactory, onChange = () => {}, toolExecutor = null, options = {}) {
     this.vault = vault; this.providerFactory = providerFactory; this.onChange = onChange;
     this.options = options; this.agentTools = options.agentTools ?? null; this.capabilities = []; this.toolExecutor = toolExecutor; this.approvals = new Map(); this.delegateControllers = new Map(); this.delegationCount = 0;
+    // Finding installed Python (desktop/python-find.mjs): the desktop app provides it, the Android bundle leaves it out.
+    // `pythonFound` stays null until a search.
+    this.python = options.python ?? null; this.pythonFound = null; this.pythonInfo = null; this.pythonSearch = null;
     this.sequence = 0; this.workspace = null; this.client = null; this.connection = null; this.epoch = 0; this.clients = new WeakMap();
     this.models = []; this.verification = idleVerification(); this.busyThreadId = null;
     // The public catalog outlives connections; `listed` is the verified endpoint's own list.
@@ -80,12 +84,13 @@ export class WorkbenchService {
     this.workspace = stored === null ? newWorkspace() : validateWorkspace(stored);
     const changed = recoverInterrupted(this.workspace);
     if (stored === null || changed) await this.save();
+    if (this.python && this.workspace.pythonPath) void this.describePython().then(() => this.emit(), () => {});
     return this.snapshot();
   }
   snapshot() {
     const { version, activeId, threads, projects, instructionPresets, view } = this.workspace;
     return { sequence: ++this.sequence, workspace: structuredClone({ version, activeId, threads, projects, instructionPresets, view }), hasKey: !!this.workspace.apiKey,
-      pythonConfigured: !!this.workspace.pythonPath, models: [...this.models], capabilities: structuredClone(this.capabilities), modelCatalog: this.catalogState, verification: structuredClone(this.verification),
+      pythonConfigured: !!this.workspace.pythonPath, ...(this.python ? { python: this.pythonState() } : {}), models: [...this.models], capabilities: structuredClone(this.capabilities), modelCatalog: this.catalogState, verification: structuredClone(this.verification),
       account: this.options.account?.snapshot()??signedOutAccount(), connectionMode:this.workspace.connectionMode??'api-key', rememberAccount:this.workspace.rememberAccount!==false,
       cloud: this.cloud?.snapshot() ?? { state: 'off', keyId: null, user: null, lastSyncAt: null, message: null, chats: 0, projects: 0, older: 0 }, cloudLoading: this.cloud ? [...this.cloud.loading] : [],
       agent: { available: !!this.agentTools, gitBash: !!this.agentTools?.gitBash, root: this.agentTools ? this.workspace.agentRoot ?? null : null },
@@ -130,6 +135,55 @@ export class WorkbenchService {
     if (level === 'ask') delete t.settings.agentApproval;
     else { if (this.cloudBound(t)) throw new InputError(AGENT_CLOUD); t.settings.agentApproval = level; }
     t.updatedAt = Date.now(); await this.save(); this.emit(); return this.snapshot();
+  }
+  pythonState() {
+    const path = this.workspace.pythonPath;
+    return { current: !path ? null : structuredClone(this.pythonInfo?.path === path ? this.pythonInfo : { path, version: null }),
+      found: this.pythonFound && structuredClone(this.pythonFound), searching: !!this.pythonSearch };
+  }
+  /** The chosen interpreter's version, or that its file is gone. */
+  async describePython() {
+    const path = this.workspace.pythonPath; if (!this.python || !path) return;
+    const info = this.pythonFound?.find(p => p.path === path) ?? await this.python.describe(path);
+    if (this.workspace.pythonPath === path) this.pythonInfo = info ? { path, version: info.version } : { path, version: null, missing: true };
+  }
+  /** Looks for installed Python (Settings → Execution, or a first run); a search already running is shared. With none
+   * chosen, or the chosen one gone, the first one found is used: it is shown in Settings → Execution and in each
+   * approval window. */
+  async findPython() {
+    if (!this.python) throw new InputError('Python runs only in the Windows app.');
+    if (!this.pythonSearch) {
+      this.pythonSearch = this.python.find().then(found => { this.pythonFound = found; }, () => { this.pythonFound = []; }).finally(() => { this.pythonSearch = null; });
+      this.emit();
+    }
+    await this.pythonSearch; await this.describePython();
+    const first = this.pythonFound?.[0];
+    if (first && (!this.workspace.pythonPath || this.pythonInfo?.missing) && !this.busyThreadId) {
+      this.workspace.pythonPath = first.path; this.pythonInfo = { path: first.path, version: first.version }; await this.save();
+    }
+    this.emit(); return this.snapshot();
+  }
+  /** Makes `path` the interpreter for Python runs: one the search found, or (`picked`) one chosen in the host's native
+   * picker. The page can name only a path the search found. */
+  async usePython(path, picked = false) {
+    const busy = () => { if (this.busyThreadId) throw new InputError('Stop the active operation before changing the Python interpreter.'); };
+    busy();
+    const listed = this.pythonFound?.find(p => p.path === path);
+    if (!picked && !listed) throw new InputError('Choose one of the Python interpreters Workbench found, or choose python.exe yourself.');
+    const info = this.python ? await this.python.describe(path) : { path, version: null };
+    if (!info) throw new InputError(picked ? 'Choose a regular Python executable.' : 'That Python is no longer installed. Search again.');
+    busy();
+    this.workspace.pythonPath = path; this.pythonInfo = { path, version: info.version ?? listed?.version ?? null };
+    await this.save(); this.emit(); return this.snapshot();
+  }
+  /** Whether Python can run: the chosen interpreter, or, when none is chosen or its file is gone, one a search finds. */
+  async ensurePython() {
+    if (!this.toolExecutor) return false;
+    const path = this.workspace.pythonPath;
+    if (!this.python) return !!path;
+    if (path && await this.python.describe(path)) return true;
+    await this.findPython();
+    return !!this.workspace.pythonPath && !this.pythonInfo?.missing;
   }
   /** Where a conversation without a folder gets a new one when it first sends (main process, after its native picker). */
   async setAgentRoot(folder) {
@@ -451,6 +505,11 @@ export class WorkbenchService {
     if(this.needsAuthorization(threadId))throw new InputError('Review and allow this existing thread for the selected account before sending.');
     const thread = findThread(this.workspace, threadId);
     if (thread.cloud && !thread.cloud.loaded) throw new InputError('This chat is still loading from Tinfoil cloud. Wait a moment, then send.');
+    if (thread.settings.toolsMode === 'ask') {
+      if (!await this.ensurePython()) throw new InputError(`Model-requested Python is on, but ${NO_PYTHON}`);
+      if (this.busyThreadId) throw new InputError('A response is already running. Stop it before starting another.');
+      if (!this.workspace.threads.includes(thread)) throw new InputError('This conversation was deleted.');
+    }
     if (thread.settings.agentMode === 'ask') {
       if (!this.agentTools) throw new InputError(AGENT_UNAVAILABLE);
       if (this.cloudBound(thread)) throw new InputError(AGENT_CLOUD);
@@ -466,7 +525,6 @@ export class WorkbenchService {
         if (!thread.agentFolder) thread.agentFolder = agentFolder(folder);
       }
     }
-    if (thread.settings.toolsMode === 'ask' && (!this.toolExecutor || !this.workspace.pythonPath)) throw new InputError('Choose an installed Python interpreter in Settings → Execution before enabling model-requested Python.');
     const project = thread.projectId ? this.workspace.projects.find(p => p.id === thread.projectId) : null;
     const jobs = begin(thread, project ? projectContext(project) : '');
     thread.connectionOwner=owner;for(const job of jobs)job.owner=owner;
@@ -860,7 +918,8 @@ export class WorkbenchService {
   async manualRun(threadId, replyId, index) {
     if (this.storageFailed) throw new InputError(this.notice);
     if (this.busyThreadId) throw new InputError('Stop the active operation before running a code block.');
-    if (!this.toolExecutor || !this.workspace.pythonPath) throw new InputError('Choose an installed Python interpreter in Settings → Execution first.');
+    if (!await this.ensurePython()) throw new InputError(NO_PYTHON);
+    if (this.busyThreadId) throw new InputError('Stop the active operation before running a code block.');
     const thread = findThread(this.workspace, threadId), reply = thread.turns.flatMap(t => t.replies).find(r => r.id === replyId);
     if (!reply || reply.status !== 'complete' || !Number.isInteger(index) || index < 0) throw new InputError('Run a code block from a completed response.');
     const block = extractCodeBlocks(reply.content)[index];

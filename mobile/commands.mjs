@@ -101,7 +101,7 @@ export function createCommandHandler({ service, native, account = null, uuid = (
           await native.openExternal({ url });
         break;
       }
-      case 'python.pick': case 'code.run':
+      case 'python.pick': case 'python.find': case 'python.use': case 'code.run':
         throw new InputError(PYTHON_UNAVAILABLE);
       case 'agent.folder': case 'agent.folder.clear': case 'agent.root': case 'agent.approval':
         throw new InputError('The workspace agent needs the Windows app.');
@@ -152,7 +152,7 @@ export function createCommandHandler({ service, native, account = null, uuid = (
         await native.saveDocument({ name: artifact.name, mime: artifact.mime, data: artifact.data });
         break;
       }
-      case 'open.docs': await native.openExternal({ url: 'https://docs.tinfoil.sh/get-api-key' }); break;
+      case 'open.docs': await native.openExternal({ url: c.topic === 'python' ? 'https://www.python.org/downloads/windows/' : 'https://docs.tinfoil.sh/get-api-key' }); break;
       case 'thread.delete': {
         const thread = findThread(service.workspace, identifier(c.id));
         if (service.busyThreadId === c.id) throw new InputError('Stop the active response before deleting.');

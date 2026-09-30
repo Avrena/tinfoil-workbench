@@ -7,7 +7,7 @@ import { MessageEditor } from './editor.js';
 import { InlineReplyEditor } from './inline-editor.js';
 import { versionPosition, versionStep } from '../core/versions.js';
 import { ResponsiveLayout } from './responsive.js';
-import type { Attachment, Command, DesktopBridge, GenerationSettings, InstructionPreset, Reply, Snapshot, Thread, Turn, ToolRun, Artifact } from '../core/types.js';
+import type { Attachment, Command, DesktopBridge, GenerationSettings, InstructionPreset, PythonInterpreter, Reply, Snapshot, Thread, Turn, ToolRun, Artifact } from '../core/types.js';
 import { ArtifactPanel, type ArtifactEntry } from './artifact-panel.js';
 import { updateMarkup } from './dom.js';
 import { RichTextRenderer } from './rich-text.js';
@@ -38,7 +38,7 @@ app.innerHTML = `<div class="shell no-inspector" id="shell">
   <footer class="statusbar"><button data-action="verify" id="status-connection"></button><span class="spacer"></span><span id="status-activity" role="status" aria-live="polite"></span></footer>
 </div>
 <dialog id="account-dialog" aria-labelledby="account-title"><div class="modal-head"><h2 id="account-title">Account & connection</h2>${button('dismiss','Close account','close','class="icon-button"')} </div><div class="modal-body" id="account-body"></div></dialog>
-<dialog id="settings-dialog"><div class="modal-head"><h2>Settings</h2>${button('dismiss','Close settings','close','class="icon-button"')}</div><div class="modal-body"><form id="key-form"><div class="settings-account-link"><div><strong>Tinfoil Chat account</strong><p>Sign in with your subscription, or use a separate API key below.</p></div><button type="button" data-action="account">Account…</button></div><div class="eyebrow">Developer API key</div><p>This key is separate from a Chat subscription. Saving a key does not switch an active Chat account to API billing.</p><div class="key-status" id="key-status"></div><label for="api-key">Tinfoil API key</label><input id="api-key" type="password" placeholder="Paste a new API key" autocomplete="off" spellcheck="false" maxlength="4096"><div class="modal-actions"><button type="button" data-action="docs">API key guide</button><button type="button" data-action="forget-key" class="danger" id="forget-key">Forget key</button><button type="submit" class="primary" id="save-key">Save & verify</button></div><p class="modal-foot" id="key-feedback" role="status"></p></form><details class="execution-settings"><summary>Execution</summary><p>Python runs locally with your account's permissions. It can access files and the network; this is not a sandbox. Only approve code you trust.</p><div id="python-status" class="key-status"></div><button data-action="python-pick">Choose Python interpreter…</button><p>No Python installation is needed for ordinary chat. Running Python requires an installed interpreter; packages are never installed automatically.</p></details><p class="muted small settings-notice">Tinfoil Workbench is an unofficial client for Tinfoil. It is not affiliated with or endorsed by Tinfoil, and its icon is its own.</p></div></dialog>
+<dialog id="settings-dialog"><div class="modal-head"><h2>Settings</h2>${button('dismiss','Close settings','close','class="icon-button"')}</div><div class="modal-body"><form id="key-form"><div class="settings-account-link"><div><strong>Tinfoil Chat account</strong><p>Sign in with your subscription, or use a separate API key below.</p></div><button type="button" data-action="account">Account…</button></div><div class="eyebrow">Developer API key</div><p>This key is separate from a Chat subscription. Saving a key does not switch an active Chat account to API billing.</p><div class="key-status" id="key-status"></div><label for="api-key">Tinfoil API key</label><input id="api-key" type="password" placeholder="Paste a new API key" autocomplete="off" spellcheck="false" maxlength="4096"><div class="modal-actions"><button type="button" data-action="docs">API key guide</button><button type="button" data-action="forget-key" class="danger" id="forget-key">Forget key</button><button type="submit" class="primary" id="save-key">Save & verify</button></div><p class="modal-foot" id="key-feedback" role="status"></p></form><details class="execution-settings" id="execution-settings"><summary>Execution</summary><p>Python runs locally with your account's permissions. It can access files and the network; this is not a sandbox. Only approve code you trust.</p><div id="python-status" class="python-status" role="status"></div><div id="python-choice" class="python-choice" hidden><label for="python-found">Python to use</label><select id="python-found"></select></div><div class="python-actions"><button type="button" data-action="python-find" id="python-find" hidden>Find installed Python</button><button type="button" data-action="python-pick">Choose python.exe…</button><button type="button" data-action="python-get" id="python-get" hidden>Get Python…</button></div><p>No Python installation is needed for ordinary chat. Workbench finds installed Python by itself, without running it, and prefers the one on PATH. Packages are never installed automatically.</p></details><p class="muted small settings-notice">Tinfoil Workbench is an unofficial client for Tinfoil. It is not affiliated with or endorsed by Tinfoil, and its icon is its own.</p></div></dialog>
 <dialog id="view-dialog"><div class="modal-head"><h2>Reading & visibility</h2>${button('dismiss','Close reading settings','close','class="icon-button"')}</div><div class="modal-body"><label for="view-reasoning">Model reasoning</label><select id="view-reasoning"><option value="collapsed">Collapsed by default</option><option value="expanded">Expanded</option><option value="hidden">Hidden</option></select><p>Only reasoning actually returned by the provider is shown. Hiding it does not disable model reasoning.</p><label class="toggle-row"><span>Render Markdown</span><input id="view-markdown" type="checkbox"></label><label class="toggle-row"><span>Render LaTeX maths</span><input id="view-math" type="checkbox"></label><label class="toggle-row"><span>Show timing, tokens & context size</span><input id="view-metadata" type="checkbox"></label><label class="toggle-row"><span>Wrap long code lines</span><input id="view-wrapCode" type="checkbox"></label><label class="toggle-row"><span>Also open the workspace automatically</span><input id="view-autoArtifacts" type="checkbox"></label><label for="view-motion">Animations</label><select id="view-motion"><option value="system">Follow Windows motion preference</option><option value="reduced">Reduced motion</option></select><label class="toggle-row"><span>Focus mode <kbd>Ctrl Shift F</kbd></span><input id="view-focus" type="checkbox"></label><p>Tool approvals and errors remain visible in every mode.</p></div></dialog>
 <dialog id="model-dialog"><div class="modal-head"><h2>Choose model</h2>${button('dismiss','Close model picker','close','class="icon-button"')}</div><form id="model-form" class="modal-body"><label for="quick-model" class="sr-only">Search models</label><input id="quick-model" type="search" placeholder="Search models or enter a model ID" autocomplete="off" spellcheck="false" enterkeyhint="go"><div id="model-options" class="model-options" role="group" aria-label="Models"></div><div class="modal-actions"><button type="button" data-action="show-inspector">Advanced…</button><button class="primary" type="submit">Use model</button></div></form></dialog>
 <dialog id="instructions-dialog" aria-labelledby="instructions-title"><div class="modal-head"><h2 id="instructions-title">System instructions</h2>${button('instructions-close','Close system instructions','close','class="icon-button"')}</div><div class="modal-body">
@@ -197,7 +197,7 @@ function accept(snapshot:Snapshot):void {
   renderConnection();renderAccount();
   const pending=thread.turns.flatMap(t=>t.replies).flatMap(r=>r.tools??[]).some(t=>t.status==='awaiting_approval');
   $('status-activity').textContent=pending?'Approval needed':state.busyThreadId?'Working…':'';
-  $('python-status').textContent=state.pythonConfigured?'A Python interpreter is selected.':'No Python interpreter selected.';
+  renderPython();
   $('key-status').textContent=state.hasKey?'A key is saved on this device.':'No API key is saved.';
   $('save-key').textContent=state.connectionMode==='chat-account'?'Save key only':'Save & verify';
   $<HTMLButtonElement>('forget-key').disabled=!state.hasKey || !!state.busyThreadId || connecting;
@@ -687,6 +687,28 @@ function renderAgentFolder(thread:Thread):void {
   $<HTMLButtonElement>('agent-folder-choose').disabled=blocked;
   const fresh=$<HTMLButtonElement>('agent-folder-new');fresh.hidden=!folder||!root;fresh.disabled=blocked;
 }
+/** Python in Settings → Execution: the interpreter runs use, and the installed ones the host found without running them
+ * (python-find.mjs). The page picks only among those; any other interpreter comes from the native picker. */
+function renderPython():void {
+  const py=state.python,status=$('python-status'),choice=$('python-choice'),select=$<HTMLSelectElement>('python-found');
+  const find=$<HTMLButtonElement>('python-find'),get=$('python-get');
+  const line=(text:string,cls='')=>{const el=document.createElement('span');el.textContent=text;if(cls)el.className=cls;return el;};
+  if(!py){status.replaceChildren(line(state.pythonConfigured?'A Python interpreter is selected.':'No Python interpreter selected.'));choice.hidden=find.hidden=get.hidden=true;return;}
+  const now=py.current,found=py.found,none=!!found&&!found.length;
+  const name=(p:PythonInterpreter)=>(p.version?`Python ${p.version}`:'Python')+(p.onPath||found?.find(f=>f.path===p.path)?.onPath?' · on PATH':'');
+  if(now&&now.missing)status.replaceChildren(line('The chosen Python is no longer installed','python-name warn'),line(now.path,'python-path'));
+  else if(now)status.replaceChildren(line(name(now),'python-name'),line(now.path,'python-path'));
+  else if(py.searching)status.replaceChildren(line('Looking for installed Python…'));
+  else if(none)status.replaceChildren(line('Workbench found no Python on this computer','python-name warn'),line('Install it from python.org, then search again.'));
+  else status.replaceChildren(line('Not chosen yet. Workbench looks for installed Python when you open this section or first run Python.'));
+  const options=[...(now&&!now.missing&&!found?.some(f=>f.path===now.path)?[now]:[]),...(found??[])];
+  choice.hidden=options.length<2;
+  const key=JSON.stringify(options);
+  if(select.dataset.key!==key){select.dataset.key=key;select.replaceChildren(...options.map(p=>{const o=document.createElement('option');o.value=p.path;o.textContent=`${name(p)} · ${p.path}`;return o;}));}
+  select.value=now?.path??'';select.disabled=!!state.busyThreadId;
+  find.hidden=false;find.disabled=py.searching;find.textContent=py.searching?'Searching…':found?'Search again':'Find installed Python';
+  get.hidden=!none||!!(now&&!now.missing);
+}
 function renderComposerRole():void {
   const thread=current(),edit=messageEdits.get(thread.id);
   // Tinfoil cloud chats have no place for them (service.mjs refuses them as well).
@@ -912,6 +934,8 @@ async function action(name:string, target?:HTMLElement):Promise<void> {
     case 'instructions-keep-saved':$('instructions-delete-confirm').hidden=true;$('instructions-delete').focus();break;
     case 'instructions-confirm-delete':await instructionsRequest(async()=>{if(instructionsEdit?.id&&await dispatch({type:'instructions.delete',id:instructionsEdit.id})){toast('Saved instructions deleted. Conversations that used them are unchanged.');showInstructionsList();}});break;
     case 'python-pick': await dispatch({type:'python.pick'});break;
+    case 'python-find': await dispatch({type:'python.find'});break;
+    case 'python-get': await dispatch({type:'open.docs',topic:'python'});break;
     case 'source': if(target?.dataset.reply){rawReplies.has(target.dataset.reply)?rawReplies.delete(target.dataset.reply):rawReplies.add(target.dataset.reply);renderTranscript();}break;
     case 'cancel-delegate': if(target?.dataset.tool)await dispatch({type:'tool.cancel',id:thread.id,toolId:target.dataset.tool});break;
     case 'approve-tool': case 'deny-tool': if(target?.dataset.tool)await dispatch({type:'tool.approve',id:thread.id,toolId:target.dataset.tool,approve:name==='approve-tool'});break;
@@ -1166,6 +1190,8 @@ document.addEventListener('keydown',event=>{
   if(event.ctrlKey||event.metaKey){if(event.shiftKey&&event.key.toLowerCase()==='a'){event.preventDefault();void action('artifacts');return;}if(event.key.toLowerCase()==='f'){event.preventDefault();void action(event.shiftKey?'focus':'find');return;}if(event.key.toLowerCase()==='b'){event.preventDefault();void action('sidebar');return;}if(event.key.toLowerCase()==='n'){event.preventDefault();void action('new');}else if(event.key.toLowerCase()==='k'){event.preventDefault();palette();}else if(event.key===','){event.preventDefault();void action('settings');}}
 });
 document.addEventListener('selectionchange',()=>{if(state&&window.getSelection()?.isCollapsed)scheduleTranscript(true);});
+$('execution-settings').addEventListener('toggle',()=>{if($<HTMLDetailsElement>('execution-settings').open&&state.python&&state.python.found===null&&!state.python.searching)void dispatch({type:'python.find'});});
+$('python-found').addEventListener('change',()=>{const path=$<HTMLSelectElement>('python-found').value;if(path&&path!==state.python?.current?.path)void dispatch({type:'python.use',path}).finally(()=>renderPython());});
 $('agent-approval').addEventListener('change',()=>{const level=$<HTMLSelectElement>('agent-approval').value;void dispatch({type:'agent.approval',id:current().id,level:level as 'ask'|'changes'|'auto'}).finally(()=>renderConfiguration(true));});
 $('transcript').addEventListener('toggle',event=>{const d=event.target;if(d instanceof HTMLDetailsElement&&d.dataset.disclosure){disclosures.set(d.dataset.disclosure,d.open);scheduleTranscript(true);}},true);
 window.addEventListener('error',()=>toast('The interface encountered an error. Restart before sending another request.',true));

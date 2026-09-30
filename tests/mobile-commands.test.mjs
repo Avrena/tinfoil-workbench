@@ -49,7 +49,9 @@ test('desktop-only features fail with explicit Android messages', async t => {
   assert.equal((await command({ type: 'connection.mode', mode: 'api-key' })).snapshot.connectionMode, 'api-key');
   for (const type of ['window', 'window.close-ack', 'window.close-response'])
     await assert.rejects(command({ type, action: 'close', requestId: 'x', allow: true }), { message: WINDOW_UNAVAILABLE });
-  await assert.rejects(command({ type: 'python.pick' }), { message: PYTHON_UNAVAILABLE });
+  for (const type of ['python.pick', 'python.find'])
+    await assert.rejects(command({ type }), { message: PYTHON_UNAVAILABLE });
+  await assert.rejects(command({ type: 'python.use', path: 'python.exe' }), { message: PYTHON_UNAVAILABLE });
   await assert.rejects(command({ type: 'code.run', id: 'x', replyId: 'y', index: 0 }), { message: PYTHON_UNAVAILABLE });
   assert.equal(native.confirms.length, 0);
 });

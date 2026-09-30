@@ -50,7 +50,7 @@ Create one inline chart/table and one self-contained HTML artifact with a suppor
 
 Open a local PDF, navigate a multi-page file, change zoom and inspect extracted text. Export a model-created artifact as PDF, then open the result in an independent local viewer. This is separate from the shared Chromium print-layout test. Password-protected and unusual font/codec PDFs are not guaranteed.
 
-For optional Python, select an interpreter and request a harmless `print(1 + 1)` example. Decline once and verify no execution. Approve only the shown exact code, check stdout, then cancel a controlled sleep. Python has local account permissions, not a security sandbox. No runtime package install should occur implicitly.
+For optional Python, open Settings → Execution: it must list the installed interpreters with their versions, the one on PATH first, and use that one when none was chosen; a Microsoft Store shortcut or an uninstalled Python must not be listed. Pick another from the list, then request a harmless `print(1 + 1)` example. Decline once and verify no execution. Approve only the shown exact code, check stdout, then cancel a controlled sleep. Python has local account permissions, not a security sandbox. No runtime package install should occur implicitly.
 
 For opt-in delegation, inspect the explicit task and approve one short child request, then test a decline/cancel. The UI must separate child and parent usage and not imply parallel execution. Hosted MCP/search requests require live entitlement testing; passive event rendering is not proof of an authenticated hosted execution session.
 

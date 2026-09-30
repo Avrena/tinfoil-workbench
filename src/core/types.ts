@@ -128,6 +128,7 @@ export interface Verification {
   state: 'idle' | 'checking' | 'verified' | 'failed';
   checkedAt: number | null; steps: { name: string; status: string }[];
 }
+export interface PythonInterpreter { path: string; version: string | null; onPath?: true; missing?: true }
 export interface Snapshot {
   sequence: number;
   workspace: Omit<Workspace, 'apiKey' | 'cacheSecret' | 'pythonPath'>;
@@ -139,6 +140,9 @@ export interface Snapshot {
   modelCatalog?: 'idle' | 'loading' | 'ready' | 'failed';
   busyThreadId: string | null; storage: 'os-encrypted' | 'preview';
   notice: string | null; pythonConfigured?: boolean;
+  /** Python in the Windows app: the interpreter runs use (`missing` when its file is gone) and, once searched, the
+   * installed ones Workbench found. The page may pick one of those; any other path comes from the native picker. */
+  python?: { current: PythonInterpreter | null; found: PythonInterpreter[] | null; searching: boolean };
   /** The workspace agent: available in the Windows app, and whether Git Bash was found there. */
   agent?: { available: boolean; gitBash: boolean; root: string | null };
   /** Set only by the Android host; absent on the Windows desktop. */
@@ -167,6 +171,9 @@ export type Command =
   | { type: 'reply.edit'; id: string; turnId: string; replyId: string; content: string; reasoning: string; expectedContent: string; expectedReasoning: string }
   | { type: 'view.set'; view: ViewPreferences }
   | { type: 'python.pick' }
+  /** Looks for installed Python; `python.use` picks one of the interpreters found (by its path). */
+  | { type: 'python.find' }
+  | { type: 'python.use'; path: string }
   /** The workspace agent's folder: chosen in the host's native picker, or cleared. The page never names a path. */
   | { type: 'agent.folder'; id: string }
   | { type: 'agent.folder.clear'; id: string }
@@ -203,7 +210,7 @@ export type Command =
   | { type: 'export'; id: string; format: 'markdown' | 'json' }
   | { type: 'import' }
   | { type: 'clipboard'; text: string }
-  | { type: 'open.docs' }
+  | { type: 'open.docs'; topic?: 'python' }
   | { type: 'window'; action: 'minimize' | 'maximize' | 'close' }
   | { type: 'window.close-response'; requestId: string; allow: boolean }
   | { type: 'window.close-ack'; requestId: string };
