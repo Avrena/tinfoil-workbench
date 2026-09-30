@@ -29,7 +29,12 @@ export interface GenerationSettings {
   maxTokens: number;
   reasoningEffort: string;
 }
-export interface Attachment { name: string; content: string }
+/** A text file travels as its text. A picture keeps only a reference to the stored image (Workspace `images`) and a
+ * small thumbnail for the page; a folder only its path, which the workspace agent may read (core/attachments.ts). */
+export interface Attachment { name: string; content: string; kind?: 'image' | 'folder'; image?: ImageAttachment; path?: string }
+export interface ImageAttachment { id: string; mime: string; width: number; height: number; thumb: string }
+/** A picture attached to a message or draft, base64 without its data: prefix. Never in snapshots. */
+export interface StoredImage { mime: string; data: string; added: number }
 export interface Usage { input: number; output: number }
 export interface Artifact { id: string; name: string; mime: string; data: string; kind?: 'html' | 'svg' | 'markdown' | 'text' | 'json' | 'pdf' | 'chart' | 'table' | 'diagram' | 'timeline' | 'stats'; title?: string; source?: string; description?: string; version?: number; parentId?: string; rootId?: string }
 export interface DelegateRun {
@@ -116,6 +121,8 @@ export interface Workspace {
   cloud?: CloudConfig; apiKey: string; cacheSecret: string; view: ViewPreferences; pythonPath: string;
   /** Where the workspace agent makes a new folder for a conversation that has none (Windows; set by the host's picker). */
   agentRoot?: string;
+  /** Pictures attached to messages and drafts, by ImageAttachment id. Never in snapshots. */
+  images?: Record<string, StoredImage>;
 }
 /** `writer` and `clock` are this installation's edit clock for Tinfoil's conflict order (docs/CLOUD.md). */
 export interface CloudConfig { key: string; keyId: string; user: string; writer: string; clock: number }
@@ -150,7 +157,8 @@ export interface Snapshot {
   /** Android only: whether this WebView can host Tinfoil's sign-in page (docs/ANDROID-ACCOUNT.md). */
   chatAvailable?: boolean;
 }
-export interface ApiMessage { role: 'system' | 'user' | 'assistant' | 'tool'; content: string; tool_call_id?: string; tool_calls?: ToolCall[]; reasoning_content?: string }
+/** `images`: the stored pictures (Workspace `images`) that follow a user message's text; the service adds them to the request. */
+export interface ApiMessage { role: 'system' | 'user' | 'assistant' | 'tool'; content: string; tool_call_id?: string; tool_calls?: ToolCall[]; reasoning_content?: string; images?: string[] }
 export interface GenerationJob {
   threadId: string; turnId: string; replyId: string;
   lane: 'primary' | 'comparison'; model: string; settings: GenerationSettings; messages: ApiMessage[];
@@ -207,6 +215,8 @@ export type Command =
   | { type: 'turn.add'; id: string; role: 'assistant' | 'system'; text: string; replace?: string }
   | { type: 'stop'; id: string }
   | { type: 'attachments.pick' }
+  /** Stores a picture the page prepared (renderer/attach.ts) under the id it chose, for a draft or message to use. */
+  | { type: 'image.add'; id: string; mime: string; data: string }
   | { type: 'export'; id: string; format: 'markdown' | 'json' }
   | { type: 'import' }
   | { type: 'clipboard'; text: string }
@@ -217,10 +227,15 @@ export type Command =
 export interface DesktopBridge {
   snapshot(): Promise<Snapshot>;
   onCloseRequested?(callback: (requestId: string) => void): () => void;
-  command(command: Command): Promise<{ snapshot: Snapshot; attachments?: Attachment[]; artifact?: Artifact }>;
+  command(command: Command): Promise<{ snapshot: Snapshot; attachments?: Attachment[]; files?: PickedFile[]; artifact?: Artifact }>;
+  /** Windows only: the folder a dropped or pasted file object is, registered with the main process so a message may
+   * attach it; null for a file. Only a real dropped or pasted file has a path. */
+  folderFor?(file: File): Promise<{ path: string; name: string } | null>;
   subscribe(callback: (snapshot: Snapshot) => void): () => void;
   /** Android only: 'pause' when the app is backgrounded, 'back' for the system Back action.
    * Resolve true when the renderer handled Back itself. */
   onAppEvent?(callback: (event: 'pause' | 'back') => Promise<boolean>): () => void;
 }
+/** A picture or PDF from the Attach picker, base64, for the page to prepare like a dropped file (renderer/attach.ts). */
+export interface PickedFile { name: string; mime: string; data: string }
 declare global { interface Window { tinfoil?: DesktopBridge } }

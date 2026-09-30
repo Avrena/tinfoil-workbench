@@ -48,10 +48,12 @@ const APPROVALS: Record<AgentApproval, string> = {
 /** The workspace agent's folder, where it came from, the shell and the approval level. It follows the guide, so the
  * part shared by every conversation stays first. A folder Workbench made (`madeFolder`) is named after the first
  * message, which a model otherwise reads as the user naming the folder. */
-export function agentEnvironment(folder: string, shell: AgentShell, { approval = 'ask', made = false }: { approval?: AgentApproval; made?: boolean } = {}): string {
+export function agentEnvironment(folder: string, shell: AgentShell, { approval = 'ask', made = false, folders = [] }: { approval?: AgentApproval; made?: boolean; folders?: string[] } = {}): string {
+  // Only when the user attached a folder to a message, so the block (the end of the cached prefix) is otherwise unchanged.
+  const attached = folders.length ? `\nattached folders: ${folders.map(escapePromptContent).join('; ')} (the user attached them to messages; list_files, read_file and search_files read inside them by full path without approval; changes and commands there count as outside the folder)` : '';
   return `<environment>
 folder: ${escapePromptContent(folder)}
-folder origin: ${made ? 'made by Workbench for this conversation and named after its first message; the user did not choose or mention this name' : 'a folder the user chose for this conversation'}
+folder origin: ${made ? 'made by Workbench for this conversation and named after its first message; the user did not choose or mention this name' : 'a folder the user chose for this conversation'}${attached}
 shell: ${AGENT_SHELLS[shell]}
 approvals: ${APPROVALS[approval]}; reading inside the folder is not approved separately
 network: not restricted

@@ -1,7 +1,13 @@
 import { InputError, record, identifier, text, attachments, LIMITS } from '../dist/core/validation.js';
 import { findThread, exportThread, exportMarkdown } from '../dist/core/workspace.js';
 import { safeExternalURL } from '../dist/core/markdown.js';
-import { PREVIEW_LIMIT, previewFile, textAttachments, importText, bytesToBase64 } from './files.mjs';
+import { PREVIEW_LIMIT, previewFile, textAttachments, mediaFile, importText, bytesToBase64 } from './files.mjs';
+import { attachmentKind, IMAGE_LIMITS } from '../dist/core/attachments.js';
+/** The native picker's own ceiling (native-ops.mjs MAX_FILE); text files are held to their smaller limit afterwards. */
+const PICK_BYTES = 24 * 1024 * 1024;
+/** Folders are for the workspace agent, which only the Windows app has. */
+const FOLDER_UNAVAILABLE = 'Folders can be attached in the Windows app, for its workspace agent.';
+const attachesFolder = c => Array.isArray(c.attachments) && c.attachments.some(a => a?.kind === 'folder');
 
 /** Android counterpart of the command switch in desktop/main.mjs. Keep the two in step:
  * every native confirmation, stale-request recheck and limit here mirrors the desktop case.
@@ -111,6 +117,7 @@ export function createCommandHandler({ service, native, account = null, uuid = (
       case 'send': case 'turn.retry': {
         // The shared service would ask for a desktop interpreter; give the Android reason instead.
         if (findThread(service.workspace, identifier(c.id)).settings.toolsMode === 'ask') throw new InputError(PYTHON_SETTING);
+        if (attachesFolder(c)) throw new InputError(FOLDER_UNAVAILABLE);
         await service.execute(c); break;
       }
       case 'tool.approve': {
@@ -163,9 +170,16 @@ export function createCommandHandler({ service, native, account = null, uuid = (
       }
       case 'attachments.pick': {
         // One more than the limit is requested so an over-selection is reported instead of truncated.
-        const files = await pick(native, { multiple: true, maxCount: LIMITS.attachments + 1, maxBytes: LIMITS.attachment * 4 });
-        return { snapshot: snapshot(), attachments: files.length ? attachments(textAttachments(files, LIMITS)) : [] };
+        const picked = await pick(native, { multiple: true, maxCount: LIMITS.attachments + 1, maxBytes: PICK_BYTES });
+        if (picked.length > LIMITS.attachments) throw new InputError('Attach at most eight files or folders.');
+        const media = picked.filter(file => ['image', 'pdf'].includes(attachmentKind(String(file?.name ?? ''))));
+        const texts = picked.filter(file => !media.includes(file));
+        return { snapshot: snapshot(), attachments: texts.length ? attachments(textAttachments(texts, LIMITS)) : [],
+          files: media.map(file => mediaFile(file, Math.min(PICK_BYTES, IMAGE_LIMITS.sourceBytes))) };
       }
+      case 'thread.draft':
+        if (attachesFolder(c)) throw new InputError(FOLDER_UNAVAILABLE);
+        await service.execute(c); break;
       case 'export': {
         const thread = structuredClone(findThread(service.workspace, identifier(c.id)));
         if (!['json', 'markdown'].includes(c.format)) throw new InputError('Invalid export format.');

@@ -1,5 +1,6 @@
 import { viewPreferences } from './preferences.js';
-import type { ReplyEdit, ApiMessage, Artifact, Attachment, CloudConfig, GenerationSettings, InstructionPreset, Reply, Thread, ToolRun, Turn, TurnVersion, Workspace } from './types.js';
+import type { ReplyEdit, ApiMessage, Artifact, Attachment, CloudConfig, GenerationSettings, ImageAttachment, InstructionPreset, Reply, StoredImage, Thread, ToolRun, Turn, TurnVersion, Workspace } from './types.js';
+import { IMAGE_ID, IMAGE_LIMITS, STORED_IMAGE_TYPES } from './attachments.js';
 import type { CloudChatLink, CloudProjectLink } from './cloud.js';
 export const LIMITS = Object.freeze({
   prompt: 160_000, attachment: 200_000, attachments: 8,
@@ -76,14 +77,37 @@ export function settings(value: unknown): GenerationSettings {
   };
 }
 export function attachments(value: unknown): Attachment[] {
-  if (!Array.isArray(value) || value.length > LIMITS.attachments) throw new InputError('Choose at most eight text files.');
-  const result = value.map(item => {
-    const v = record(item);
-    return { name: text(v.name, 'Filename', 240, true), content: text(v.content, 'File content', LIMITS.attachment) };
+  if (!Array.isArray(value) || value.length > LIMITS.attachments) throw new InputError('Attach at most eight files or folders.');
+  const result = value.map((item): Attachment => {
+    const v = record(item), name = text(v.name, 'Filename', 240, true);
+    if (v.kind === 'image') return { name, content: '', kind: 'image', image: imageAttachment(v.image) };
+    if (v.kind === 'folder') return { name, content: '', kind: 'folder', path: agentFolder(v.path) };
+    if (v.kind !== undefined) throw new InputError('Unsupported attachment.');
+    return { name, content: text(v.content, 'File content', LIMITS.attachment) };
   });
   if (result.reduce((n, a) => n + a.content.length, 0) > LIMITS.attachment)
     throw new InputError('Combined attachments exceed 200,000 characters.');
   return result;
+}
+const BASE64 = /^[A-Za-z0-9+/]*={0,2}$/;
+function imageAttachment(value: unknown): ImageAttachment {
+  const v = record(value), mime = text(v.mime, 'Picture type', 40);
+  if (!STORED_IMAGE_TYPES.has(mime)) throw new InputError('Unsupported picture type.');
+  const thumb = text(v.thumb, 'Thumbnail', IMAGE_LIMITS.thumbChars, true);
+  if (!/^data:image\/(jpeg|png);base64,/.test(thumb) || !BASE64.test(thumb.slice(thumb.indexOf(',') + 1))) throw new InputError('Invalid thumbnail.');
+  return { id: imageId(v.id), mime, width: numeric(v.width, 1, 20000), height: numeric(v.height, 1, 20000), thumb };
+}
+export function imageId(value: unknown): string {
+  const id = text(value, 'Picture identifier', 90, true);
+  if (!IMAGE_ID.test(id)) throw new InputError('Invalid picture identifier.');
+  return id;
+}
+/** A picture as stored or as sent by `image.add`: PNG or JPEG in base64. */
+export function storedImage(value: unknown): StoredImage {
+  const v = record(value), mime = text(v.mime, 'Picture type', 40), data = text(v.data, 'Picture', IMAGE_LIMITS.dataChars, true);
+  if (!STORED_IMAGE_TYPES.has(mime)) throw new InputError('Unsupported picture type.');
+  if (!BASE64.test(data) || data.length % 4 !== 0) throw new InputError('Invalid picture encoding.');
+  return { mime, data, added: v.added === undefined ? Date.now() : stamp(v.added) };
 }
 function list(value: unknown, max: number): unknown[] {
   if (!Array.isArray(value) || value.length > max) throw new InputError('Invalid or oversized list.');
@@ -220,8 +244,16 @@ export function validateWorkspace(value: unknown): Workspace {
   return {
     version: 1, activeId, threads, projects, instructionPresets, ...(v.connectionMode?{connectionMode:v.connectionMode as Workspace['connectionMode']}:{}), ...(v.rememberAccount===false?{rememberAccount:false as const}:{}), ...(v.cloud===undefined?{}:{cloud:cloudConfig(v.cloud)}), view: viewPreferences(v.view), pythonPath: text(v.pythonPath ?? '', 'Python interpreter path', 4096),
     ...(v.agentRoot === undefined ? {} : {agentRoot: agentFolder(v.agentRoot)}),
+    ...(v.images === undefined ? {} : {images: images(v.images)}),
     apiKey: text(v.apiKey, 'API key', 4096), cacheSecret: text(v.cacheSecret, 'Cache secret', 200, true),
   };
+}
+
+function images(value: unknown): Record<string, StoredImage> {
+  const entries = Object.entries(record(value));
+  if (entries.length > LIMITS.threads * LIMITS.attachments) throw new InputError('Too many stored pictures.');
+  // Own properties only, so an identifier such as __proto__ cannot reach the prototype.
+  return Object.fromEntries(entries.map(([id, image]) => [imageId(id), storedImage(image)]));
 }
 
 export function validateArtifact(value: unknown): Artifact {

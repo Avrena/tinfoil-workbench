@@ -268,6 +268,21 @@ test('the agent is offered only with its folder, in a local conversation of the 
   await assert.rejects(android.s.setAgentFolder(android.thread.id, 'D:\\Projects'), new RegExp(AGENT_UNAVAILABLE));
 });
 
+test('read tools reach a folder attached to a message by its full path, without approval, and nowhere else', windows, async t => {
+  const site = scratch(t, 'workbench-attached-'), outside = scratch(t, 'workbench-outside-');
+  writeFileSync(join(site, 'notes.txt'), 'attached words\n'); writeFileSync(join(outside, 'secret.txt'), 'secret words\n');
+  const { s, requests } = await agentSetup(t, { script: n => [
+    call('read_file', { path: join(site, 'notes.txt') }, 'call_in'), call('read_file', { path: join(outside, 'secret.txt') }, 'call_out'),
+    call('list_files', { path: join(site, '..') }, 'call_up'), call('read_file', { path: join(site, '..', 'x.txt') }, 'call_dots'), answer('Read it.')][n - 1] });
+  await s.execute({ type: 'send', id: s.workspace.activeId, text: 'Read my notes.', attachments: [{ name: 'site', content: '', kind: 'folder', path: site }] });
+  await done(s);
+  assert.ok(requests[0].messages[0].content.includes(`\nattached folders: ${site} (the user attached them to messages;`));
+  const [inside, other, up, dots] = s.workspace.threads[0].turns[0].replies[0].tools;
+  assert.equal(inside.status, 'complete'); assert.match(inside.stdout, /attached words/); assert.equal(inside.agent.folder, site);
+  for (const refused of [other, up, dots]) { assert.equal(refused.status, 'error'); assert.doesNotMatch(refused.stdout ?? '', /secret words/); }
+  assert.equal(s.approvals.size, 0);
+});
+
 test('reads run without approval; an edit waits for it, and a declined one leaves the file alone', windows, async t => {
   const { s, dir, requests } = await agentSetup(t, { script: n => [
     call('read_file', { path: 'app.js' }), call('edit_file', { path: 'app.js', old_text: 'answer = 41', new_text: 'answer = 42' }, 'call_edit1'),

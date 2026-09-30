@@ -49,3 +49,26 @@ export async function mountPDF(container:HTMLElement,bytes:Uint8Array,alive:()=>
     await paint();return cleanup;
   } catch {if(alive()&&!destroyed)status.textContent='This PDF could not be opened. Save it to inspect it in another app.';cleanup();return cleanup;}
 }
+/** A PDF's text, page by page, for attaching it to a message (renderer/attach.ts). Stops once `limit` characters are
+ * read; the caller refuses a longer one. Loaded with the same restrictions as the viewer: nothing in the PDF runs. */
+export async function pdfText(bytes:Uint8Array,limit:number):Promise<string> {
+  if(!pdfEngineSupported())throw new Error(PDF_ENGINE_TOO_OLD);
+  let pdf:any;
+  try{const entry='/vendor/pdfjs/pdf.mjs';pdf=await import(/* @vite-ignore */ entry);}catch{throw new Error('the bundled PDF reader could not load.');}
+  pdf.GlobalWorkerOptions.workerSrc='/vendor/pdfjs/pdf.worker.mjs';
+  const loading=pdf.getDocument({data:bytes,isEvalSupported:false,enableXfa:false,useSystemFonts:true,useWasm:false,isOffscreenCanvasSupported:false,
+    isImageDecoderSupported:false,disableAutoFetch:true,disableStream:true,verbosity:0});
+  let locked=false;loading.onPassword=()=>{locked=true;void loading.destroy();};
+  try {
+    const doc=await loading.promise;let out='';
+    for(let n=1;n<=doc.numPages&&out.length<=limit;n++){
+      const page=await doc.getPage(n),content=await page.getTextContent();
+      const lines:string[]=[];let line='';
+      for(const item of content.items as any[]){if(typeof item.str!=='string')continue;line+=item.str;if(item.hasEOL){lines.push(line);line='';}}
+      if(line)lines.push(line);
+      out+=`${n>1?'\n\n':''}[Page ${n}]\n${lines.join('\n').trim()}`;page.cleanup();
+    }
+    return out;
+  } catch {throw new Error(locked?'password-protected PDFs cannot be attached.':'the PDF could not be read.');}
+  finally {void loading.destroy();}
+}

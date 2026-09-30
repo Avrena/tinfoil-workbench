@@ -131,8 +131,12 @@ async function simulate(thread,jobs){
     r.status=stopped?'stopped':'complete';r.finishReason=stopped?null:'stop';r.error=stopped?'Stopped. Partial output was preserved.':null;r.usage={input:84,output:Math.ceil(r.content.length/4)};
   }));busy=null;emit();
 }
+/** Pictures stored by `image.add`, kept only for this page's life. */
+const previewImages=new Map();
 window.tinfoil=Object.freeze({
   snapshot:async()=>snapshot(),subscribe:fn=>{listeners.add(fn);return()=>listeners.delete(fn);},
+  // Synthetic folders: an extensionless, typeless file stands for a dropped folder (the app asks its host).
+  folderFor:async file=>!file.type&&!/\.[A-Za-z0-9]+$/.test(file.name)?{path:'D:\\Preview\\'+file.name,name:file.name}:null,
   command:async c=>{
     let extra;
     switch(c.type){
@@ -175,6 +179,7 @@ window.tinfoil=Object.freeze({
         const jobs=c.type==='send'?beginTurn(t,c.text,attachments(c.attachments),'',c.replace):retryTurn(t,c.turnId);busy=t.id;stopped=false;void simulate(t,jobs);break;}
       case 'stop':stopped=true;break;
       case 'attachments.pick':extra=[{name:'outline.md',content:'A fictional scene outline. Preview-only attachment.'}];break;
+      case 'image.add':previewImages.set(c.id,{mime:c.mime,data:c.data});break;
       case 'clipboard':await navigator.clipboard.writeText(c.text);break;
       case 'credentials.set':case 'credentials.clear':case 'connect':throw new InputError('Preview mode cannot accept API keys or contact Tinfoil. Use the desktop app.');
       case 'models.catalog':break;

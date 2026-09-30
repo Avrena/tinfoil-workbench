@@ -767,3 +767,27 @@ dialog:not(.message-editor) .modal-body { padding: 8px 20px 20px; }
 .nav-section-toggle[aria-expanded="false"] svg { transform: rotate(-90deg); }
 #nav-projects[hidden], #nav-threads[hidden] { display: none; }
 @media (prefers-reduced-motion: reduce) { .nav-section-toggle svg { transition: none; } }
+
+/* Dropping files: the whole window says what a drop does, and the message box it goes to is outlined. The overlay
+   never takes the pointer, so the drag keeps reporting to the page underneath. */
+.drop-overlay { position: fixed; inset: 0; z-index: 90; display: grid; place-items: center; padding: 24px; pointer-events: none; background: #0009; backdrop-filter: blur(4px); animation: drop-in 120ms ease-out; }
+.drop-overlay[hidden] { display: none; }
+.drop-card { display: grid; justify-items: center; gap: 8px; max-width: 420px; padding: 28px 36px; border: 1.5px dashed #6f8fb1; border-radius: 14px; background: #1f2023e6; text-align: center; color: #d8dade; }
+.drop-card svg { width: 34px; height: 34px; stroke-width: 1.4; color: #8bc3ff; }
+.drop-card strong { font-size: 15px; font-weight: 600; }
+.drop-card span { font-size: 12px; color: #a0a4ab; }
+.drop-card .drop-folder[hidden] { display: none; }
+.shell.dropping-files .composer { outline: 2px solid #518bc4; outline-offset: 2px; }
+@keyframes drop-in { from { opacity: 0; } }
+@media (prefers-reduced-motion: reduce) { .drop-overlay { animation: none; } }
+
+/* Pictures and folders in the message box and in a sent message. */
+.attachment-chip { gap: 6px; }
+.attachment-chip.picture { padding: 2px 7px 2px 2px; }
+.attachment-chip.picture img { width: 26px; height: 26px; border-radius: 4px; object-fit: cover; flex: none; }
+.attachment-chip.warn { border-color: #8a6d3b; color: #e6c07a; }
+.attachment-chip.folder svg:first-child { color: #9dbad8; }
+.attached-summary { align-items: flex-end; }
+.attached-picture { display: block; max-width: 240px; height: auto; border: 1px solid #36383c; border-radius: 8px; object-fit: cover; background: #252526; }
+.attached-folder { display: inline-flex; align-items: center; gap: 5px; }
+.attached-folder svg { width: 12px; height: 12px; color: #9dbad8; }

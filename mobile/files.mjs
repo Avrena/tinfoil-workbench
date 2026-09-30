@@ -1,8 +1,9 @@
 import { InputError } from '../dist/core/validation.js';
+import { TEXT_EXTENSIONS as SHARED_TEXT, IMAGE_EXTENSIONS, attachmentKind } from '../dist/core/attachments.js';
 
 /** File checks for Android document pickers. They mirror desktop/main.mjs: the same
  * extensions, size limits, UTF-8 decoding and magic-byte checks. */
-export const TEXT_EXTENSIONS = new Set(['.txt','.md','.markdown','.json','.csv','.ts','.tsx','.js','.jsx','.mjs','.cjs','.lua','.py','.c','.h','.cpp','.hpp','.cs','.rs','.go','.html','.css','.xml','.yaml','.yml','.toml','.ini','.log','.sql','.sh','.ps1']);
+export const TEXT_EXTENSIONS = SHARED_TEXT;
 export const PREVIEW_TYPES = {'.pdf':'application/pdf','.png':'image/png','.svg':'image/svg+xml','.html':'text/html','.md':'text/markdown','.txt':'text/plain','.json':'application/json','.csv':'text/csv'};
 export const PREVIEW_LIMIT = 2 * 1024 * 1024;
 const PNG = [137, 80, 78, 71, 13, 10, 26, 10];
@@ -39,8 +40,15 @@ function picked(file, limit) {
   return { name: file.name, bytes: base64ToBytes(file.data, limit) };
 }
 
+/** A picture or PDF picked for a message, passed to the page to prepare like a dropped file (renderer/attach.ts). */
+export function mediaFile(file, limit) {
+  const { name, bytes } = picked(file, limit), kind = attachmentKind(name);
+  if (kind !== 'image' && kind !== 'pdf') throw new InputError('Only text and code files, pictures and PDFs can be attached.');
+  return { name, mime: kind === 'pdf' ? 'application/pdf' : IMAGE_EXTENSIONS[extension(name)], data: bytesToBase64(bytes) };
+}
+
 export function textAttachments(files, limits) {
-  if (files.length > limits.attachments) throw new InputError('Choose at most eight text files.');
+  if (files.length > limits.attachments) throw new InputError('Attach at most eight files or folders.');
   return files.map(file => {
     const { name, bytes } = picked(file, limits.attachment * 4);
     if (!TEXT_EXTENSIONS.has(extension(name))) throw new InputError('Only supported text and source files can be attached.');

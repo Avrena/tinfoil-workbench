@@ -29,6 +29,7 @@ import { AccountStore } from './account-store.mjs';
 import { resourcePath, trustedFrame, publicError } from '../dist/core/security.js';
 import { InputError, record, identifier, text, attachments, LIMITS } from '../dist/core/validation.js';
 import { findThread, exportThread, exportMarkdown } from '../dist/core/workspace.js';
+import { TEXT_EXTENSIONS, IMAGE_EXTENSIONS, IMAGE_LIMITS, PDF_SOURCE_BYTES, attachmentKind, folderKey, unknownFolder } from '../dist/core/attachments.js';
 const root = dirname(dirname(fileURLToPath(import.meta.url)));
 const smoke = process.argv.includes('--smoke-test');
 if (smoke) app.setPath('userData', mkdtempSync(join(tmpdir(), 'tinfoil-smoke-')));
@@ -132,6 +133,7 @@ async function launch() {
   window.on('closed', () => { closeCoordinator?.dispose(); window = null; app.quit(); });
   ipcMain.handle('workbench:snapshot', guarded(async () => service.snapshot()));
   ipcMain.handle('workbench:command', guarded(async (_event, input) => command(input)));
+  ipcMain.handle('workbench:folder', guarded(async (_event, path) => droppedFolder(path)));
   await window.loadURL(origin);
   if (smoke) {
     const ok = await window.webContents.executeJavaScript(`(async () => {
@@ -186,8 +188,26 @@ function guarded(handler) {
     } catch (error) { return { ok: false, error: publicError(error) }; }
   };
 }
-const EXTENSIONS = new Set(['.txt','.md','.markdown','.json','.csv','.ts','.tsx','.js','.jsx','.mjs','.cjs','.lua','.py','.c','.h','.cpp','.hpp','.cs','.rs','.go','.html','.css','.xml','.yaml','.yml','.toml','.ini','.log','.sql','.sh','.ps1']);
-async function boundedRead(path, limit) {
+/** Folders the user dropped or pasted in this session (preload `folderFor`), which a message may attach. */
+const droppedFolders = new Set();
+async function droppedFolder(input) {
+  const path = text(input, 'Folder', 1024, true);
+  if (!isAbsolute(path) || !/^[a-zA-Z]:\\/.test(path)) throw new InputError('Only a folder on a drive of this computer can be attached.');
+  let info;
+  try { info = await stat(path); } catch { return null; }
+  if (!info.isDirectory()) return null;
+  const unsafe = unsafeFolder(path);
+  if (unsafe) throw new InputError(`Workbench does not attach ${unsafe}. Attach a project folder instead.`);
+  droppedFolders.add(folderKey(path));
+  return { path, name: basename(path) || path };
+}
+/** A message or draft may attach a folder only if the user dropped or pasted it in this session, or it is already in
+ * that conversation (core/attachments.ts unknownFolder). */
+function checkFolders(c) {
+  if (unknownFolder(c.attachments, findThread(service.workspace, identifier(c.id)), droppedFolders) !== null)
+    throw new InputError('Attach a folder by dropping it on Workbench or pasting it.');
+}
+async function boundedBytes(path, limit) {
   const handle = await open(path, 'r');
   try {
     const info = await handle.stat();
@@ -196,12 +216,17 @@ async function boundedRead(path, limit) {
     const buffer = Buffer.alloc(limit + 1); let offset = 0;
     while (offset < buffer.length) { const { bytesRead } = await handle.read(buffer, offset, buffer.length - offset, null); if (!bytesRead) break; offset += bytesRead; }
     if (offset > limit) throw new InputError('The selected file exceeds the size limit.');
-    try { return new TextDecoder('utf-8', { fatal: true }).decode(buffer.subarray(0, offset)); }
-    catch { throw new InputError('Only UTF-8 text files are supported.'); }
+    return buffer.subarray(0, offset);
   } finally { await handle.close(); }
+}
+async function boundedRead(path, limit) {
+  const buffer = await boundedBytes(path, limit);
+  try { return new TextDecoder('utf-8', { fatal: true }).decode(buffer); }
+  catch { throw new InputError('Only UTF-8 text files are supported.'); }
 }
 async function command(input) {
   const c = record(input); text(c.type, 'Command', 80, true);
+  if (c.type === 'send' || c.type === 'thread.draft') checkFolders(c);
   switch (c.type) {
     case 'account.login': {
       if(service.busyThreadId||service.connection)throw new InputError('Stop the response or wait for verification before signing in.');
@@ -424,18 +449,27 @@ async function command(input) {
       break;
     }
     case 'attachments.pick': {
-      const selected = await dialog.showOpenDialog(window, { properties: ['openFile','multiSelections'], title: 'Attach UTF-8 text or code',
-        filters: [{ name: 'Text and source files', extensions: [...EXTENSIONS].map(e => e.slice(1)) }] });
-      if (selected.canceled) return { snapshot: service.snapshot(), attachments: [] };
-      if (selected.filePaths.length > LIMITS.attachments) throw new InputError('Choose at most eight text files.');
-      const files = [];
+      // Text is read here. Pictures and PDFs go to the page as bytes, which prepares them like a dropped file
+      // (renderer/attach.ts): it redraws pictures and reads the text out of PDFs.
+      const extensions = [...TEXT_EXTENSIONS, ...Object.keys(IMAGE_EXTENSIONS), '.pdf'].map(e => e.slice(1));
+      const selected = await dialog.showOpenDialog(window, { properties: ['openFile','multiSelections'], title: 'Attach files',
+        filters: [{ name: 'Text, code, pictures and PDFs', extensions }] });
+      if (selected.canceled) return { snapshot: service.snapshot(), attachments: [], files: [] };
+      if (selected.filePaths.length > LIMITS.attachments) throw new InputError('Attach at most eight files or folders.');
+      const texts = [], files = [];
       for (const path of selected.filePaths) {
-        if (!EXTENSIONS.has(extname(path).toLowerCase())) throw new InputError('Only supported text and source files can be attached.');
+        const name = basename(path), kind = attachmentKind(name);
+        if (kind === 'image' || kind === 'pdf') {
+          const bytes = await boundedBytes(path, kind === 'pdf' ? PDF_SOURCE_BYTES : IMAGE_LIMITS.sourceBytes);
+          files.push({ name, mime: kind === 'pdf' ? 'application/pdf' : IMAGE_EXTENSIONS[extname(path).toLowerCase()], data: bytes.toString('base64') });
+          continue;
+        }
+        if (kind !== 'text') throw new InputError('Only text and code files, pictures and PDFs can be attached.');
         const content = await boundedRead(path, LIMITS.attachment * 4);
         if (content.includes('\0')) throw new InputError('Binary files cannot be attached.');
-        files.push({ name: basename(path), content });
+        texts.push({ name, content });
       }
-      return { snapshot: service.snapshot(), attachments: attachments(files) };
+      return { snapshot: service.snapshot(), attachments: attachments(texts), files };
     }
     case 'export': {
       const thread = structuredClone(findThread(service.workspace, identifier(c.id)));

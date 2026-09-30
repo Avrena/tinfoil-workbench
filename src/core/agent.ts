@@ -307,6 +307,30 @@ export function agentGuide(shell: AgentShell): string {
 
 /** Tool results for the agent's reads and commands grow the context of every later step. Results older than the last
  * ten are sent as a short excerpt (the conversation keeps them whole); earlier turns' results are all older. */
+/** The folder a read tool's path is in. A full path inside a folder the user attached to a message is read there (the
+ * environment lists them); any other path is the conversation folder's, as before. String checks only: agent-tools
+ * `place` then resolves the path in that folder and follows links, so `..` and junctions cannot leave it. */
+export function readPlace(path: string | undefined, folder: string, attached: string[]): { folder: string; path?: string } {
+  if (path && /^[a-zA-Z]:[\\/]/.test(path)) {
+    const norm = (value: string): string => value.replace(/\//g, '\\').replace(/\\+$/, ''), target = norm(path), lower = target.toLowerCase();
+    for (const base of attached) {
+      const root = norm(base).toLowerCase();
+      if (lower === root) return { folder: base, path: '.' };
+      if (lower.startsWith(root + '\\')) return { folder: base, path: target.slice(root.length + 1) };
+    }
+  }
+  return { folder, path };
+}
+/** A read tool's arguments before agentArguments checks them: a full path inside an attached folder becomes relative to
+ * that folder, which the call then reads from; anything else is left as the model sent it. */
+export function attachedRead(name: string, raw: string, folder: string, attached: readonly string[]): { raw: string; folder: string } {
+  if (!attached.length || !['list_files', 'search_files', 'read_file'].includes(name)) return { raw, folder };
+  let parsed: unknown;
+  try { parsed = JSON.parse(raw); } catch { return { raw, folder }; }
+  if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed) || typeof (parsed as { path?: unknown }).path !== 'string') return { raw, folder };
+  const place = readPlace((parsed as { path: string }).path, folder, [...attached]);
+  return place.folder === folder ? { raw, folder } : { raw: JSON.stringify({ ...parsed, path: place.path }), folder: place.folder };
+}
 export function compactAgentHistory(messages: ApiMessage[], recent: number = AGENT_LIMITS.recentResults, keep: number = AGENT_LIMITS.olderResult): ApiMessage[] {
   const names = new Map<string, string>();
   for (const message of messages) for (const call of message.tool_calls ?? []) names.set(call.id, call.function.name);

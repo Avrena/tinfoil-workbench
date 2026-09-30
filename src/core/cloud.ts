@@ -192,8 +192,10 @@ export function cloudPatch(remote: Json, thread: Thread, clock: { v: number; w: 
   for (const turn of thread.turns.slice(known)) {
     if (turn.role) continue;
     const reply = selected(turn);
+    // Only text files: pictures and folders are refused in cloud chats (service `start`).
+    const files = turn.attachments.filter(a => !a.kind);
     out.push({ role: 'user', content: turn.prompt, timestamp: new Date(turn.createdAt).toISOString(),
-      ...(turn.attachments.length ? { attachments: turn.attachments.map(a => ({ id: uid(), type: 'document', fileName: a.name, textContent: a.content })) } : {}) });
+      ...(files.length ? { attachments: files.map(a => ({ id: uid(), type: 'document', fileName: a.name, textContent: a.content })) } : {}) });
     if (reply?.status === 'complete') out.push(newAnswer(reply, now));
   }
   return { ...remote, title: thread.title, ...(thread.title !== remote.title ? { titleState: 'manual' } : {}), messages: out,

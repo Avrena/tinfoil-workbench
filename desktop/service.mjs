@@ -1,7 +1,8 @@
 import { editReply } from '../dist/core/editing.js';
 import { createProject,renameProject,removeProject,moveThread,newProjectThread } from '../dist/core/projects.js';
 import { saveInstructionPreset, deleteInstructionPreset } from '../dist/core/instructions.js';
-import { InputError, record, text, identifier, settings, attachments, validateWorkspace, LIMITS, validateTool, agentFolder } from '../dist/core/validation.js';
+import { InputError, record, text, identifier, settings, attachments, validateWorkspace, LIMITS, validateTool, agentFolder, imageId, storedImage } from '../dist/core/validation.js';
+import { IMAGE_LIMITS } from '../dist/core/attachments.js';
 import { newWorkspace, findThread, addThread, beginTurn, retryTurn, addMessage, chooseReply, forkThread, recoverInterrupted, importThread, outputLimitNotice, checkLanes } from '../dist/core/workspace.js';
 import { showVersion } from '../dist/core/versions.js';
 import { viewPreferences } from '../dist/core/preferences.js';
@@ -9,7 +10,7 @@ import { extractCodeBlocks } from '../dist/core/markdown.js';
 import { ToolCallAccumulator, PYTHON_TOOL, pythonArguments, findTextToolCalls } from '../dist/core/tools.js';
 import { VISUAL_TOOLS, VISUAL_TOOL_NAMES, RENDER_KINDS } from '../dist/core/visual-tools.js';
 import { toolGuide, withToolGuide, agentEnvironment } from '../dist/core/prompt.js';
-import { AGENT_TOOLS, AGENT_TOOL_NAMES, AGENT_APPROVED, AGENT_LIMITS, agentArguments, agentFolderName, askAnyway, compactAgentHistory, madeFolder, shortenOutput } from '../dist/core/agent.js';
+import { AGENT_TOOLS, AGENT_TOOL_NAMES, AGENT_APPROVED, AGENT_LIMITS, agentArguments, agentFolderName, askAnyway, attachedRead, compactAgentHistory, madeFolder, shortenOutput } from '../dist/core/agent.js';
 import { capabilityFor, reasoningParameters, normalizeCapability } from '../dist/core/capabilities.js';
 import { executeVisual } from './visual-runtime.mjs';
 import { DELEGATE_TOOL, delegateArguments, toolActive } from '../dist/core/activity.js';
@@ -101,6 +102,7 @@ export class WorkbenchService {
     if (!this.emitter) this.emitter = setTimeout(() => { this.emitter = null; this.emit(); }, 90);
   }
   async save() {
+    this.pruneImages();
     try { await this.vault.write(this.workspace); }
     catch {
       this.storageFailed = true;
@@ -110,13 +112,37 @@ export class WorkbenchService {
       throw new InputError(this.notice);
     }
   }
+  /** Forgets stored pictures that no message, version or draft uses, once they are an hour old (a picture the page
+   * just stored waits for the draft that uses it). */
+  pruneImages() {
+    const images = this.workspace.images;
+    if (!images) return;
+    const used = new Set(), collect = files => { for (const f of files ?? []) if (f.kind === 'image' && f.image) used.add(f.image.id); };
+    const walk = turns => { for (const turn of turns) { collect(turn.attachments); for (const version of turn.versions ?? []) walk(version.turns); } };
+    for (const thread of this.workspace.threads) { collect(thread.draftAttachments); walk(thread.turns); }
+    const now = Date.now();
+    for (const [id, image] of Object.entries(images)) if (!used.has(id) && now - image.added > IMAGE_LIMITS.unusedMs) delete images[id];
+  }
+  /** The request's messages with their pictures as image parts, or, for a model whose catalog entry says it cannot read
+   * pictures, a note in their place. */
+  withImages(messages, model) {
+    const vision = capabilityFor(model, this.capabilities).display?.multimodal !== false, stored = this.workspace.images ?? {};
+    return messages.map(({ images, ...message }) => {
+      if (!images?.length) return message;
+      if (!vision) return { ...message, content: message.content + images.map(() => '\n\n[A picture was attached here. This model cannot read pictures, so it is not included.]').join('') };
+      return { ...message, content: [{ type: 'text', text: message.content }, ...images.map(id => Object.hasOwn(stored, id)
+        ? { type: 'image_url', image_url: { url: `data:${stored[id].mime};base64,${stored[id].data}` } }
+        : { type: 'text', text: '[A picture was attached here, but it is no longer stored on this device.]' })] };
+    });
+  }
   /** A conversation that is, or will become, a Tinfoil cloud chat. */
   cloudBound(t) { return !!(t.cloud || t.cloudPending || this.workspace.projects.find(p => p.id === t.projectId)?.cloud); }
   /** The workspace agent's folder and shell for a conversation (docs/WORKSPACE-AGENT.md), or null when it is off, has no
    * folder yet, or is not available here. */
   agentFor(thread, s = thread.settings) {
     if (!this.agentTools || s.agentMode !== 'ask' || !thread.agentFolder || this.cloudBound(thread)) return null;
-    return { folder: thread.agentFolder, shell: s.agentShell === 'bash' ? 'bash' : 'powershell', approval: s.agentApproval ?? 'ask', made: madeFolder(thread.agentFolder, this.workspace.agentRoot, thread.id) };
+    const folders = [...new Set(thread.turns.flatMap(t => t.attachments.flatMap(a => a.kind === 'folder' && a.path ? [a.path] : [])))];
+    return { folder: thread.agentFolder, shell: s.agentShell === 'bash' ? 'bash' : 'powershell', approval: s.agentApproval ?? 'ask', made: madeFolder(thread.agentFolder, this.workspace.agentRoot, thread.id), folders };
   }
   /** The main process sets the folder after its native folder picker; no renderer command can name one. */
   async setAgentFolder(id, folder) {
@@ -442,6 +468,14 @@ export class WorkbenchService {
         if (this.workspace.activeId === c.id) this.workspace.activeId = this.workspace.threads[0].id;
         break;
       }
+      case 'image.add': {
+        const id = imageId(c.id), image = storedImage({ mime: c.mime, data: c.data });
+        const images = this.workspace.images ??= {};
+        const total = Object.values(images).reduce((n, i) => n + i.data.length, 0);
+        if (total + image.data.length > IMAGE_LIMITS.dataChars * 6) throw new InputError('Workbench is storing as many pictures as it can. Delete conversations with pictures you no longer need, then attach this again.');
+        if (!Object.hasOwn(images, id)) images[id] = image;
+        break;
+      }
       case 'thread.draft': {
         const t = findThread(this.workspace, identifier(c.id));
         const draft = text(c.text, 'Draft', LIMITS.prompt);
@@ -495,7 +529,18 @@ export class WorkbenchService {
     if (this.workspace.projects.find(p => p.id === id)?.cloud) throw new InputError(`${action} Tinfoil cloud projects in Tinfoil Chat.`);
   }
   /** Sends a message: a new turn, or with `replace` a new version of that turn (an edited message). */
-  send(threadId, prompt, files, replace) { return this.start(threadId, (thread, context) => beginTurn(thread, prompt, files, context, replace), prompt); }
+  send(threadId, prompt, files, replace) {
+    const thread = findThread(this.workspace, threadId);
+    if (files.some(f => f.kind)) {
+      if (this.cloudBound(thread)) throw new InputError('Tinfoil cloud chats cannot carry pictures or folders from Workbench. Use a local conversation.');
+      for (const f of files) if (f.kind === 'image' && !Object.hasOwn(this.workspace.images ?? {}, f.image.id)) throw new InputError(`${f.name} is no longer stored on this device. Remove it and attach it again.`);
+      if (files.some(f => f.kind === 'image')) for (const model of thread.settings.compare ? [thread.settings.model, thread.settings.compareModel] : [thread.settings.model]) {
+        const cap = capabilityFor(model, this.capabilities);
+        if (cap.display?.multimodal === false) throw new InputError(`${cap.display.name || model} cannot read pictures. Choose a model that can in Choose model, or remove the picture.`);
+      }
+    }
+    return this.start(threadId, (thread, context) => beginTurn(thread, prompt, files, context, replace), prompt);
+  }
   /** Starts the replies that `begin` sets up in the conversation (core/workspace.ts), and writes a cloud chat back after them. */
   async start(threadId, begin, prompt = '') {
     if (this.storageFailed) throw new InputError(this.notice);
@@ -583,7 +628,7 @@ export class WorkbenchService {
         // Older agent results go as excerpts (core/agent.ts); the reply keeps them whole.
         const sent = agent ? compactAgentHistory(messages) : messages;
         if (JSON.stringify(sent).length > LIMITS.context) throw new InputError('Tool context exceeded the local size limit. Start a shorter conversation.');
-        const body = { model: job.model, messages: structuredClone(sent), stream: true,
+        const body = { model: job.model, messages: this.withImages(structuredClone(sent), job.model), stream: true,
           max_tokens: job.settings.maxTokens, stream_options: { include_usage: true } };
         if (job.settings.temperature !== null) body.temperature = job.settings.temperature;
         const cap=capabilityFor(job.model,this.capabilities), primary=job.lane!=='comparison';
@@ -827,16 +872,18 @@ export class WorkbenchService {
     const tools = this.agentTools;
     try {
       if (!agent || !tools) throw new InputError('The workspace agent is off for this conversation. No action was performed.');
-      const args = agentArguments(tool.name, tool.arguments), started = Date.now();
-      tool.agent = { folder: agent.folder, ...(args.name === 'run_command' ? { shell: agent.shell } : {}) };
+      // A read of a full path inside a folder the user attached reads from that folder (core/agent.ts attachedRead).
+      const read = attachedRead(tool.name, tool.arguments, agent.folder, agent.folders ?? []);
+      const args = agentArguments(tool.name, read.raw), started = Date.now();
+      tool.agent = { folder: read.folder, ...(args.name === 'run_command' ? { shell: agent.shell } : {}) };
       if (args.name === 'update_plan') {
         tool.stdout = args.steps.map(step => `${step.status === 'completed' ? '[x]' : step.status === 'in_progress' ? '[>]' : '[ ]'} ${step.text}`).join('\n');
         tool.status = 'complete'; return;
       }
       if (!AGENT_APPROVED.has(args.name)) {
         tool.status = 'running'; this.emit();
-        const result = args.name === 'list_files' ? await tools.list({ folder: agent.folder, ...args })
-          : args.name === 'search_files' ? await tools.search({ folder: agent.folder, ...args, signal: ctrl.signal }) : await tools.read({ folder: agent.folder, ...args });
+        const result = args.name === 'list_files' ? await tools.list({ folder: read.folder, ...args })
+          : args.name === 'search_files' ? await tools.search({ folder: read.folder, ...args, signal: ctrl.signal }) : await tools.read({ folder: read.folder, ...args });
         Object.assign(tool, { stdout: result.text.slice(0, 100000), elapsedMs: Date.now() - started, status: 'complete' }); return;
       }
       const change = args.name === 'edit_file' ? await tools.prepareEdit({ folder: agent.folder, ...args })

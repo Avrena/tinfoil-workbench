@@ -43,6 +43,8 @@ Workbench took over the environment block, a small tool set with limits, the Win
 
 All tools are Chat Completions functions with JSON arguments, checked in `src/core/agent.ts` (`agentArguments`). Paths are relative to the folder; `..`, absolute paths, drive-relative paths, UNC and device paths, alternate data streams and names ending in a dot or space are refused (`workspacePath`), and every resolved path, after `realpath`, must stay inside the folder, so symbolic links and junctions cannot lead out; for a path that does not exist yet, its nearest existing parent must (`desktop/agent-tools.mjs`).
 
+**Attached folders (1.3).** A folder the user drops or pastes on the message box is attached to that message as its path; its files are not uploaded (the message lists the path after its text). For `list_files`, `search_files` and `read_file`, a full path inside an attached folder is made relative to it before these checks (`attachedRead` in `src/core/agent.ts`), and the call reads from that folder with the same confinement. Any other full path is refused as before. Edits, writes and commands there count as outside the folder. The main process only accepts folders dropped or pasted in this session, or already in the conversation (`unknownFolder` in `src/core/attachments.ts`), and refuses the same folders as for the agent's own folder.
+
 | Tool | Arguments | Approval | Result for the model |
 |---|---|---|---|
 | `list_files` | `path` (default `.`), `depth` (1–4, default 2) | none | Entries with `/` after folders, at most 400; `.git` and `node_modules` summarised as one line each; links are listed, not followed |
@@ -94,6 +96,8 @@ network: not restricted
 </environment>
 ```
 
+When messages in the conversation attach folders, an `attached folders:` line follows `folder origin`, naming them and saying that the read tools take full paths inside them without approval, and that changes and commands there count as outside the folder. Without attached folders the block is unchanged, so its cached prefix stays the same.
+
 For a folder the user chose, `folder origin` reads "a folder the user chose for this conversation". A folder Workbench made is named after the conversation's first message, and models read that name as something the user wrote (a greeting was once answered as a reference to the folder). `madeFolder` recognises such a folder by its name: the date, the message's start and four characters of the conversation's ID, under the root or ending in this conversation's characters. The approvals line follows the conversation's level: at Auto-edit, "file changes inside the folder are written without asking, and the user sees each one; the user approves every command first"; at Auto-run, commands and changes run without asking except the commands that still ask. The guide also tells the model to answer a message that needs no files or commands as usual, without mentioning the folder or the tools.
 
 ## Approval and execution
@@ -137,7 +141,7 @@ The path is the one Python uses, extended (`runAgentTool` in `desktop/service.mj
 | Reading keys, browser data or app data without approval | Folders that hold them cannot be chosen; reads are confined to the folder, links and junctions included | Secrets kept inside a chosen project folder (a `.env` file) can be read |
 | Destructive commands | The guide forbids unrequested ones; the dialog shows the exact command | No undo; no sandbox |
 | Credentials | The guide forbids reading them | Commands run as the user and can read the user's files, including Workbench's own encrypted data, which any program running as the user can decrypt |
-| Escaping the folder | Read and change paths resolved and confined; the approval lists paths outside the folder that a command names | Commands are not confined; a command can reach paths it does not name. After approval, a command can read a file anywhere the user can |
+| Escaping the folder | Read and change paths resolved and confined; reads reach a folder attached to a message only by its full path, and only folders the user dropped or pasted (main process `checkFolders`); the approval lists paths outside the folder that a command names | Commands are not confined; a command can reach paths it does not name. After approval, a command can read a file anywhere the user can |
 | A change to a file edited meanwhile | Written only if the file is unchanged since the proposal | — |
 | A compromised page acting for the user | Native folder picker and dialogs in the main process, checked again after they close | — |
 | Runaway loops and cost | Rounds, calls and time limits; Stop; the step count | — |
