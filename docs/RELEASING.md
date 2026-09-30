@@ -66,8 +66,8 @@ Record any failure, skip or retry in the validation record; do not describe a re
 
 | Workflow | Runner | What it does |
 |---|---|---|
-| `windows.yml` | windows-latest | bootstrap, doctor, Node tests, native Electron/DPAPI/PDF smoke, x64 packaging, the package check and the packaged app's smoke test; uploads the installers as a 14-day artifact |
-| `android.yml` | ubuntu-latest | bootstrap, Node tests, Android debug and unsigned release builds; uploads the debug APK as a 14-day artifact |
+| `windows.yml` | windows-latest | bootstrap, doctor, Node tests, native Electron/DPAPI/PDF smoke, x64 packaging, the package check and the packaged app's smoke test; uploads the installers as a 1-day artifact |
+| `android.yml` | ubuntu-latest | bootstrap, Node tests, Android debug and unsigned release builds; uploads the debug APK as a 1-day artifact |
 | `renderer.yml` | ubuntu-latest | rebuilds the preview and runs the twelve browser UI suites |
 
 CI artifacts are for verification only; they are not release assets.

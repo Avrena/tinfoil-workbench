@@ -1,5 +1,5 @@
 {
-  "checks": 22,
+  "checks": 23,
   "passed": [
     "artifact workspace is hidden initially and available through keyboard navigation",
     "visual artifacts render inline; expansion is explicit and tool details remain collapsed",
@@ -16,6 +16,7 @@
     "closing the panel is respected by later snapshots in the same turn",
     "changing conversations clears the previous artifact selector without sharing artifacts across threads",
     "DeepSeek V4 profile exposes only its Tinfoil high/max effort choices and provider default",
+    "the gauge opens a slider over the levels of the model; sliding or a stop sets the effort, the gauge fills and is highlighted unless the provider default is used, and Escape closes it",
     "Kimi K3 profile hides unsupported generation controls and model switching clears earlier effort overrides",
     "pending advanced edits cannot silently change the quick effort control",
     "offline fixtures do not pretend to save files or produce native PDFs",

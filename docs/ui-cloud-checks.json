@@ -1,10 +1,15 @@
 {
-  "checks": 7,
+  "checks": 12,
   "passed": [
     "signed out, the cloud section explains itself and offers no key field",
     "signed in, the chat key is masked, cleared after use, and the preview refuses to connect",
     "connected, the section shows sync state, counts, the listing limit, errors and the key ID, never the key",
     "cloud chats and projects are marked in the sidebar, and cloud projects offer no local management",
+    "the Threads heading has a Sync button in the column of the Projects + button, disabled and turning while syncing",
+    "Cloud and Local switch the thread list, kept as a view preference",
+    "hovering a thread offers Delete, and Move to Tinfoil cloud only for a local thread with messages",
+    "after a touch the row actions stay hidden, so nothing covers a title on a phone; a key press brings them back",
+    "a thread started from the Cloud list is listed there and marked to become a cloud chat",
     "a listed chat shows that it is loading, and Move to Tinfoil cloud appears only for local conversations while connected",
     "a synced answer's chart and timeline appear where Tinfoil Chat shows them, and a map is listed as not displayed",
     "no JavaScript errors or external requests"

@@ -103,7 +103,7 @@ Keyboard shortcuts on Windows: Ctrl+N new thread; Ctrl+K commands; Ctrl+F conver
 - **Tinfoil cloud chats (Windows):** Workbench lists your 300 most recent cloud chats and does not download their images, so when you continue a chat the model does not see earlier images. Of Tinfoil Chat's widgets, charts, timelines and stat cards are drawn; the others are listed as not displayed. Visuals made in Workbench are not written back, so Tinfoil Chat shows those answers as text. Cloud projects are managed in Tinfoil Chat.
 - **Sign-in methods:** Chat sign-in has been checked on Windows and Android. Additional sign-in methods have not been tried.
 - **Python** (Windows) runs with your user account's permissions. It is not a sandbox.
-- **Android, replies in progress:** leaving the app while a reply is being written interrupts it, because Android pauses the app; the reply then says so. Ask again with Retry.
+- **Android, replies in progress:** Android can pause the app in the background, and a reply being written then stops; the reply says so. Ask again with Retry.
 - **Models:** a model can fail to follow the tool guide. When one writes a chart, table, diagram, timeline or stat-card call into its answer as text instead of making it (GLM-5.3 Flash has), Workbench draws it and marks it as written as text; other calls written as text stay text.
 
 ## Verification

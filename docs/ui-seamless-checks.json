@@ -1,5 +1,5 @@
 {
-  "checks": 17,
+  "checks": 18,
   "passed": [
     "figures have transparent backgrounds and no enclosing border, shadow, or navy canvas",
     "title and optional controls share one compact baseline instead of two card headers",
@@ -17,7 +17,8 @@
     "a long reply defers initial mounts of figures outside the viewport preload margin",
     "scrolling to a deferred visualization mounts it on demand without eagerly drawing the entire history",
     "quiet inline controls remain keyboard accessible",
-    "neutral inline layout fits a narrow window without external requests or JavaScript errors"
+    "neutral inline layout fits a narrow window without external requests or JavaScript errors",
+    "an empty reply with an error shows the error without the generic no-text note"
   ],
   "errors": []
 }

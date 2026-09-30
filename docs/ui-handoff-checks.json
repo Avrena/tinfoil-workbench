@@ -10,7 +10,7 @@
     "unapplied Advanced edits survive thread navigation without changing request settings",
     "pending settings can be applied from the conversation without reopening Advanced",
     "discarding Advanced draft restores applied settings instead of sending it",
-    "pending model changes restore their supported effort options and selection after a thread switch",
+    "a pending effort change keeps the supported options of the model and its selection after a thread switch",
     "Discard restores the actual Advanced field even when the applied-settings render signature is unchanged",
     "blank system instructions remain a supported ordinary-chat setting",
     "closing Settings clears an unsubmitted credential field",

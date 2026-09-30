@@ -1,7 +1,8 @@
 {
-  "checks": 36,
+  "checks": 37,
   "passed": [
     "default layout hides advanced controls and labels offline data",
+    "the title search is centred on the window at 40% of its width, and the idle status bar shows only the connection",
     "the model picker opens on the whole list with maker logos, descriptions, capability columns and the current model marked",
     "model search matches makers, offers any other model ID and arrow keys move into the list",
     "choosing a model shows its maker logo, centred with its name, on the composer and alone in muted white on the welcome page",
