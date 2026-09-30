@@ -1,5 +1,16 @@
 # Changelog
 
+## 1.2.0 — versions inside a conversation
+
+- Versions: an edited message, Retry, and an edited answer or thinking text make a new version of that point in the same conversation instead of a new conversation in the sidebar. ‹ 2/3 › arrows on a message switch between its different wordings, each showing its latest answer; arrows on a reply switch between the answers to the same message. Only the version shown is sent to a model, exported as Markdown and written to a Tinfoil cloud chat; the JSON export keeps all of them. Branch still copies the conversation shown into a new one.
+- Edit on a message puts it and its files in the composer, marked "Editing message N". Send makes the new version; the draft you had comes back after Send or Cancel.
+- Answers and their thinking text are edited in place of the reply instead of in a dialog. The expanded draft editor stays.
+- Retry is offered on every finished reply, not only on failed ones.
+- Messages in other roles: Reading & visibility → Add messages in other roles (off by default) shows a role choice in the composer, to add an assistant or system message without asking a model. Tinfoil cloud chats have no place for them.
+- Android: a phone no longer shows the window title bar; the conversation starts under the status bar.
+- Earlier versions cannot open a workspace that holds messages in other roles, and they drop set-aside versions when they save.
+- Android: versionCode 1002000.
+
 ## 1.1.0 — sidebar like Tinfoil Chat's, thinking gauge, clearer failures
 
 - The arrows of the Reasoning and tool-activity disclosures are drawn at the centre of their labels; the arrow glyph sat lower than the text.
