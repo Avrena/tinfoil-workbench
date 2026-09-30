@@ -235,9 +235,9 @@ dialog:not(.message-editor) .modal-body { padding: 8px 20px 20px; }
 .modal-actions { gap: 8px; margin-top: 20px; }
 
 @media(min-width:1001px) {
-  .shell { grid-template-columns: var(--nav-width) minmax(0,1fr) 304px; }
+  .shell { grid-template-columns: var(--nav-width) minmax(0,1fr) var(--inspector-width); }
   .shell.no-inspector { grid-template-columns: var(--nav-width) minmax(0,1fr); }
-  .shell.no-sidebar { grid-template-columns: minmax(0,1fr) 304px; }
+  .shell.no-sidebar { grid-template-columns: minmax(0,1fr) var(--inspector-width); }
   .shell.no-sidebar.no-inspector { grid-template-columns: minmax(0,1fr); }
   .shell.with-artifacts { grid-template-columns: var(--nav-width) minmax(320px,1fr) minmax(360px,42%); }
   .shell.with-artifacts.no-sidebar { grid-template-columns: minmax(320px,1fr) minmax(360px,44%); }
@@ -677,7 +677,6 @@ dialog:not(.message-editor) .modal-body { padding: 8px 20px 20px; }
 .agent-approval-note { margin: 6px 0 0; font-size: 11px; line-height: 1.5; color: #d9b98a; }
 .agent-approval-note:empty { display: none; }
 .agent-asked { margin: 0 0 8px; font-size: 12px; color: #e6c07a; }
-.agent-badge { color: #e6c07a; border-color: #5a4a28; }
 .agent-folders { display: grid; gap: 6px; margin: 12px 0 4px; }
 .agent-folder-row { display: grid; gap: 2px; min-width: 0; }
 .agent-folder-label { font-size: 11px; color: #8f949c; }
@@ -729,3 +728,42 @@ dialog:not(.message-editor) .modal-body { padding: 8px 20px 20px; }
 .streaming-answer.flowing>.markdown-segment:last-child>p:last-child:after,
 .streaming-answer.flowing>.markdown-segment:last-child>:is(ul,ol):last-child>li:last-child:after,
 .streaming-answer.flowing>.markdown-segment:last-child>:is(h1,h2,h3,h4):last-child:after { animation: none; opacity: .85; }
+
+/* Advanced is wider on wide windows, so its controls and notes are not crowded. */
+:root { --inspector-width: clamp(304px, 26vw, 360px); }
+/* Advanced: inline choices drawn like the sidebar's Cloud/Local tabs, over hidden selects that hold the value. */
+.choice-row { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px 12px; margin: 18px 0 0; }
+.choice-label { flex: 1 1 auto; min-width: 0; font-size: 12px; color: #c1c2c5; }
+.segmented { display: flex; flex: 0 0 auto; gap: 2px; padding: 2px; border: 1px solid #34373d; border-radius: 8px; background: #1c1d20; }
+.choice-row.wide .segmented { flex: 1 1 100%; }
+.segmented button { display: flex; align-items: center; justify-content: center; gap: 5px; min-width: 0; min-height: 0; height: 26px; padding: 0 10px; border: 0; border-radius: 5px; background: transparent; font-size: 11px; color: #9a9ca1; }
+.choice-row.wide .segmented button { flex: 1; padding: 0 6px; }
+.segmented button svg { width: 13px; height: 13px; flex: none; }
+.segmented button:hover:not(:disabled) { background: #ffffff0d; color: #d8dade; }
+.segmented button[aria-checked="true"] { background: #2d2f33; color: #e6e6e6; }
+.segmented button:disabled { opacity: .45; cursor: default; }
+.choice-source { display: none; }
+#thinking-controls .choice-row, #compare-thinking-controls .choice-row { margin-top: 16px; }
+@media (pointer: coarse), (hover: none) { .segmented button { height: 36px; padding: 0 12px; } }
+
+/* The Python and agent flags on the message box's top edge, drawn like the role tab on its left. */
+.role-tab[hidden], .composer-flags[hidden], .composer-flag[hidden] { display: none; }
+.role-tab-row { padding-right: 14px; }
+.composer-flags { position: relative; z-index: 1; display: flex; gap: 2px; margin: 0 0 -1px auto; padding: 3px 3px 2px; border: 1px solid #404040; border-bottom: 0; border-radius: 10px 10px 0 0; background: #252526; transition: border-color 180ms ease, opacity 160ms ease; }
+.composer-region:has(.composer:focus-within) .composer-flags { border-color: #518bc4; }
+.composer-region.effort-open .composer-flags { opacity: 0; pointer-events: none; }
+.composer-flag { min-width: 0; min-height: 0; height: 22px; gap: 5px; padding: 0 8px; border: 0; border-radius: 7px; background: transparent; font-size: 11px; font-weight: 500; color: #8d9199; }
+.composer-flag:hover { background: #ffffff0d; color: #d8dade; }
+.composer-flag svg { width: 12px; height: 12px; }
+.composer-flag.auto { color: #e6c07a; }
+.composer-flag.auto:hover { background: #e6c07a14; color: #f0d29a; }
+@media (pointer: coarse), (hover: none) { .composer-flag { height: 32px; padding: 0 10px; } }
+
+/* Projects and Threads fold to their headings. */
+.nav-section-heading h2 { display: flex; min-width: 0; }
+.nav-section-toggle { display: flex; align-items: center; gap: 5px; min-width: 0; min-height: 0; margin: 0 0 0 -2px; padding: 2px 4px 2px 2px; border: 0; border-radius: 5px; background: none; font: inherit; letter-spacing: inherit; text-transform: inherit; color: inherit; cursor: pointer; }
+.nav-section-toggle:hover { color: #d8dade; }
+.nav-section-toggle svg { width: 11px; height: 11px; flex: none; transition: transform 160ms ease; }
+.nav-section-toggle[aria-expanded="false"] svg { transform: rotate(-90deg); }
+#nav-projects[hidden], #nav-threads[hidden] { display: none; }
+@media (prefers-reduced-motion: reduce) { .nav-section-toggle svg { transition: none; } }

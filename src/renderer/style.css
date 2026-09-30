@@ -184,7 +184,6 @@ p{line-height:1.6}
 .model-count{flex:none}
 .model-chevron{display:flex;flex:none;color:#8b93a0}
 .model-chevron svg{width:12px;height:12px}
-.tools-badge{font-size:10px;color:#8d9cae;margin-left:7px}
 .send{width:31px;height:31px;border-radius:8px;background:#c2ccd9;color:#1f2834;padding:6px}
 .send:hover{background:#e0e7f0;color:#1f2834}
 .stop{font-size:11px;color:#dfbbae;border:1px solid #634c47}
@@ -325,7 +324,7 @@ svg.maker-logo path{fill:currentColor;stroke:none}
 .composer-region{padding-left:20px;padding-right:20px}
 .title-search{min-width:160px}
 .comparison{grid-template-columns:1fr}
-.tools-badge{display:none}
+.composer-flag span{display:none}
 .toolbar{padding:0 12px}
 }
 @media(max-width:780px){.shell,.shell.no-inspector{grid-template-columns:minmax(0,1fr);grid-template-areas:"title" "main" "status"}
@@ -858,7 +857,7 @@ dialog[open]{transform:translateZ(0);isolation:isolate}
    (older WebViews are padded natively and report 0). body's padding insets the shell; dialogs, the
    message editor and toasts are laid out against the whole screen and use the same --safe-* area,
    because a control under the status bar cannot be tapped. */
-[data-platform=android] .window-controls,[data-platform=android] .python-interpreter,[data-platform=android] .tools-badge,
+[data-platform=android] .window-controls,[data-platform=android] .python-interpreter,[data-platform=android] .composer-flags,
 [data-platform=android] .run-code,[data-platform=android] [data-panel="pdf"],[data-platform=android] .settings-account-link,
 [data-platform=android] .shortcut{display:none!important}
 :root[data-platform=android]{--safe-top:var(--safe-area-inset-top,0px);--safe-right:var(--safe-area-inset-right,0px);--safe-bottom:var(--safe-area-inset-bottom,0px);--safe-left:var(--safe-area-inset-left,0px);
