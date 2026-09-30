@@ -125,7 +125,7 @@ with sync_playwright() as p:
         page.locator('#inline-content').press('Escape');expect(page.locator('.inline-editor')).to_have_count(0)
         if name=='tablet':
             page.locator('.reasoning summary').first.click();page.locator('[data-action=edit-thinking]').first.click()
-            page.locator('#inline-reasoning').fill('My note: separate the arithmetic from the scheduling assumption.');page.wait_for_timeout(120);page.locator('.reply').first.screenshot(path=str(root/'docs/editor-thinking.png'))
+            page.locator('#inline-reasoning').fill('My note: separate the arithmetic from the scheduling assumption.');page.wait_for_timeout(120);page.locator('.reply .reasoning').first.screenshot(path=str(root/'docs/editor-thinking.png'))
             page.locator('#inline-reasoning').press('Escape');page.locator('[data-action=inline-discard]').click();expect(page.locator('.inline-editor')).to_have_count(0)
             page.locator('.reasoning summary').first.click()
         page.locator('.inline-artifact').first.locator('.inline-expand').click();expect(page.locator('#artifact-panel')).to_be_visible()

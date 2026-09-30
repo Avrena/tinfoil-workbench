@@ -1,10 +1,11 @@
 {
-  "checks": 12,
+  "checks": 13,
   "passed": [
     "signed out, the cloud section explains itself and offers no key field",
     "signed in, the chat key is masked, cleared after use, and the preview refuses to connect",
     "connected, the section shows sync state, counts, the listing limit, errors and the key ID, never the key",
     "cloud chats and projects are marked in the sidebar, and cloud projects offer no local management",
+    "in a cloud chat the role tab offers only User and says why when another role is chosen",
     "the Threads heading has a Sync button in the column of the Projects + button, disabled and turning while syncing",
     "Cloud and Local switch the thread list, kept as a view preference",
     "hovering a thread offers Delete, and Move to Tinfoil cloud only for a local thread with messages",
