@@ -4,7 +4,7 @@ import { escapeHtml as e } from '../core/markdown.js';
 import type { ViewPreferences } from '../core/preferences.js';
 import { RichTextRenderer } from './rich-text.js';
 import { updateMarkup } from './dom.js';
-import { AGENT_SHELLS, AGENT_TOOL_NAMES, diffCounts, outsidePaths } from '../core/agent.js';
+import { AGENT_APPROVED, AGENT_SHELLS, AGENT_TOOL_NAMES, diffCounts, outsidePaths } from '../core/agent.js';
 
 const AGENT_LABELS:Record<string,string>={list_files:'List files',search_files:'Search files',read_file:'Read file',edit_file:'Edit file',write_file:'Write file',run_command:'Command',update_plan:'Plan'};
 const agentTool=(tool:ToolRun):boolean=>AGENT_TOOL_NAMES.has(tool.name)&&tool.origin==='model';
@@ -103,24 +103,35 @@ export function activityTally(tools:ToolRun[]):string {
 const LIVE:ReadonlySet<Reply['status']>=new Set(['streaming','queued','awaiting_approval','executing']);
 const ROLL_MS=280;
 interface Tick { key:string; state:string; text:string }
-// The row's slot per reply: the tick shown now and the one it replaced, which rolls out while the new one rolls in.
-const slots=new Map<string,{now:Tick,before:Tick|null}>(),live=new Set<string>(),settled=new Map<string,number>();
+// The row's slot per reply: the tick shown now, since when, and the one it replaced, which rolls out while the new one
+// rolls in. `timer` brings the reply back once a roll has finished, when a newer call waited for it.
+interface Slot { now:Tick; before:Tick|null; since:number; timer:number|null }
+const slots=new Map<string,Slot>(),live=new Set<string>(),settled=new Map<string,number>();
+let redraw:(replyId:string)=>void=()=>{};
+/** How the page redraws one reply when its row can take the next roll (app.ts). */
+export function onActivityRoll(callback:(replyId:string)=>void):void { redraw=callback; }
+function forget(replyId:string):void { const s=slots.get(replyId);if(s?.timer!=null)clearTimeout(s.timer);slots.delete(replyId); }
 /** Whether a reply's row still rolls: while the reply runs, and briefly after, so its last call rolls into the summary.
  * A reply opened later is drawn still, so a transcript does not animate every row as it appears. */
 function rolling(reply:Reply):boolean {
   if(LIVE.has(reply.status)){live.add(reply.id);settled.delete(reply.id);return true;}
   if(live.delete(reply.id))settled.set(reply.id,Date.now());
-  const at=settled.get(reply.id);if(at!==undefined&&Date.now()-at<4*ROLL_MS)return true;
-  settled.delete(reply.id);slots.delete(reply.id);return false;
+  const at=settled.get(reply.id);if(at!==undefined&&Date.now()-at<5*ROLL_MS)return true;
+  settled.delete(reply.id);forget(reply.id);return false;
 }
 const tickMarkup=(t:Tick,kind:''|'out'|'settled'=''):string=>`<span class="tick${kind?' tick-'+kind:''}" data-key="${e(t.key)}"${kind==='out'?' aria-hidden="true"':''}><i class="activity-state ${e(t.state)}" aria-hidden="true"></i><span class="tick-text">${t.text}</span></span>`;
 /** The slot's markup: the current tick, and the one it replaced rolling out. The reconciler keeps both by key, so each
- * animation starts once, when a tick first appears or first turns into the outgoing one. */
-function slot(reply:Reply,now:Tick):string {
-  const seen=slots.get(reply.id);
-  if(!seen||seen.now.key!==now.key)slots.set(reply.id,{now,before:seen?.now??null});else seen.now=now;
-  const {before}=slots.get(reply.id)!;
-  return (before?tickMarkup(before,'out'):'')+tickMarkup(now);
+ * animation starts once, when a tick first appears or first turns into the outgoing one. Calls can follow each other
+ * within milliseconds; a roll is never cut short, so a newer call waits until the running roll ends, and then the row
+ * moves straight to the latest call, skipping those in between. */
+function slot(reply:Reply,next:Tick):string {
+  const time=Date.now();let s=slots.get(reply.id);
+  if(!s){s={now:next,before:null,since:time,timer:null};slots.set(reply.id,s);}
+  else if(s.now.key===next.key)s.now=next;
+  else if(time-s.since<ROLL_MS){
+    const held=s;if(held.timer===null)held.timer=window.setTimeout(()=>{held.timer=null;redraw(reply.id);},ROLL_MS-(time-held.since)+20);
+  } else Object.assign(s,{before:s.now,now:next,since:time});
+  return (s.before?tickMarkup(s.before,'out'):'')+tickMarkup(s.now);
 }
 /** A reply's tool calls as one row. While the reply runs, its current call rolls into the row's slot over the last one;
  * once it finishes, the row says what was done. Opening it lists every call in order, a batch (several calls in one
@@ -131,8 +142,11 @@ export function activityMarkup(reply:Reply):string {
   // The workspace agent's latest plan stays in view above its calls.
   const plan=[...tools].reverse().find(t=>t.name==='update_plan'&&agentTool(t)&&t.status==='complete');
   const planned=plan?`<section class="agent-plan-current" data-key="plan" aria-label="Plan"><div class="agent-plan-title">Plan</div>${planMarkup(parsed(plan))}</section>`:'';
-  const attention=(t:ToolRun)=>t.status==='awaiting_approval'||(t.name==='delegate_task'&&t.status==='running');
-  const outside=tools.filter(attention).map(t=>entry(t)).join('');
+  // A queued call that will ask for approval waits below the row too (one line), so between two approvals in one step
+  // the next card takes the place of the last instead of the space closing and opening again.
+  const approval=(t:ToolRun)=>agentTool(t)?AGENT_APPROVED.has(t.name):t.name==='python'||t.name==='delegate_task';
+  const attention=(t:ToolRun)=>t.status==='awaiting_approval'||(t.status==='queued'&&approval(t))||(t.name==='delegate_task'&&t.status==='running');
+  const outside=tools.filter(attention).map(t=>entry(t,t.status==='queued')).join('');
   if(tools.every(attention))return planned+outside;
   const timeline=activityGroups(tools).map(g=>{
     const shown=g.tools.filter(t=>!attention(t));if(!shown.length)return '';

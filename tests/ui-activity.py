@@ -46,6 +46,18 @@ with sync_playwright() as p:
  assert ticker.locator('.tick:not(.tick-out)').evaluate('e=>getComputedStyle(e).animationName')=='tick-in';assert ticker.locator('.tick-out').evaluate('e=>getComputedStyle(e).animationName')=='tick-out'
  page.wait_for_timeout(400);assert ticker.locator('.tick-out').evaluate('e=>getComputedStyle(e).visibility')=='hidden';assert page.locator('.activity-strip').count()==1
  checks.append('the next call rolls into the row as the last one rolls out, then the outgoing call is hidden; the row stays a single line')
+ page.evaluate("""async()=>{const r=window.__activityReply(),base=r.tools[0];window.__activityPatch('third',{status:'complete'});window.__ticks=[];let on=true;
+  const log=()=>{if(!on)return;window.__ticks.push([...document.querySelectorAll('.activity-strip > summary .tick')].map(x=>{const c=getComputedStyle(x),b=x.getBoundingClientRect();return {out:x.classList.contains('tick-out'),text:x.textContent.trim(),vis:c.visibility,op:+c.opacity,top:b.top,bottom:b.bottom};}));requestAnimationFrame(log);};requestAnimationFrame(log);
+  for(const name of ['one','two','three']){const x={...base,id:'burst-'+name,callId:'burst-'+name,arguments:JSON.stringify({title:name}),status:'running'};delete x.batchId;delete x.batchIndex;delete x.batchSize;r.tools.push(x);window.__activityPatch(x.id,{});await new Promise(f=>setTimeout(f,40));x.status='complete';}
+  await new Promise(f=>setTimeout(f,700));on=false;}""")
+ shown=[]
+ for frame in page.evaluate('window.__ticks'):
+  current=[t['text'] for t in frame if not t['out']]
+  if current and (not shown or shown[-1]!=current[0]):shown.append(current[0])
+  visible=[t for t in frame if t['vis']=='visible' and t['op']>0.02]
+  assert not any(min(a['bottom'],b['bottom'])-max(a['top'],b['top'])>0.5 for i,a in enumerate(visible) for b in visible[i+1:]),frame
+ assert shown[-1].endswith('three') and not any(s.endswith('two') for s in shown),shown
+ checks.append('calls a few milliseconds apart never cut a roll short or draw two calls over each other: the row ends its roll, then shows the latest call')
  page.emulate_media(reduced_motion='reduce');assert page.locator('.activity-state.running').first.evaluate('e=>getComputedStyle(e).animationName')=='none';assert ticker.locator('.tick:not(.tick-out)').evaluate('e=>getComputedStyle(e).animationName')=='none';checks.append('running activity and the rolling row honor the system reduced-motion preference')
  page.evaluate("window.__activitySeed('complete')");strip=page.locator('.activity-strip');expect(strip).not_to_have_class(re.compile(r'\blive\b'));assert strip.get_attribute('open') is None
  expect(strip.locator('> summary .tick:not(.tick-out) .tick-text')).to_have_text('Read an artifact, delegated a task, searched the web · 1 declined');expect(page.locator('.batch-heading')).to_contain_text('2 done');expect(page.locator('.batch-heading')).to_contain_text('1 declined');checks.append('a finished reply\'s row says what was done, with accurate mixed-result counts, and stays closed')

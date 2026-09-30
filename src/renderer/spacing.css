@@ -388,15 +388,16 @@ dialog:not(.message-editor) .modal-body { padding: 8px 20px 20px; }
 /* One row for a reply's calls. The current call rolls up into the slot over the one before it; after the reply, the row
    rolls once more into what was done. The outgoing tick is hidden when it is not animating, so reduced motion simply swaps. */
 .activity-strip > summary { max-width:100%; min-width:0; }
-.activity-strip > summary .activity-ticker { position:relative; display:inline-flex; min-width:0; overflow:hidden; margin:0; padding-block:2px; font-size:12px; color:#c4c4c4; }
-.activity-strip > summary .tick { display:inline-flex; align-items:center; gap:7px; min-width:0; max-width:100%; margin:0; font-size:12px; color:inherit; white-space:nowrap; animation:tick-in .28s cubic-bezier(.2,.7,.2,1) both; }
+.activity-strip > summary .activity-ticker { position:relative; display:inline-flex; min-width:0; height:18px; overflow:hidden; margin:0; padding:0; font-size:12px; line-height:18px; color:#c4c4c4; }
+/* Both ticks roll by exactly one line with the same timing, so they move together and never overlap. */
+.activity-strip > summary .tick { display:inline-flex; align-items:center; gap:7px; height:18px; min-width:0; max-width:100%; margin:0; font-size:12px; color:inherit; white-space:nowrap; animation:tick-in .28s cubic-bezier(.4,0,.2,1) both; }
 .activity-strip > summary .tick-text { min-width:0; margin:0; overflow:hidden; text-overflow:ellipsis; font-size:12px; color:inherit; }
 .activity-strip > summary .tick code { font-size:11px; color:#a9bccf; background:none; padding:0; }
-.activity-strip > summary .tick.tick-out { position:absolute; left:0; top:2px; visibility:hidden; animation:tick-out .28s cubic-bezier(.5,0,.75,0); }
+.activity-strip > summary .tick.tick-out { position:absolute; left:0; top:0; visibility:hidden; animation:tick-out .28s cubic-bezier(.4,0,.2,1); }
 .activity-strip > summary .tick.tick-settled { animation:none; }
 .activity-strip > summary .activity-count { flex:none; margin-left:2px; }
-@keyframes tick-in { from { transform:translateY(110%); opacity:0; } }
-@keyframes tick-out { from { visibility:visible; } to { visibility:visible; transform:translateY(-110%); opacity:0; } }
+@keyframes tick-in { from { transform:translateY(100%); opacity:0; } }
+@keyframes tick-out { from { visibility:visible; } to { visibility:visible; transform:translateY(-100%); opacity:0; } }
 .reduce-motion .activity-strip > summary .tick { animation:none; }
 @media(prefers-reduced-motion:reduce) { .activity-strip > summary .tick { animation:none; } }
 .activity-timeline { min-width:0; padding-bottom:4px; }

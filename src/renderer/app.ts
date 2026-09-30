@@ -1,5 +1,5 @@
 import { accountFooter, accountOverview } from './account-view.js';
-import { activityMarkup, ActivityDetailsRenderer } from './activity-view.js';
+import { activityMarkup, ActivityDetailsRenderer, onActivityRoll } from './activity-view.js';
 import { toolActive } from '../core/activity.js';
 import { openModal, topModal } from './modal.js';
 import { MessageEditor } from './editor.js';
@@ -113,6 +113,8 @@ function restoreConfiguration():void {
   renderInstructionsApplied();configDirty=true;pendingSettings();$('apply-settings').textContent='Apply changes';
 }
 const replyCache = new Map<string, (string | number | boolean | null | undefined)[]>();
+// The activity row held a newer call back until its roll ended: draw that reply again even though its data is unchanged.
+onActivityRoll(id=>{replyCache.delete(id);scheduleTranscript(true);});
 const chromeTemplates = new WeakMap<HTMLElement,string>();
 function setMarkup(element:HTMLElement,html:string):void { if(chromeTemplates.get(element)===html)return; chromeTemplates.set(element,html); updateMarkup(element,html); }
 let revision=0;
