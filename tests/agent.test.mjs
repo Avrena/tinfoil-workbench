@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import { mkdtempSync, mkdirSync, readFileSync, rmSync, symlinkSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { AGENT_LIMITS, AGENT_TOOLS, agentArguments, agentGuide, compactAgentHistory, diffCounts, globMatcher, searchPattern, shortenOutput, unifiedDiff, workspacePath } from '../dist/core/agent.js';
+import { AGENT_LIMITS, AGENT_TOOLS, agentArguments, agentGuide, compactAgentHistory, diffCounts, globMatcher, outsidePaths, searchPattern, shortenOutput, unifiedDiff, workspacePath } from '../dist/core/agent.js';
 import { agentEnvironment, toolGuide, withToolGuide } from '../dist/core/prompt.js';
 import { validateWorkspace } from '../dist/core/validation.js';
 import { exportMarkdown, forkThread, newThread } from '../dist/core/workspace.js';
@@ -39,6 +39,21 @@ test('search patterns are plain text or /regex/, and globs match names or paths'
   assert.ok(searchPattern('todo').test('A TODO item')); assert.ok(!searchPattern('Todo').test('a todo item')); assert.ok(searchPattern('a.b').test('a.b')); assert.ok(!searchPattern('a.b').test('axb'));
   assert.ok(searchPattern('/^export\\s+const/').test('export  const x')); assert.throws(() => searchPattern('/x/g'), /flags/);
   assert.ok(globMatcher('*.ts')('src/deep/app.ts')); assert.ok(!globMatcher('*.ts')('src/app.tsx')); assert.ok(globMatcher('src/**/*.py')('src/a/b/c.py')); assert.ok(!globMatcher('src/*.py')('src/a/c.py'));
+});
+
+test('the approval points out paths outside the folder that a command names', () => {
+  const folder = 'D:\\Projects\\demo';
+  assert.deepEqual(outsidePaths("Get-Content -LiteralPath 'C:\\Users\\Ada\\Downloads\\接收条件.md' -Encoding UTF8", folder), ['C:\\Users\\Ada\\Downloads\\接收条件.md']);
+  assert.deepEqual(outsidePaths('type D:\\Projects\\demo\\src\\a.txt; git -C "D:\\Projects\\demo" status', folder), []);
+  assert.deepEqual(outsidePaths('git -C "D:\\Projects\\demo two\\x" status', folder), ['D:\\Projects\\demo two\\x'], 'a sibling folder with a longer name is outside');
+  assert.deepEqual(outsidePaths('cat /c/Users/ada/.ssh/id_rsa | head', folder), ['C:\\Users\\ada\\.ssh\\id_rsa']);
+  assert.deepEqual(outsidePaths('ls /d/Projects/demo/src && grep -r x /usr/bin', folder), []);
+  assert.deepEqual(outsidePaths('Copy-Item x \\\\server\\share\\y', folder), ['\\\\server\\share\\y']);
+  assert.deepEqual(outsidePaths('Get-ChildItem $env:USERPROFILE\\.aws', folder), ['your home or app data folder']);
+  assert.deepEqual(outsidePaths('cat ~/.gitconfig', folder), ['your home or app data folder']);
+  assert.deepEqual(outsidePaths('Remove-Item -Recurse ..\\..\\other', folder, 'src'), ['.. above the workspace folder']);
+  assert.deepEqual(outsidePaths('cd ..; npm test', folder, 'src'), [], 'one level up from src is still the folder');
+  assert.deepEqual(outsidePaths('curl https://example.com/a/b -o out.txt', folder), []);
 });
 
 test('long output keeps its start and its end, where errors usually are', () => {
@@ -147,6 +162,11 @@ test('PowerShell commands run in the folder with UTF-8 output, their exit code a
   assert.equal(ran.exitCode, 7); assert.match(ran.stdout, /^中文 ✓\r?\n.*sub\r?\n$/); assert.equal(ran.stderr, '');
   const failed = await tools.run({ folder: dir, shell: 'powershell', workdir: '.', command: 'Get-Item -LiteralPath nope.txt', timeout_seconds: 60 });
   assert.doesNotMatch(failed.stderr, /CLIXML/); assert.match(failed.stderr, /nope\.txt/); assert.match(failed.stderr, /:\s*1\b/, 'line numbers match the command');
+  // Windows PowerShell 5.1 would read a UTF-8 file without a byte order mark in the system code page, and `>` would
+  // write UTF-16; here both are UTF-8.
+  writeFileSync(join(dir, '接收条件.md'), '# 接收条件\n第一条：测试。\n');
+  const read = await tools.run({ folder: dir, shell: 'powershell', workdir: '.', command: "Get-Content -LiteralPath '接收条件.md'\n'写入 ✓' > out.txt", timeout_seconds: 60 });
+  assert.equal(read.stdout, '# 接收条件\r\n第一条：测试。\r\n'); assert.equal(readFileSync(join(dir, 'out.txt'), 'utf8').replace(/^﻿/, ''), '写入 ✓\r\n');
   const env = await tools.run({ folder: dir, shell: 'powershell', workdir: '.', command: "(Get-ChildItem env: | Where-Object Name -like 'ELECTRON*').Count", timeout_seconds: 60 });
   assert.equal(env.stdout.trim(), '0');
   await assert.rejects(tools.run({ folder: dir, shell: 'powershell', workdir: '../x', command: 'ls', timeout_seconds: 5 }), /outside|not a folder/);

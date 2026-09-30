@@ -89,7 +89,7 @@ async function agentShowcase(thread,jobs){
       call('read_file',{path:'src/sum.js'},{stdout:'src/sum.js · lines 1–3 of 3\n1\texport function sum(values) {\n2\t  return values.reduce((a, b) => a + b);\n3\t}\n'}),
       call('run_command',{command:'npm test',timeout_seconds:120},{agent:{folder,shell:'powershell'},stdout:'✖ sum of an empty list is 0\n  TypeError: Reduce of empty array with no initial value',exitCode:1,elapsedMs:1800}),
       call('edit_file',{path:'src/sum.js',old_text:'a + b);',new_text:'a + b, 0);'},{status:'awaiting_approval',agent:{folder,diff}}),
-      call('run_command',{command:'npm test -- --reporter dot',workdir:'.',timeout_seconds:120},{status:'awaiting_approval',agent:{folder,shell:'powershell'}}));
+      call('run_command',{command:"Get-Content -LiteralPath 'C:\\Users\\Preview\\Downloads\\notes.md'",workdir:'.',timeout_seconds:120},{status:'awaiting_approval',agent:{folder,shell:'powershell'}}));
     reply.toolMessages.push({role:'assistant',content:'',tool_calls:[]},{role:'assistant',content:'',tool_calls:[]});
     reply.status='awaiting_approval';emit();
   }));busy=null;emit();

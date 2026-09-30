@@ -4,7 +4,7 @@ import { escapeHtml as e } from '../core/markdown.js';
 import type { ViewPreferences } from '../core/preferences.js';
 import { RichTextRenderer } from './rich-text.js';
 import { updateMarkup } from './dom.js';
-import { AGENT_SHELLS, AGENT_TOOL_NAMES, diffCounts } from '../core/agent.js';
+import { AGENT_SHELLS, AGENT_TOOL_NAMES, diffCounts, outsidePaths } from '../core/agent.js';
 
 const AGENT_LABELS:Record<string,string>={list_files:'List files',search_files:'Search files',read_file:'Read file',edit_file:'Edit file',write_file:'Write file',run_command:'Command',update_plan:'Plan'};
 const agentTool=(tool:ToolRun):boolean=>AGENT_TOOL_NAMES.has(tool.name)&&tool.origin==='model';
@@ -34,8 +34,9 @@ function agentBody(tool:ToolRun,view:ViewPreferences):string {
   const a=parsed(tool),shell=tool.agent?.shell?AGENT_SHELLS[tool.agent.shell]:'';
   let head='';
   if(tool.name==='run_command'){
-    const workdir=str(a.workdir);
-    head=`<pre class="agent-command"><code>${e(str(a.command))}</code></pre><p class="agent-where">${e([workdir&&workdir!=='.'?`In ${workdir}`:'In the folder',tool.agent?.folder??'',shell,typeof a.timeout_seconds==='number'?`stops after ${a.timeout_seconds} s`:''].filter(Boolean).join(' · '))}</p>`;
+    const workdir=str(a.workdir),outside=tool.agent?.folder?outsidePaths(str(a.command),tool.agent.folder,workdir&&workdir!=='.'?workdir.replaceAll('\\','/'):'.'):[];
+    head=`<pre class="agent-command"><code>${e(str(a.command))}</code></pre><p class="agent-where">${e([workdir&&workdir!=='.'?`In ${workdir}`:'In the folder',tool.agent?.folder??'',shell,typeof a.timeout_seconds==='number'?`stops after ${a.timeout_seconds} s`:''].filter(Boolean).join(' · '))}</p>`+
+      (outside.length?`<p class="agent-outside">Outside the folder: this command names ${outside.map(path=>`<code>${e(path)}</code>`).join(', ')}.</p>`:'');
   } else if(tool.agent?.diff) head=diffMarkup(tool.agent.diff);
   else if(tool.name==='update_plan') head=planMarkup(a);
   else if(tool.name==='read_file'&&typeof a.start_line==='number') head=`<p class="agent-where">From line ${a.start_line}</p>`;

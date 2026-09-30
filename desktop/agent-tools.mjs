@@ -108,9 +108,11 @@ export function readableStderr(text) {
       (stream === 'Error' ? '' : stream.toUpperCase() + ': ') + value.replace(/&(lt|gt|amp|quot|apos);/g, (m, name) => entity[name])
         .replace(/_x([0-9A-Fa-f]{4})_/g, (m, hex) => String.fromCharCode(parseInt(hex, 16)))).join(''));
 }
-// Output in UTF-8 whatever the system code page, no progress records, and the exit code of the last native program. It
-// shares the command's first line, so line numbers in PowerShell's errors match the command.
-const POWERSHELL_PRELUDE = "$ProgressPreference = 'SilentlyContinue'; [Console]::OutputEncoding = [System.Text.UTF8Encoding]::new($false); $OutputEncoding = [Console]::OutputEncoding; $global:LASTEXITCODE = 0; ";
+// Output in UTF-8 whatever the system code page, no progress records, and the exit code of the last native program.
+// Windows PowerShell 5.1 reads files in the system code page and `>` writes UTF-16 unless told otherwise, which garbles
+// UTF-8 text such as Chinese; files are read and written as UTF-8 by default here. It shares the command's first line,
+// so line numbers in PowerShell's errors match the command.
+const POWERSHELL_PRELUDE = "$ProgressPreference = 'SilentlyContinue'; [Console]::OutputEncoding = [System.Text.UTF8Encoding]::new($false); $OutputEncoding = [Console]::OutputEncoding; foreach ($name in 'Get-Content', 'Set-Content', 'Add-Content', 'Out-File', 'Import-Csv', 'Export-Csv', 'Select-String') { $PSDefaultParameterValues[\"$($name):Encoding\"] = 'UTF8' }; $global:LASTEXITCODE = 0; ";
 
 export function createAgentTools({ systemRoot = process.env.SystemRoot || 'C:\\Windows' } = {}) {
   const powershell = join(systemRoot, 'System32', 'WindowsPowerShell', 'v1.0', 'powershell.exe');

@@ -163,6 +163,26 @@ export function globMatcher(glob: string): (path: string) => boolean {
   return path => pattern.test(names ? path.slice(path.lastIndexOf('/') + 1) : path);
 }
 
+const WINDOWS_PATH = String.raw`(?:[a-zA-Z]:[\\/]|\\\\)`;
+/** Paths outside the workspace folder that a command names, as far as its text shows: drive, UNC and Git Bash paths
+ * (`/c/Users/...`), the home and app data folders, and `..` above the folder. A command can reach paths without naming
+ * them; this only points out the ones it names, for the approval card and dialog. */
+export function outsidePaths(command: string, folder: string, workdir = '.'): string[] {
+  const norm = (path: string) => path.replace(/\//g, '\\').replace(/\\+$/, '').toLowerCase(), root = norm(folder);
+  const found = new Set<string>(), add = (path: string) => { const n = norm(path); if (n !== root && !n.startsWith(root + '\\')) found.add(path); };
+  const quoted = new RegExp(String.raw`(['"])(${WINDOWS_PATH}[^'"\r\n]*)\1`, 'g');
+  for (const match of command.matchAll(quoted)) add(match[2]!);
+  const bare = command.replace(quoted, ' ');
+  for (const match of bare.matchAll(new RegExp(String.raw`(?:^|[\s=(,;|&<>])(${WINDOWS_PATH}[^\s'"\`;|&<>(),]*)`, 'g'))) add(match[1]!.replace(/[.,:]+$/, ''));
+  for (const match of bare.matchAll(/(?:^|[\s=(,;|&<>])\/([a-zA-Z])(\/[^\s'"`;|&<>(),]*)?(?=$|[\s'"`;|&<>(),])/g))
+    add(`${match[1]!.toUpperCase()}:\\${(match[2] ?? '').slice(1).replace(/\//g, '\\')}`);
+  if (/(^|[\s'"=(])~(?=[\\/\s'"]|$)|\$HOME\b|\$env:(USERPROFILE|HOMEPATH|APPDATA|LOCALAPPDATA)\b|%(USERPROFILE|HOMEPATH|APPDATA|LOCALAPPDATA)%/i.test(command)) found.add('your home or app data folder');
+  const depth = workdir === '.' ? 0 : workdir.split('/').length;
+  for (const match of command.matchAll(/(?:^|[\s'"=(])((?:\.\.(?:[\\/]|(?=$|[\s'";|)])))+)/g))
+    if ((match[1]!.match(/\.\./g) ?? []).length > depth) { found.add('.. above the workspace folder'); break; }
+  return [...found].slice(0, 6);
+}
+
 /** Long output as the model sees it: the start and the end, which usually holds the error, with the size of the gap. */
 export function shortenOutput(text: string, head: number = AGENT_LIMITS.modelHead, tail: number = AGENT_LIMITS.modelTail): string {
   if (text.length <= head + tail) return text;

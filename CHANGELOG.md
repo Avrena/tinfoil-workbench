@@ -3,6 +3,8 @@
 ## 1.3.0 — workspace agent (unreleased)
 
 - Workspace agent (Windows): Advanced → Workspace agent turns it on for a conversation, and the folder button on the message box chooses its folder in a native picker, with a confirmation. The model lists, searches and reads files in the folder without asking. It runs Windows PowerShell 5.1 or Git Bash commands (git included) and changes files only after you approve each one in a native dialog that shows the exact command, or the change as a diff. It is not a sandbox: an approved command runs with your Windows account's permissions. Drive roots, your home folder, AppData, Windows and program folders cannot be chosen. A change is written only if the file has not changed since it was proposed. See docs/WORKSPACE-AGENT.md.
+- When a command names paths outside the folder, the approval card and dialog list them first. It is a warning, not a limit: an approved command can read a file anywhere you can.
+- The agent's PowerShell reads and writes files as UTF-8 by default; Windows PowerShell 5.1 otherwise reads them in the system code page, which garbles text such as Chinese.
 - An agent reply may take 30 tool rounds and 60 calls per message and 60 minutes, not counting time spent waiting for your approval. Results older than the last ten go to the model as excerpts.
 - Each agent call is shown by kind: a command with its folder, shell and exit code, a change as a coloured diff, and the model's current plan above them, with the step count in the status line. The Markdown export includes the folder and the diffs.
 - Not in Tinfoil cloud chats or on Android; a conversation that used the agent stays on this computer.

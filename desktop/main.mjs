@@ -13,7 +13,7 @@ import { EncryptedVault } from './vault.mjs';
 import { WorkbenchService } from './service.mjs';
 import { runPython } from './python-runner.mjs';
 import { createAgentTools, unsafeFolder } from './agent-tools.mjs';
-import { agentArguments, AGENT_SHELLS, diffCounts } from '../dist/core/agent.js';
+import { agentArguments, AGENT_SHELLS, diffCounts, outsidePaths } from '../dist/core/agent.js';
 import { safeExternalURL } from '../dist/core/markdown.js';
 import { pythonArguments } from '../dist/core/tools.js';
 import { createProvider } from './provider.mjs';
@@ -282,7 +282,7 @@ async function command(input) {
         if (args.name === 'run_command') {
           const result = await dialog.showMessageBox(window, { type: 'warning', buttons: ['Do not run', 'Run this command once'], defaultId: 0, cancelId: 0, noLink: true,
             message: 'Run this command on your computer?',
-            detail: `NOT A SANDBOX: it runs with your Windows account's permissions and can change or send anything your account can. This approval covers this exact command once.\n\nShell: ${AGENT_SHELLS[tool.agent.shell ?? 'powershell']}\nFolder: ${args.workdir === '.' ? folder : join(folder, args.workdir)}\nTimeout: ${args.timeout_seconds} seconds\n\n${args.command}` });
+            detail: `${(outside => outside.length ? `OUTSIDE THE FOLDER: this command names ${outside.join(', ')}.\n\n` : '')(outsidePaths(args.command, folder, args.workdir))}NOT A SANDBOX: it runs with your Windows account's permissions and can change or send anything your account can. This approval covers this exact command once.\n\nShell: ${AGENT_SHELLS[tool.agent.shell ?? 'powershell']}\nFolder: ${args.workdir === '.' ? folder : join(folder, args.workdir)}\nTimeout: ${args.timeout_seconds} seconds\n\n${args.command}` });
           approve = result.response === 1;
         } else {
           const diff = tool.agent?.diff ?? '', rows = diff.split('\n').slice(2), { added, removed } = diffCounts(diff);
