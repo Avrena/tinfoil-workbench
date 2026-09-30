@@ -21,6 +21,14 @@ window.__activitySeed=(mode='approval')=>{
  window.__activityView=patch=>{workspace.view=require('/core/preferences.js').viewPreferences({...workspace.view,...patch});emit();};
 };
 window.__activityWorkspace=()=>structuredClone(workspace);
+window.__burst=async(text)=>{
+ const t=workspace.threads.find(t=>t.id===workspace.activeId);
+ const r={id:'burst-reply-'+Math.random().toString(36).slice(2),model:'demo/writer',content:'',reasoning:'',status:'streaming',phase:'answering',error:null,elapsedMs:0,usage:null,tools:[]};
+ t.turns=[{id:'burst-turn',prompt:'Stream it.',createdAt:1,attachments:[],selectedReplyId:r.id,replies:[r]}];busy=t.id;emit();
+ await new Promise(f=>setTimeout(f,120));const seen=[];let on=true;
+ const log=()=>{if(!on)return;const box=document.querySelector('.reply-content');seen.push([box?box.textContent.length:0,box?box.textContent:'',!!document.querySelector('.reply-content.flowing')]);requestAnimationFrame(log);};
+ r.content=text;emit();requestAnimationFrame(log);await new Promise(f=>setTimeout(f,900));on=false;r.status='complete';busy=null;emit();return seen;
+};
 window.__thinkingSeed=(since,total,status)=>{
  const t=workspace.threads.find(t=>t.id===workspace.activeId),live=since!==null;
  const r={id:'think-reply',model:'demo/writer',content:live?'':'Answer.',reasoning:'Weighing the options.',status:status??(live?'streaming':'complete'),phase:live?'thinking':'answering',error:null,elapsedMs:1000,usage:null,tools:[],...(live?{thinkingSince:Date.now()-since}:{}),...(total?{thinkingMs:total}:{})};
@@ -89,6 +97,15 @@ with sync_playwright() as p:
  page.evaluate("window.__activityView({reasoning:'hidden'})");expect(page.locator('.response-activity')).to_contain_text(re.compile(r'Thinking · 1m 0\ds'))
  page.evaluate("window.__activityView({reasoning:'collapsed'});window.__thinkingSeed(null,65000)");expect(page.locator('.reasoning small')).to_contain_text('Thought for 1m 05s');expect(page.locator('.thinking-time')).to_have_count(0)
  checks.append('the Thinking label shows how long the current stretch of thinking has run and moves on each second, in the status line too when reasoning is hidden; afterwards the Reasoning label says how long the reply thought')
+ burst='The folder holds twenty-two items. Two of them carry the old name, and one archive sits next to the folder. I will rename the inner folder first, then the texture, after checking that the model file points to it by name.'
+ seen=page.evaluate('text=>window.__burst(text)',burst);lengths=[s[0] for s in seen]
+ lengths=[len(s[1].rstrip()) for s in seen];steps=sorted(set(lengths));assert lengths[0]<len(burst)//3 and lengths[-1]==len(burst),lengths[:5]
+ assert len(steps)>=5 and max(b-a for a,b in zip(steps,steps[1:]))<=60,steps
+ assert all(n in (0,len(burst)) or burst[n] in ' .,' for n in lengths),lengths[:12]
+ assert any(s[2] for s in seen) and lengths.index(len(burst))*1000/60<700,lengths
+ checks.append('a burst of streamed text is shown in steps, whole words at a time, and caught up within a moment; the caret holds still while it flows')
+ page.evaluate("window.__activityView({motion:'reduced'})");seen=page.evaluate('text=>window.__burst(text)',burst);assert all(len(s[1].rstrip()) in (0,len(burst)) for s in seen),sorted(set(len(s[1].rstrip()) for s in seen));page.evaluate("window.__activityView({motion:'system'})")
+ checks.append('with reduced motion, streamed text is shown as it arrives, without pacing')
  for waiting in ['awaiting_approval','executing']:
   page.evaluate(f"window.__thinkingSeed(65000,0,'{waiting}')");expect(page.locator('.reasoning .reasoning-label')).to_have_text('Reasoning');expect(page.locator('.thinking-time')).to_have_count(0);expect(page.locator('.reasoning.is-thinking')).to_have_count(0)
  checks.append('waiting for an approval or a command is not shown as thinking')

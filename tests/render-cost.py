@@ -26,9 +26,10 @@ for(const [obj,key,calls,chars,ms,arg] of [[md,'markdown','markdownCalls','markd
 }
 window.__resetCost=()=>Object.keys(window.__cost).forEach(k=>window.__cost[k]=0);
 load('/renderer/app.js');'''
-marker='const pause = ms => new Promise(r => setTimeout(r, ms));'
+# The preview's build writes this line in one of two forms, depending on the version.
+markers=['const pause = (ms) => new Promise((r) => setTimeout(r, ms));','const pause = ms => new Promise(r => setTimeout(r, ms));']
 def instrumented(path):
- html=Path(path).read_text(encoding='utf-8');assert marker in html;assert "load('/renderer/app.js');" in html
+ html=Path(path).read_text(encoding='utf-8');marker=next(m for m in markers if m in html);assert "load('/renderer/app.js');" in html
  return html.replace(marker,marker+fixture,1).replace("load('/renderer/app.js');",instrument,1)
 results={}
 with sync_playwright() as p:
