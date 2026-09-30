@@ -1,10 +1,12 @@
 /** Live check of the workspace agent with real models (docs/WORKSPACE-AGENT.md). Manual: it needs a Tinfoil Chat
- * account and a person to sign in. Run `npx electron tests/agent-live.mjs [--log <file>] [--models kimi,glm,deepseek] [--tasks explain,fix]`.
+ * account and a person to sign in. Run `npx electron tests/agent-live.mjs [--log <file>] [--models kimi,glm,deepseek] [--tasks explain,fix,greet]`.
  *
  * The real app runs from source with a temporary profile; the tester signs in in the Account view. For each model, two
  * tasks run in fresh copies of a small Node project with one failing test, in new local conversations at temperature 0:
  *   1. "What does this project do, and how are its tests run?" (reading only);
  *   2. "One of the tests fails. Find out why, make it pass, and run the tests again."
+ * A third task, "greet", sends a greeting in a conversation whose folder Workbench makes and names after that message,
+ * and logs whether the model used tools or spoke of the folder in its answer or its reasoning.
  * The harness stands in for the tester's approvals. Changes are approved: the file tools already confine them to the
  * project. A command is approved only when it names no path outside the project and is not a deletion, network,
  * install, git history or system command; anything else is declined, which the model is told. Every decision is logged
@@ -16,7 +18,7 @@
  * them here). Tokens, messages of other conversations and account details are never logged. Runs stop once 900,000
  * input tokens are spent, and a single reply is stopped above 300,000. The account is signed out at the end; delete the
  * temporary profile afterwards. */
-import { app, dialog, BrowserWindow } from 'electron';
+import { app, BrowserWindow } from 'electron';
 import { mkdtempSync, mkdirSync, writeFileSync, readFileSync, readdirSync, rmSync, appendFileSync } from 'node:fs';
 import { join, dirname, relative } from 'node:path';
 import { tmpdir } from 'node:os';
@@ -43,10 +45,17 @@ function log(step, data = {}) {
 const wrap = (proto, name, around) => { const original = proto[name]; proto[name] = function (...args) { return around.call(this, original, args); }; };
 wrap(AccountSession.prototype, 'accept', function (original, [raw, expected]) { if (typeof raw?.bearer === 'string' && raw.bearer) secrets.add(raw.bearer); return original.call(this, raw, expected); });
 wrap(WorkbenchService.prototype, 'initialize', function (original, args) { service = this; return original.apply(this, args); });
-// The only native dialog the harness answers is its own final sign-out.
-dialog.showMessageBox = async () => ({ response: 1, checkboxChecked: false });
 
 const main = () => BrowserWindow.getAllWindows().find(w => !w.isDestroyed() && w.webContents.getURL().startsWith('app://workbench'));
+// The only confirmation the harness answers is its own final sign-out, in Workbench's confirmation window.
+async function answerConfirmation(title) {
+  const find = () => BrowserWindow.getAllWindows().find(w => !w.isDestroyed() && w.webContents.getURL().startsWith('app://approval'));
+  await until('the confirmation window', () => !!find(), 15_000, 200);
+  await sleep(1000); // Approve arms after a moment.
+  const win = find(), shown = await win.webContents.executeJavaScript(`document.getElementById('title').textContent`, true);
+  if (!shown.includes(title)) throw new Error('An unexpected confirmation was open.');
+  await win.webContents.executeJavaScript(`document.getElementById('approve').click()`, true);
+}
 const js = code => main().webContents.executeJavaScript(code, true);
 const command = c => js(`window.tinfoil.command(${JSON.stringify(c)})`);
 async function until(label, ready, ms, every = 500) {
@@ -88,21 +97,26 @@ function decide(tool) {
   return { approve: true };
 }
 
+// `made`: the conversation gets a folder Workbench makes under a root, named after this message, instead of the project;
+// a greeting there should be answered without tools and without comment on the folder or its name.
 const TASKS = [
   { id: 'explain', text: 'What does this project do, and how are its tests run? Do not change anything.' },
   { id: 'fix', text: 'One of the tests fails. Find out why, make it pass, and run the tests again.' },
+  { id: 'greet', text: 'Hello there', made: true },
 ];
 // DeepSeek V4 Pro left Tinfoil's model list; V4.1 Flash took its place.
 const MODELS = { kimi: /^kimi-k3$/, glm: /^glm-5[.-]3$/, deepseek: /^deepseek-v4[.-]1[.-]flash$/ };
 let spentInput = 0, spentOutput = 0;
 
 async function runTask(model, task) {
-  const dir = project(), before = hashes(dir);
+  const madeRoot = task.made ? mkdtempSync(join(tmpdir(), 'workbench-agent-root-')) : null;
+  let dir = task.made ? null : project();
+  const before = dir ? hashes(dir) : {};
   await command({ type: 'thread.new', projectId: null });
   const id = service.workspace.activeId, t = () => service.workspace.threads.find(x => x.id === id);
   await command({ type: 'thread.rename', id, title: `Agent live · ${model} · ${task.id}` });
   await command({ type: 'thread.settings', id, settings: { ...t().settings, model, temperature: 0, compare: false, visualTools: false, webSearch: false, toolsMode: 'off', delegateMode: 'off', agentMode: 'ask', agentShell: 'powershell' } });
-  await service.setAgentFolder(id, dir);
+  if (madeRoot) await service.setAgentRoot(madeRoot); else await service.setAgentFolder(id, dir);
   const decisions = [], started = Date.now();
   await command({ type: 'send', id, text: task.text, attachments: [] });
   let stopped = false;
@@ -119,7 +133,11 @@ async function runTask(model, task) {
     if (Date.now() - started > 20 * 60_000 && !stopped) { stopped = true; await command({ type: 'stop', id }); log('stopped-over-time', { model, task: task.id }); }
     await sleep(250);
   }
+  dir ??= t().agentFolder;
   const reply = t().turns.at(-1).replies[0], tools = reply.tools ?? [], after = hashes(dir);
+  // For a made folder: its name, and whether the answer or the reasoning speaks of the folder or repeats its name.
+  const folderName = madeRoot ? dir.split(/[\\/]/).pop() : undefined;
+  const mentions = text => !!folderName && (text.includes(folderName) || /\b(folder|workspace|directory)\b/i.test(text));
   const calls = {}; for (const tool of tools) calls[tool.name] = (calls[tool.name] ?? 0) + 1;
   const changed = Object.keys({ ...before, ...after }).filter(k => before[k] !== after[k]);
   const usage = reply.usage ?? { input: 0, output: 0 }; spentInput += usage.input; spentOutput += usage.output;
@@ -127,8 +145,10 @@ async function runTask(model, task) {
     calls, failedCalls: tools.filter(x => x.status === 'error').map(x => ({ tool: x.name, error: x.stderr.slice(0, 160) })), decisions,
     changedFiles: changed, testsPassAfter: task.id === 'fix' ? testsPass(dir) : undefined,
     textFormCalls: /\b(run_command|read_file|edit_file|list_files|write_file)\s*[({]/.test(reply.content), seconds: Math.round((Date.now() - started) / 1000),
-    usage, spent: { input: spentInput, output: spentOutput }, answer: reply.content.slice(-700) });
+    usage, spent: { input: spentInput, output: spentOutput }, answer: reply.content.slice(-700),
+    ...(madeRoot ? { folderName, answerMentionsFolder: mentions(reply.content), reasoningMentionsFolder: mentions(reply.reasoning ?? ''), reasoning: (reply.reasoning ?? '').slice(0, 700) } : {}) });
   rmSync(dir, { recursive: true, force: true });
+  if (madeRoot) rmSync(madeRoot, { recursive: true, force: true });
 }
 
 async function run() {
@@ -151,7 +171,9 @@ async function run() {
     }
   }
   stage = 'finish';
-  await command({ type: 'account.signout' }); await until('sign-out', () => service.options.account.snapshot().status === 'signed-out', 30_000);
+  const signingOut = command({ type: 'account.signout' });
+  await answerConfirmation('Sign out of Tinfoil Chat?'); await signingOut;
+  await until('sign-out', () => service.options.account.snapshot().status === 'signed-out', 30_000);
   log('finished', { spent: { input: spentInput, output: spentOutput }, profile });
 }
 app.whenReady().then(() => run()).catch(error => log('failed', { stage, message: String(error?.message ?? error).slice(0, 300), status: error?.status ?? null, code: error?.code ?? null })).finally(() => setTimeout(() => app.quit(), 1500));
