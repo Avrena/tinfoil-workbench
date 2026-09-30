@@ -1,5 +1,17 @@
 # Changelog
 
+## 1.1.0 — sidebar like Tinfoil Chat's, thinking gauge, clearer failures
+
+- Sidebar, with Tinfoil cloud chats connected (Windows): a Sync button on the Threads heading, in the column of the Projects + button; Cloud and Local buttons that switch the thread list, remembered as a view preference; a new thread started from the Cloud list becomes a cloud chat after its first reply. Hovering a thread shows Delete and, for a local thread with messages outside projects, Move to Tinfoil cloud.
+- Composer: thinking effort is a gauge, filled up to the chosen level and highlighted unless the provider default is used. The native select still does the choosing.
+- Title bar: the search box is centred on the window, 40% of its width. The status bar no longer says "Ready" and "Encrypted on this device"; it shows activity only while there is some.
+- Visual calls written as text: when a model writes a chart, table, diagram, timeline or stat-card call into its answer instead of making it (GLM-5.3 Flash did), Workbench draws it in place, marked as written as text, and records it as a real call for later turns. Python and artifacts never run from text.
+- Android: a reply cut off because the app left the screen says so, instead of "Tinfoil could not be reached. Check your connection".
+- A reply that failed before writing anything no longer adds "No answer text was returned." above its error.
+- Settings and NOTICE say that Workbench is unofficial, not affiliated with or endorsed by Tinfoil, with an icon of its own.
+- CI: build copies expire after a day and a full artifact storage no longer fails a job; the Android 14 device test retries a dropped Back press.
+- Android: versionCode 1001000.
+
 ## 1.0.0 — first stable release
 
 - Dependencies: Electron 44.4.5, which backports fixes from upstream Chromium, V8, ANGLE, Dawn and PDFium; PDF.js 6.3.289; TypeScript 7.0.2, the native compiler, which emits the same JavaScript for this source; and current GitHub Actions for CI.
