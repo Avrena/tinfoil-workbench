@@ -27,7 +27,7 @@ app.innerHTML = `<div class="shell no-inspector" id="shell">
   <main class="main"><header class="toolbar">${button('sidebar','Toggle conversation sidebar','panel','class="icon-button"')}<div class="thread-heading"><button class="project-breadcrumb" data-action="thread-project" id="project-breadcrumb" title="Move thread to project">Unfiled</button><h1><button class="toolbar-title" data-action="rename-thread" id="thread-title" title="Rename thread"></button></h1><button id="branch-origin" class="branch-origin hidden" data-action="original-thread">Original thread</button></div><span class="spacer"></span>${button('find','Find in conversation','search','class="icon-button"')}${button('view','Reading & visibility','eye','class="icon-button"')}<details class="export-menu"><summary aria-label="Conversation menu" title="Conversation menu">${icon('more')}</summary><div class="export-popover"><button data-action="account">Account & connection</button><button data-action="rename">Rename thread</button><button data-action="move-project">Move to project…</button><button data-action="cloud-upload" id="cloud-upload" hidden>Move to Tinfoil cloud</button><button class="mobile-menu-item" data-action="mobile-find">Find in thread</button><button class="mobile-menu-item" data-action="mobile-view">Reading & visibility</button><button data-action="pin">Pin / unpin</button><button data-action="compare" id="compare-toggle" aria-pressed="false">Compare models</button><button data-action="instructions-picker">System instructions…</button><button data-action="export-md">Export Markdown</button><button data-action="export-json">Export JSON</button><button data-action="import">Import conversation</button><button data-action="delete" class="danger">Delete conversation…</button></div></details>${button('artifacts','Artifact workspace','panel','class="icon-button"')}${button('inspector','Advanced conversation settings','settings','class="icon-button"')}</header>
     <div id="find-bar" class="find-bar hidden"><input id="find-input" type="search" placeholder="Find in this conversation" aria-label="Find in this conversation"><span id="find-count"></span>${button('find-prev','Previous match','up','class="icon-button"')}${button('find-next','Next match','down','class="icon-button"')}${button('find-close','Close find','close','class="icon-button"')}</div>
     <div id="notice" class="notice hidden" role="status"></div><div class="transcript" id="transcript" tabindex="0" aria-label="Conversation"><div id="transcript-inner" class="transcript-inner"></div></div><button class="jump hidden" id="jump" data-action="jump">${icon('down')}Latest</button>
-    <div class="composer-region"><div class="pending-settings hidden" id="pending-settings" role="status"><span>Unapplied settings</span><button type="button" data-action="apply-pending">Apply</button><button type="button" data-action="discard-pending">Discard</button></div><form id="composer-form" class="composer"><div class="attachments hidden" id="attachments"></div><textarea id="prompt" enterkeyhint="enter" placeholder="Message Tinfoil…" aria-label="Message" rows="1" maxlength="160000"></textarea><div class="composer-tools">${button('attach','Attach text or code files','attach','class="icon-button"')}${button('edit-draft','Expand message editor','expand','class="icon-button"')}<button type="button" data-action="model-picker" class="model-name" id="composer-model">Choose model</button><span id="quick-effort-wrap" class="quick-effort-wrap hidden"><span id="effort-gauge" class="effort-gauge" aria-hidden="true"></span><select id="quick-effort" class="quick-effort" aria-label="Thinking effort"></select></span><button type="button" data-action="instructions-picker" class="instructions-chip" id="composer-instructions" aria-label="System instructions">${icon('instructions')}<span id="composer-instructions-name"></span></button><span id="tools-badge" class="tools-badge hidden">Python · ask first</span><span class="spacer"></span><button type="button" data-action="stop" class="stop hidden" id="stop">${icon('stop')}Stop</button><button type="submit" class="send" id="send" title="Send message">${icon('send')}<span class="sr-only">Send</span></button></div></form><div class="composer-meta"><span id="compose-hint">Enter to send · Shift + Enter for a new line</span><span id="context-size"></span></div></div>
+    <div class="composer-region"><div class="pending-settings hidden" id="pending-settings" role="status"><span>Unapplied settings</span><button type="button" data-action="apply-pending">Apply</button><button type="button" data-action="discard-pending">Discard</button></div><form id="composer-form" class="composer"><div class="attachments hidden" id="attachments"></div><textarea id="prompt" enterkeyhint="enter" placeholder="Message Tinfoil…" aria-label="Message" rows="1" maxlength="160000"></textarea><div class="composer-tools">${button('attach','Attach text or code files','attach','class="icon-button"')}${button('edit-draft','Expand message editor','expand','class="icon-button"')}<button type="button" data-action="model-picker" class="model-name" id="composer-model">Choose model</button><span id="quick-effort-wrap" class="quick-effort-wrap hidden"><button type="button" id="quick-effort" class="quick-effort" data-action="effort-toggle" aria-haspopup="dialog" aria-expanded="false" aria-controls="effort-panel" aria-label="Thinking effort"><span id="effort-gauge" class="effort-gauge" aria-hidden="true"></span></button><div id="effort-panel" class="effort-panel" role="dialog" aria-label="Thinking effort" hidden><div class="effort-panel-head"><span>Thinking effort</span><strong id="effort-value">Default</strong></div><input type="range" id="effort-slider" min="0" max="1" step="1" value="0" aria-label="Thinking effort"><div id="effort-stops" class="effort-stops"></div></div></span><button type="button" data-action="instructions-picker" class="instructions-chip" id="composer-instructions" aria-label="System instructions">${icon('instructions')}<span id="composer-instructions-name"></span></button><span id="tools-badge" class="tools-badge hidden">Python · ask first</span><span class="spacer"></span><button type="button" data-action="stop" class="stop hidden" id="stop">${icon('stop')}Stop</button><button type="submit" class="send" id="send" title="Send message">${icon('send')}<span class="sr-only">Send</span></button></div></form><div class="composer-meta"><span id="compose-hint">Enter to send · Shift + Enter for a new line</span><span id="context-size"></span></div></div>
   </main>
   <aside class="inspector" id="inspector"><header class="inspector-header"><span>Advanced</span>${button('inspector','Close advanced settings','close','class="icon-button"')}</header><div class="inspector-body"><form id="config-form"><section><div class="eyebrow">Conversation</div><label for="model">Model</label><input id="model" list="models" placeholder="Model ID" autocomplete="off"><datalist id="models"></datalist><div id="compare-field" class="hidden"><label for="compare-model">Compare with</label><input id="compare-model" list="models" placeholder="Second model ID" autocomplete="off"><p>Two independent requests. Select one reply to continue.</p></div><div class="field-heading"><label for="instructions">System instructions <span class="field-optional">Optional</span></label><button type="button" class="field-action" data-action="instructions-picker" aria-label="Choose saved or starter instructions" title="Choose saved or starter instructions">Choose…</button></div><textarea id="instructions" maxlength="40000" aria-describedby="instructions-applied"></textarea><p id="instructions-applied" class="instructions-applied" hidden></p></section><section><div class="eyebrow">Generation</div><div class="two-fields"><div><label for="temperature">Temperature</label><input id="temperature" type="number" min="0" max="2" step="0.1" placeholder="Default"></div><div><label for="max-tokens">Output limit</label><input id="max-tokens" type="number" min="1" max="131072" step="1" value="32768"></div></div><div id="reasoning-controls"><label for="reasoning">Thinking effort</label><select id="reasoning"></select></div><div id="thinking-controls"><label for="thinking-mode">Thinking mode</label><select id="thinking-mode"><option value="default">Provider default</option><option value="enabled">Enabled</option><option value="disabled">Disabled</option></select></div><p id="capability-note"></p><div id="compare-reasoning-controls" class="hidden"><label for="compare-reasoning">Comparison model effort</label><select id="compare-reasoning"></select><div id="compare-thinking-controls"><label for="compare-thinking-mode">Comparison thinking mode</label><select id="compare-thinking-mode"><option value="default">Provider default</option><option value="enabled">Enabled</option><option value="disabled">Disabled</option></select></div><p id="compare-capability-note"></p></div><label class="toggle-row"><span>Charts, documents & visual tools</span><input id="visual-tools" type="checkbox"></label><p>Creates in-app artifacts without running Python. Files are saved only when you choose Save.</p><label for="tools-mode">Model-requested Python</label><select id="tools-mode"><option value="off">Off</option><option value="ask">Ask before every run</option></select><p>Local execution, not a Tinfoil-hosted sandbox. Every run needs approval.</p><div class="eyebrow activity-settings-heading">Provider tools & delegation</div><label class="toggle-row"><span>Tinfoil web search</span><input id="web-search" type="checkbox"></label><p>Uses Tinfoil’s built-in MCP-backed search. Requires provider access; additional tool usage may apply.</p><label for="delegate-mode">Text-only sub-agents</label><select id="delegate-mode"><option value="off">Off</option><option value="ask">Ask before each request</option></select><p>Client-orchestrated, same model, task-only context. Up to two additional requests per send; no child tools or recursion.</p><details class="tool-support"><summary>API support & limits</summary><p>Batch: multiple tool calls in one completion round, executed sequentially here. This is not an offline billing Batch API.</p><p>MCP: displays Tinfoil-managed search and code-execution events. Arbitrary MCP server connections are not configured by this client.</p><p>Native hosted sub-agent events have not been verified. The optional delegate tool makes a separate approved Chat Completions request.</p></details><button class="primary apply" type="submit" id="apply-settings">Apply settings</button></section></form><details class="connection-details"><summary>Connection & verification</summary><div id="connection-card" class="connection-card"></div></details></div></aside>
   <button id="drawer-backdrop" data-action="close-drawers" aria-label="Close drawer" tabindex="-1" hidden></button>
@@ -320,22 +320,40 @@ function effortOptions(select:HTMLSelectElement,model:string,value:string):void 
   select.value=cap.effort.includes(value)?value:'default';
 }
 function renderQuickEffort():void {
-  const s=current().settings,cap=capabilityFor(s.model,state.capabilities),select=$<HTMLSelectElement>('quick-effort');
+  const s=current().settings,cap=capabilityFor(s.model,state.capabilities),levels=['default',...cap.effort],button=$<HTMLButtonElement>('quick-effort'),slider=$<HTMLInputElement>('effort-slider');
   const signature=JSON.stringify([s.model,s.reasoningEffort,cap.effort]);
-  if(select.dataset.signature!==signature){
-    effortOptions(select,s.model,s.reasoningEffort);
-    // The compact picker uses a short label; the full provider wording remains
-    // in Advanced and the accessible description. Wire values are unchanged.
-    const fallback=select.querySelector<HTMLOptionElement>('option[value="default"]');
-    if(fallback)fallback.textContent='Default';
-    select.dataset.signature=signature;
-    // The select stays the control (keyboard, screen readers, the platform's list); what shows is a gauge filled up
-    // to the chosen level, in the accent colour unless the provider default is used.
-    const level=cap.effort.indexOf(select.value)+1,name=select.selectedOptions[0]?.textContent??'Default';
-    setMarkup($('effort-gauge'),effortGauge(level,cap.effort.length));
-    select.title=level?`Thinking effort: ${name}`:'Thinking effort: Default (the provider setting)';
+  if(button.dataset.signature!==signature){
+    const index=Math.max(0,levels.indexOf(s.reasoningEffort));
+    slider.max=String(levels.length-1);slider.value=String(index);
+    setMarkup($('effort-stops'),levels.map((level,i)=>`<button type="button" data-effort-stop="${i}" aria-pressed="${i===index}">${e(effortName(level))}</button>`).join(''));
+    showEffort(index);button.dataset.signature=signature;
   }
-  $('quick-effort-wrap').classList.toggle('hidden',!cap.effort.length);select.disabled=!!state.busyThreadId;
+  $('quick-effort-wrap').classList.toggle('hidden',!cap.effort.length);button.disabled=slider.disabled=!!state.busyThreadId;
+  if(!cap.effort.length||state.busyThreadId)closeEffort();
+}
+const effortName=(level:string)=>level==='default'?'Default':level[0]!.toUpperCase()+level.slice(1);
+/** The composer's thinking effort: a gauge button that opens a slider over the model's levels. The gauge, the name
+ * and the accessible labels follow the slider while it moves; the choice is applied when it is released. */
+function showEffort(index:number):void {
+  const levels=['default',...capabilityFor(current().settings.model,state.capabilities).effort],name=effortName(levels[index]??'default');
+  setMarkup($('effort-gauge'),effortGauge(index,levels.length-1));$('effort-value').textContent=name;$('effort-slider').setAttribute('aria-valuetext',name);
+  const label=index?`Thinking effort: ${name}`:'Thinking effort: Default (the provider setting)';$('quick-effort').title=label;$('quick-effort').setAttribute('aria-label',label);
+  for(const stop of $('effort-stops').querySelectorAll<HTMLElement>('[data-effort-stop]'))stop.setAttribute('aria-pressed',String(Number(stop.dataset.effortStop)===index));
+}
+function openEffort():void {
+  const panel=$('effort-panel');panel.hidden=false;$('quick-effort').setAttribute('aria-expanded','true');
+  // The composer clips its overflow, so the panel is fixed above the gauge and kept inside the window.
+  const r=$('quick-effort').getBoundingClientRect(),width=panel.offsetWidth;
+  panel.style.left=`${Math.max(8,Math.min(innerWidth-width-8,r.left+r.width/2-width/2))}px`;panel.style.bottom=`${innerHeight-r.top+8}px`;
+  $('effort-slider').focus();
+}
+function closeEffort(refocus=false):void {
+  const panel=$('effort-panel');if(panel.hidden)return;panel.hidden=true;$('quick-effort').setAttribute('aria-expanded','false');if(refocus)$('quick-effort').focus();
+}
+function commitEffort():void {
+  const slider=$<HTMLInputElement>('effort-slider'),level=['default',...capabilityFor(current().settings.model,state.capabilities).effort][Number(slider.value)]??'default';
+  if(configDirty){toast('Apply pending Advanced changes first.',true);delete $('quick-effort').dataset.signature;renderQuickEffort();return;}
+  if(level!==current().settings.reasoningEffort)void dispatch({type:'thread.settings',id:current().id,settings:{...current().settings,reasoningEffort:level}});
 }
 function renderReasoningControls():void {
   const s=current().settings,model=$<HTMLInputElement>('model').value,compare=$<HTMLInputElement>('compare-model').value;
@@ -349,7 +367,12 @@ function renderReasoningControls():void {
   }
   $('compare-reasoning-controls').classList.toggle('hidden',!s.compare);
 }
-$('quick-effort').addEventListener('change',()=>{if(configDirty){toast('Apply pending Advanced changes first.',true);delete $<HTMLSelectElement>('quick-effort').dataset.signature;renderQuickEffort();return;}void dispatch({type:'thread.settings',id:current().id,settings:{...current().settings,reasoningEffort:$<HTMLSelectElement>('quick-effort').value}});});
+$('effort-slider').addEventListener('input',()=>showEffort(Number($<HTMLInputElement>('effort-slider').value)));
+$('effort-slider').addEventListener('change',commitEffort);
+$('effort-stops').addEventListener('click',event=>{const stop=(event.target as Element).closest<HTMLElement>('[data-effort-stop]');if(!stop)return;$<HTMLInputElement>('effort-slider').value=stop.dataset.effortStop!;showEffort(Number(stop.dataset.effortStop));commitEffort();});
+document.addEventListener('pointerdown',event=>{if(!$('effort-panel').hidden&&!(event.target as Element).closest('#quick-effort-wrap'))closeEffort();},true);
+document.addEventListener('keydown',event=>{if(event.key==='Escape'&&!$('effort-panel').hidden){event.preventDefault();event.stopPropagation();closeEffort(true);}},true);
+addEventListener('resize',()=>closeEffort());
 for(const id of ['model','compare-model'])$(id).addEventListener('input',renderReasoningControls);
 let connectionSignature='';
 function renderConnection():void {
@@ -615,6 +638,7 @@ async function action(name:string, target?:HTMLElement):Promise<void> {
     case 'cloud-sync':await dispatch({type:'cloud.sync'});break;
     case 'cloud-disconnect':await dispatch({type:'cloud.disconnect'});break;
     case 'cloud-upload':await dispatch({type:'thread.cloud.upload',id:thread.id});break;
+    case 'effort-toggle':$('effort-panel').hidden?openEffort():closeEffort();break;
     case 'row-cloud-upload':if(target?.dataset.row)await dispatch({type:'thread.cloud.upload',id:target.dataset.row});break;
     case 'row-delete':if(target?.dataset.row)await dispatch({type:'thread.delete',id:target.dataset.row});break;
     case 'thread-tab':if(target?.dataset.tab==='cloud'||target?.dataset.tab==='local')await setView({threadTab:target.dataset.tab});break;
@@ -776,8 +800,8 @@ $('model-form').addEventListener('submit',event=>{event.preventDefault();
 // How the last control was pressed. `(pointer: coarse)` alone is not enough: some Android devices and emulators report a
 // fine primary pointer, and focusing a text field there raises the on-screen keyboard.
 let lastPointer='';
-document.addEventListener('pointerdown',event=>{lastPointer=event.pointerType;},true);
-document.addEventListener('keydown',()=>{lastPointer='';},true);
+document.addEventListener('pointerdown',event=>{lastPointer=event.pointerType;document.documentElement.classList.toggle('touch-input',event.pointerType==='touch'||event.pointerType==='pen');},true);
+document.addEventListener('keydown',()=>{lastPointer='';document.documentElement.classList.remove('touch-input');},true);
 $('model-dialog').addEventListener('keydown',event=>{
   if(event.key!=='ArrowDown'&&event.key!=='ArrowUp')return;
   const options=[...$('model-options').querySelectorAll<HTMLElement>('[data-quick-model]')], index=options.indexOf(document.activeElement as HTMLElement);

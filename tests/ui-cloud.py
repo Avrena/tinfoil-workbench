@@ -75,6 +75,10 @@ with sync_playwright() as pw:
     expect(crow.locator('[data-action=row-cloud-upload]')).to_have_count(0);expect(crow.locator('[data-action=row-delete]')).to_be_visible()
     page.locator('[data-tab=local]').click();row.hover();row.locator('[data-action=row-delete]').click();expect(page.locator('[data-thread=localturns]')).to_have_count(0)
     check('hovering a thread offers Delete, and Move to Tinfoil cloud only for a local thread with messages')
+    page.evaluate("document.dispatchEvent(new PointerEvent('pointerdown',{pointerType:'touch',bubbles:true}))");lrow=page.locator('#thread-list .thread-group .thread-row').first;lrow.hover()
+    expect(lrow.locator('.thread-actions')).to_be_hidden()
+    page.keyboard.press('Shift');lrow.hover();expect(lrow.locator('[data-action=row-delete]')).to_be_visible()
+    check('after a touch the row actions stay hidden, so nothing covers a title on a phone; a key press brings them back')
     page.locator('[data-tab=cloud]').click();count=page.locator('#thread-list .thread-group .thread-row').count()
     page.locator('[data-action=new]').first.click();expect(page.locator('#thread-list .thread-group .thread-row')).to_have_count(count+1)
     assert page.evaluate('window.tinfoil.snapshot().then(s=>s.workspace.threads.find(t=>t.id===s.workspace.activeId).cloudPending)') is True

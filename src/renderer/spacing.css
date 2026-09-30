@@ -147,12 +147,20 @@
 .composer-tools { padding: 4px 8px 8px; gap: 4px; min-height: 44px; }
 .composer-tools > .icon-button { width: 32px; height: 32px; padding: 8px; }
 #composer-model { max-width: 230px; height: 32px; padding: 4px 8px; font-size: 11px; flex: 0 1 auto; }
-/* Thinking effort: the native select covers the gauge, invisible, so the platform's list and assistive technology
-   still work; the gauge shows the level. */
-.quick-effort-wrap:hover { background: #ffffff0d; }
-.quick-effort-wrap:focus-within { outline: 2px solid var(--accent); outline-offset: 1px; }
-.quick-effort-wrap .quick-effort { position: absolute; inset: 0; width: 100% !important; max-width: none; height: 100%; min-height: 0; margin: 0; padding: 0; opacity: 0; cursor: pointer; }
-.quick-effort-wrap .quick-effort:disabled { cursor: default; }
+/* Thinking effort: the gauge button opens a panel with a slider over the model's levels. The panel is fixed above
+   the gauge, because the composer clips its overflow. */
+.quick-effort-wrap .quick-effort { width: 100%; height: 100%; min-width: 0; min-height: 0; margin: 0; padding: 0; display: flex; align-items: center; justify-content: center; border: 0; border-radius: 6px; background: transparent; }
+.quick-effort-wrap .quick-effort:hover { background: #ffffff0d; }
+.quick-effort-wrap .quick-effort[aria-expanded="true"] { background: #ffffff14; }
+.effort-panel { position: fixed; z-index: 40; width: 260px; max-width: calc(100vw - 24px); padding: 12px 14px 10px; border: 1px solid #3c3e43; border-radius: 10px; background: #26282c; box-shadow: 0 10px 30px #0008; }
+.effort-panel[hidden] { display: none; }
+.effort-panel-head { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; margin-bottom: 8px; font-size: 11px; color: #9a9ca1; }
+.effort-panel-head strong { font-size: 12px; font-weight: 600; color: #e6e6e6; }
+#effort-slider { width: 100%; margin: 4px 0; accent-color: var(--accent); }
+.effort-stops { display: flex; justify-content: space-between; gap: 4px; margin-top: 4px; }
+.effort-stops button { min-width: 0; min-height: 0; padding: 2px 4px; border-radius: 4px; background: transparent; font-size: 10px; color: #8d9199; }
+.effort-stops button[aria-pressed="true"] { color: var(--accent); }
+@media (pointer: coarse), (hover: none) { #effort-slider { height: 32px; } .effort-stops button { min-width: 44px; min-height: 36px; } }
 .effort-gauge svg { display: block; width: 20px; height: 20px; }
 .effort-gauge .off { stroke: #5d6168; }
 .effort-gauge .on { stroke: var(--accent); }
@@ -160,7 +168,7 @@
 .effort-gauge circle { fill: #8d9199; }
 .effort-gauge svg.active .needle { stroke: var(--accent); }
 .effort-gauge svg.active circle { fill: var(--accent); }
-.quick-effort-wrap:has(.quick-effort:disabled) { opacity: .5; }
+.quick-effort-wrap .quick-effort:disabled { opacity: .5; }
 .composer-tools .spacer { min-width: 4px; }
 .composer-tools .send { width: 32px; min-width: 32px; height: 32px; flex-shrink: 0; }
 .composer-tools .stop { min-height: 32px; padding: 6px 8px; flex-shrink: 0; }
@@ -544,8 +552,17 @@ dialog:not(.message-editor) .modal-body { padding: 8px 20px 20px; }
 .thread-actions .icon-button { width: 26px; height: 26px; padding: 5px; border-radius: 5px; color: #9a9ca1; }
 .thread-actions .icon-button:hover { background: #ffffff14; color: #e0e0e0; }
 .thread-actions [data-action="row-delete"]:hover { color: #f28b82; }
-/* Without hover (touch screens) the conversation menu keeps these actions; nothing appears on a tap. */
-@media (hover: none) {
+/* Touch screens keep these actions in the conversation menu; nothing appears over a title on a tap. Some phones
+   report hover, so the last pointer (the touch-input class), a coarse pointer and Android all count. */
+@media (hover: none), (pointer: coarse) {
   .thread-row .thread-actions { display: none; }
   .thread-row:hover .thread, .thread-row:focus-within .thread { padding-right: 9px; }
 }
+.touch-input .thread-row .thread-actions, [data-platform="android"] .thread-row .thread-actions { display: none; }
+.touch-input .thread-row:hover .thread, .touch-input .thread-row:focus-within .thread,
+[data-platform="android"] .thread-row:hover .thread, [data-platform="android"] .thread-row:focus-within .thread { padding-right: 9px; }
+
+/* Reasoning and tool-activity disclosures: the arrow is drawn, not the '›' glyph, which sat below the label's centre.
+   A 6px chevron centred in a 9px box points right when closed and down when open. */
+.reasoning summary:before, .tool-activity summary:before { content: ''; flex: none; box-sizing: border-box; width: 6px; height: 6px; margin: 0 2px 0 1px; border-right: 1.5px solid currentColor; border-bottom: 1.5px solid currentColor; font-size: 0; line-height: 0; transform: rotate(-45deg); }
+.reasoning[open] > summary:before, .tool-activity[open] > summary:before { transform: rotate(45deg); }
