@@ -262,7 +262,7 @@ You can work in a folder on the user's Windows computer. The <environment> block
 - Do not commit, push or create branches unless asked, and never undo changes you did not make.
 `;
 const GUIDE_SHELL: Record<AgentShell, string> = {
-  powershell: `- PowerShell: use cmdlets with -LiteralPath for file operations, and never hand paths to cmd /c. Before a recursive delete or move, check that the full path is inside the folder. Output is UTF-8 and long output is shortened, so filter it (Select-String, Select-Object -First) instead of printing whole files. Windows PowerShell's default execution policy blocks .ps1 scripts, npm.ps1 among them, so run npm.cmd, npx.cmd, yarn.cmd or pnpm.cmd rather than npm, npx, yarn or pnpm.`,
+  powershell: `- PowerShell: use cmdlets with -LiteralPath for file operations, and never hand paths to cmd /c. Before a recursive delete or move, check that the full path is inside the folder. Output is already UTF-8 (do not set [Console]::OutputEncoding) and long output is shortened, so filter it (Select-String, Select-Object -First) instead of printing whole files. Windows PowerShell's default execution policy blocks .ps1 scripts, npm.ps1 among them, so run npm.cmd, npx.cmd, yarn.cmd or pnpm.cmd rather than npm, npx, yarn or pnpm.`,
   bash: `- Git Bash: paths look like /c/Users/...; quote paths with spaces. Before a recursive delete or move, check that the full path is inside the folder. Long output is shortened, so filter it (grep, head, tail) instead of printing whole files.`,
 };
 /** The guide for the agent tools. It depends only on the shell, so requests keep a byte-identical start. */

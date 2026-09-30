@@ -15,7 +15,12 @@ const str=(value:unknown):string=>typeof value==='string'?value:'';
 /** What an agent call is about, for its header: the path, the pattern, or the command's first line. */
 function agentSubject(tool:ToolRun):string {
   const a=parsed(tool);
-  if(tool.name==='run_command'){const line=str(a.command).trim().split('\n')[0]??'';return line.length>80?line.slice(0,80)+'…':line;}
+  if(tool.name==='run_command'){
+    // The first line that does something: not a comment, nor the output-encoding setup models often start with.
+    const rows=str(a.command).split('\n').map(row=>row.trim()).filter(Boolean);
+    const line=rows.find(row=>!/^(#|\[Console\]::(Output|Input)Encoding\b|\$OutputEncoding\b|chcp\b|\$ErrorActionPreference\b|Set-StrictMode\b)/i.test(row))??rows[0]??'';
+    return line.length>80?line.slice(0,80)+'…':line;
+  }
   if(tool.name==='search_files')return str(a.pattern);
   return tool.name==='update_plan'?'':str(a.path)||'.';
 }

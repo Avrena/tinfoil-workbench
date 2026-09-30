@@ -280,7 +280,8 @@ function replyMarkup(reply:Reply, turn:Turn):string {
   const streaming=['streaming','queued','awaiting_approval','executing'].includes(reply.status);
   const selected=turn.selectedReplyId===reply.id, raw=rawReplies.has(reply.id), pager=(turn.selectedReplyId??turn.replies[0]?.id)===reply.id;
   const tools=reply.tools??[], active=tools.filter(toolActive), finished=tools.filter(t=>!active.includes(t));
-  const thinking=streaming&&(reply.phase==='thinking'||(!reply.phase&&!!reply.reasoning&&!reply.content));
+  // Only while the model is streaming: waiting for an approval or a command is not thinking.
+  const thinking=reply.status==='streaming'&&(reply.phase==='thinking'||(!reply.phase&&!!reply.reasoning&&!reply.content));
   const writing=streaming&&!thinking&&!active.some(t=>t.provider)&&reply.status==='streaming'&&(reply.phase==='answering'||(!reply.phase&&!!reply.content));
   const status=reply.status==='awaiting_approval'?'Approval needed':active.some(t=>t.name==='delegate_task'&&t.status==='running')?'Sub-agent working':active.some(t=>t.provider&&t.status==='running')?'Using provider tools':active.some(t=>t.status==='running'&&['read_file','list_files','search_files'].includes(t.name))?'Reading files':reply.status==='executing'?(active.some(t=>t.name==='python')?'Running Python':active.some(t=>t.name==='run_command')?'Running a command':active.some(t=>t.name==='edit_file'||t.name==='write_file')?'Changing a file':'Creating visualization'):thinking?'Thinking':writing?'Writing':'Waiting for response';
   // A workspace agent reply counts its tool rounds against the limit for one message.

@@ -371,7 +371,8 @@ dialog:not(.message-editor) .modal-body { padding: 8px 20px 20px; }
 .reply-tool-activity:empty { display:none; }
 /* The row takes the rest of the line beside Reasoning, or a line of its own, so a longer call name never reflows it. */
 .reply-tool-activity { min-width:min(260px,100%); max-width:100%; margin:0; flex:1 1 0; }
-.reply-tool-activity:has(.tool-activity[open]), .reply-tool-activity:has(.approval-required) { flex-basis:100%; }
+/* The plan is a list to read, so it takes a line of its own, with the row under it. */
+.reply-tool-activity:has(.tool-activity[open]), .reply-tool-activity:has(.approval-required), .reply-tool-activity:has(> .agent-plan-current) { flex-basis:100%; }
 .reply-tool-activity > .tool-activity { margin:0; }
 .reply-tool-activity > .tool-activity > summary { min-height:28px; padding:4px 0; }
 .reply-tool-activity .tool-run { border:0; border-left:1px solid #424242; border-radius:0; background:transparent; margin:10px 0 10px 4px; padding:6px 0 6px 14px; min-width:0; }

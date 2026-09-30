@@ -282,13 +282,14 @@ async function command(input) {
         if (args.name === 'run_command') {
           const result = await dialog.showMessageBox(window, { type: 'warning', buttons: ['Do not run', 'Run this command once'], defaultId: 0, cancelId: 0, noLink: true,
             message: 'Run this command on your computer?',
-            detail: `${(outside => outside.length ? `OUTSIDE THE FOLDER: this command names ${outside.join(', ')}.\n\n` : '')(outsidePaths(args.command, folder, args.workdir))}NOT A SANDBOX: it runs with your Windows account's permissions and can change or send anything your account can. This approval covers this exact command once.\n\nShell: ${AGENT_SHELLS[tool.agent.shell ?? 'powershell']}\nFolder: ${args.workdir === '.' ? folder : join(folder, args.workdir)}\nTimeout: ${args.timeout_seconds} seconds\n\n${args.command}` });
+            // What runs comes first, then where and how, then the warnings; paths outside the folder one to a line.
+            detail: `${args.command}\n\nRuns in ${args.workdir === '.' ? folder : join(folder, args.workdir)}\nwith ${AGENT_SHELLS[tool.agent.shell ?? 'powershell']}, stopped after ${args.timeout_seconds} seconds.${(outside => outside.length ? `\n\nOutside the folder, it names:\n${outside.map(path => `    ${path}`).join('\n')}` : '')(outsidePaths(args.command, folder, args.workdir))}\n\nNot a sandbox: it runs with your Windows account's permissions and can change or send anything your account can. Approving runs this exact command once.` });
           approve = result.response === 1;
         } else {
           const diff = tool.agent?.diff ?? '', rows = diff.split('\n').slice(2), { added, removed } = diffCounts(diff);
           const result = await dialog.showMessageBox(window, { type: 'question', buttons: ['Do not change', args.name === 'write_file' ? 'Write this file' : 'Apply this change'], defaultId: 0, cancelId: 0, noLink: true,
             message: `${args.name === 'write_file' ? 'Write' : 'Change'} ${args.path}?`,
-            detail: `In ${folder}: ${added} ${added === 1 ? 'line' : 'lines'} added, ${removed} removed. The file is written only if it has not changed since this was proposed.\n\n${rows.slice(0, 80).join('\n')}${rows.length > 80 ? `\n… ${rows.length - 80} more lines, shown in the conversation` : ''}` });
+            detail: `${rows.slice(0, 80).join('\n')}${rows.length > 80 ? `\n… ${rows.length - 80} more lines, shown in the conversation` : ''}\n\n${added} ${added === 1 ? 'line' : 'lines'} added, ${removed} removed, in ${folder}.\nThe file is written only if it has not changed since this was proposed.` });
           approve = result.response === 1;
         }
       } else if (c.approve && pending.tool.name === 'delegate_task') {

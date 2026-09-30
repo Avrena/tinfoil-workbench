@@ -21,9 +21,9 @@ window.__activitySeed=(mode='approval')=>{
  window.__activityView=patch=>{workspace.view=require('/core/preferences.js').viewPreferences({...workspace.view,...patch});emit();};
 };
 window.__activityWorkspace=()=>structuredClone(workspace);
-window.__thinkingSeed=(since,total)=>{
+window.__thinkingSeed=(since,total,status)=>{
  const t=workspace.threads.find(t=>t.id===workspace.activeId),live=since!==null;
- const r={id:'think-reply',model:'demo/writer',content:live?'':'Answer.',reasoning:'Weighing the options.',status:live?'streaming':'complete',phase:live?'thinking':'answering',error:null,elapsedMs:1000,usage:null,tools:[],...(live?{thinkingSince:Date.now()-since}:{}),...(total?{thinkingMs:total}:{})};
+ const r={id:'think-reply',model:'demo/writer',content:live?'':'Answer.',reasoning:'Weighing the options.',status:status??(live?'streaming':'complete'),phase:live?'thinking':'answering',error:null,elapsedMs:1000,usage:null,tools:[],...(live?{thinkingSince:Date.now()-since}:{}),...(total?{thinkingMs:total}:{})};
  t.turns=[{id:'think-turn',prompt:'Think it over.',createdAt:1,attachments:[],selectedReplyId:r.id,replies:[r]}];busy=live?t.id:null;emit();
  window.__activityView=patch=>{workspace.view=require('/core/preferences.js').viewPreferences({...workspace.view,...patch});emit();};
 };
@@ -89,6 +89,9 @@ with sync_playwright() as p:
  page.evaluate("window.__activityView({reasoning:'hidden'})");expect(page.locator('.response-activity')).to_contain_text(re.compile(r'Thinking · 1m 0\ds'))
  page.evaluate("window.__activityView({reasoning:'collapsed'});window.__thinkingSeed(null,65000)");expect(page.locator('.reasoning small')).to_contain_text('Thought for 1m 05s');expect(page.locator('.thinking-time')).to_have_count(0)
  checks.append('the Thinking label shows how long the current stretch of thinking has run and moves on each second, in the status line too when reasoning is hidden; afterwards the Reasoning label says how long the reply thought')
+ for waiting in ['awaiting_approval','executing']:
+  page.evaluate(f"window.__thinkingSeed(65000,0,'{waiting}')");expect(page.locator('.reasoning .reasoning-label')).to_have_text('Reasoning');expect(page.locator('.thinking-time')).to_have_count(0);expect(page.locator('.reasoning.is-thinking')).to_have_count(0)
+ checks.append('waiting for an approval or a command is not shown as thinking')
  page.close()
  # The workspace agent (docs/WORKSPACE-AGENT.md): off by default, turned on in Advanced, its folder chosen natively (a
  # synthetic path in the preview), its calls drawn by kind; the offline preview never applies or runs anything.
@@ -116,6 +119,9 @@ with sync_playwright() as p:
  expect(page.locator('.response-activity')).to_contain_text('Approval needed · step 2 of 30')
  plan=page.locator('.agent-plan-current li');expect(plan).to_have_count(3);assert [plan.nth(i).get_attribute('data-status') for i in range(3)]==['completed','in_progress','pending']
  checks.append('agent calls are drawn by kind: a change as a coloured diff, a command with its folder and shell and the paths outside the folder it names, the current plan above them, and the step count in the status line')
+ plan_box=page.locator('.agent-plan-current').bounding_box();context_box=page.locator('.reply .reply-context').bounding_box();reason_box=page.locator('.reply .reasoning > summary').bounding_box()
+ assert abs(plan_box['x']-context_box['x'])<2 and plan_box['y']>=reason_box['y']+reason_box['height']-1,(plan_box,context_box,reason_box)
+ checks.append('the plan takes a line of its own under Reasoning, not the space beside it; a command is named by its first working line, not its encoding setup')
  expect(row.locator('> summary .tick:not(.tick-out)')).to_contain_text('Edit file src/sum.js');expect(row.locator('.activity-count')).to_have_text('6 tool runs')
  row.locator('> summary').click();finished=page.locator('.tool-run[data-state=complete]');expect(finished).to_have_count(4)
  expect(finished.filter(has_text='Read file').locator('.agent-subject')).to_have_text('src/sum.js')
