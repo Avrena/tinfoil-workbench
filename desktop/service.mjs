@@ -730,13 +730,19 @@ export class WorkbenchService {
       args = pythonArguments(tool.arguments);
       if (!this.toolExecutor) throw new InputError('No Python execution adapter is available.');
       if (ctrl.signal.aborted) throw new InputError('Execution cancelled.');
-      tool.status='awaiting_approval';
-      if (setPhase) reply.status = 'awaiting_approval';
-      const approved = new Promise(resolve => this.approvals.set(tool.id, { threadId, tool, resolve }));
-      await this.save(); this.emit();
-      let allow;
-      try { allow = await abortable(approved, ctrl.signal); } finally { this.approvals.delete(tool.id); }
-      if (!allow) { tool.status = 'denied'; tool.stderr = 'The user declined this execution. Do not retry it without a new request.'; return; }
+      // Python follows the workspace agent's highest level: where commands run without asking, a command could run
+      // Python anyway, so asking here would add a step without protection. Everywhere else every run asks.
+      const thread = findThread(this.workspace, threadId);
+      if (this.agentFor(thread) && thread.settings.agentApproval === 'auto') tool.autoApproved = true;
+      else {
+        tool.status='awaiting_approval';
+        if (setPhase) reply.status = 'awaiting_approval';
+        const approved = new Promise(resolve => this.approvals.set(tool.id, { threadId, tool, resolve }));
+        await this.save(); this.emit();
+        let allow;
+        try { allow = await abortable(approved, ctrl.signal); } finally { this.approvals.delete(tool.id); }
+        if (!allow) { tool.status = 'denied'; tool.stderr = 'The user declined this execution. Do not retry it without a new request.'; return; }
+      }
       if (ctrl.signal.aborted) throw new InputError('Execution cancelled.');
       tool.status = 'running'; if (setPhase) reply.status = 'executing'; await this.save(); this.emit();
       const result = await this.toolExecutor({ code: args.code, interpreter: this.workspace.pythonPath, signal: ctrl.signal,

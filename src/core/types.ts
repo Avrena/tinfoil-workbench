@@ -52,6 +52,8 @@ export interface ToolRun {
   agent?: { folder: string; shell?: AgentShell; diff?: string; auto?: true; asked?: string };
   id: string; callId: string; name: string; arguments: string;
   /** 'text': a drawing call the model wrote into its answer as text, which Workbench drew (see recoverTextCalls). */
+  /** Model-requested Python run by the conversation's workspace agent level ("auto"), not approved by the person. */
+  autoApproved?: true;
   origin: 'model' | 'manual' | 'provider' | 'text'; status: 'queued' | 'awaiting_approval' | 'running' | 'complete' | 'error' | 'denied' | 'cancelled';
   stdout: string; stderr: string; exitCode: number | null; elapsedMs: number;
   artifacts: Artifact[]; truncated: boolean;

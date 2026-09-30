@@ -224,7 +224,7 @@ export function exportMarkdown(thread: Thread): string {
       const instructions = reply.systemPromptName === undefined ? '' : ` · Instructions: ${reply.systemPromptName || 'Custom instructions'}`;
       lines.push(`## ${reply.model}${reply.id === turn.selectedReplyId ? ' (selected)' : ''}`, '', `Status: ${reply.status}${instructions}`, '', reply.content, '');
       for (const tool of reply.tools ?? []) {
-        lines.push(`### Tool: ${tool.name} (${tool.status}; ${tool.origin})`, '');
+        lines.push(`### Tool: ${tool.name} (${tool.status}; ${tool.origin}${tool.autoApproved ? '; approved automatically' : ''})`, '');
         if (tool.batchId) lines.push(`Batch: ${tool.batchId} · action ${(tool.batchIndex ?? 0)+1}/${tool.batchSize ?? '?'} · sequential client execution`, '');
         if (tool.provider) lines.push('Provider-reported Tinfoil-managed MCP activity; not executed by this client.', '', ...tool.provider.sources.map(s=>`Source: ${s.title} — ${s.url}`), '');
         if (tool.agent) lines.push(`Workspace agent · folder ${tool.agent.folder}${tool.agent.shell ? ` · ${tool.agent.shell === 'bash' ? 'Git Bash' : 'Windows PowerShell 5.1'}` : ''}${tool.agent.auto ? ' · approved automatically' : ''}`, '', ...(tool.agent.diff ? ['```diff', tool.agent.diff.trimEnd(), '```', ''] : []));

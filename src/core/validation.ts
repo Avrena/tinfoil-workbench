@@ -255,6 +255,7 @@ export function validateTool(value: unknown): ToolRun {
   if (!['queued','awaiting_approval','running','complete','error','denied','cancelled'].includes(String(v.status))) throw new InputError('Invalid tool status.');
   return { id: identifier(v.id), callId: text(v.callId, 'Tool call ID', 200), name: text(v.name, 'Tool name', 80),
     ...(v.contentOffset === undefined ? {} : {contentOffset: offset(v.contentOffset)}),
+    ...(v.autoApproved === true ? {autoApproved: true as const} : {}),
     ...(v.batchId === undefined ? {} : {batchId:identifier(v.batchId), batchIndex:integer(v.batchIndex,0,LIMITS.callsPerStep-1),batchSize:integer(v.batchSize,1,LIMITS.callsPerStep)}),
     ...(v.delegate === undefined ? {} : {delegate:validateDelegate(v.delegate)}),
     ...(v.provider === undefined ? {} : {provider:validateProvider(v.provider)}),

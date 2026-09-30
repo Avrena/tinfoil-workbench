@@ -58,7 +58,7 @@ function entry(tool:ToolRun,nested=false):string {
   const approve=agent?(tool.name==='run_command'?'Review & run once…':tool.name==='write_file'?'Review & write…':'Review & apply…'):delegated?'Run one delegated request':'Review & run once…';
   const body=`<div class="activity-detail-body" data-key="detail-${e(tool.id)}" data-activity-body="${e(tool.id)}" data-rich-host></div>`;
   const heading=(meta:string)=>`<i class="activity-state ${tool.status}" aria-hidden="true"></i><strong>${e(label(tool))}</strong>${subject?`<code class="agent-subject" title="${e(subject)}">${e(subject)}</code>`:''}${meta?`<span>${meta}</span>`:''}`;
-  const meta=`${e(tool.status.replaceAll('_',' '))} · ${provenance(tool)}${tool.origin==='manual'?' · manual':''}`;
+  const meta=`${e(tool.status.replaceAll('_',' '))} · ${provenance(tool)}${tool.origin==='manual'?' · manual':''}${tool.autoApproved?' · approved automatically':''}`;
   // In the opened activity row a call is one line that opens its own details. An agent call names only what is unusual
   // about it (the row already says it is the workspace agent's); its shell and folder are in the details.
   if(nested&&!pending&&!(running&&delegated)){

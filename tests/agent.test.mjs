@@ -222,7 +222,7 @@ const nextApproval = async s => { for (let i = 0; i < 1000; i++) { if (s.approva
 const chunk = (delta, finish_reason) => ({ choices: [{ delta, finish_reason }] });
 const call = (name, args, id = 'call_' + name) => chunk({ tool_calls: [{ index: 0, id, type: 'function', function: { name, arguments: JSON.stringify(args) } }] }, 'tool_calls');
 const answer = text => chunk({ content: text }, 'stop');
-async function agentSetup(t, { script, run, mode = 'ask', folder = true, tools: withTools = true } = {}) {
+async function agentSetup(t, { script, run, mode = 'ask', folder = true, tools: withTools = true, python = null } = {}) {
   const dir = scratch(t, 'workbench-agent-service-');
   writeFileSync(join(dir, 'app.js'), 'const answer = 41;\nconsole.log(answer);\n');
   const requests = [], runs = []; let stored = null;
@@ -234,7 +234,7 @@ async function agentSetup(t, { script, run, mode = 'ask', folder = true, tools: 
     agentTools = createAgentTools(); agentTools.gitBash = null;
     agentTools.run = async input => { runs.push(input); return run ? run(input) : { stdout: 'ok\n', stderr: '', exitCode: 0, timedOut: false, stopped: false, truncated: false, elapsedMs: 5 }; };
   }
-  const s = new WorkbenchService(vault, async () => client, () => {}, null, { agentTools });
+  const s = new WorkbenchService(vault, async () => client, () => {}, python, { agentTools });
   await s.initialize(); s.workspace.apiKey = 'fixture-key';
   const thread = s.workspace.threads[0];
   Object.assign(thread.settings, { model: 'fixture', agentMode: mode, visualTools: false });
@@ -366,6 +366,20 @@ test('approval levels: changes, then commands too, run without asking; risky com
   assert.equal(asked.tool.name, 'run_command'); assert.equal(asked.tool.agent.asked, undefined);
   assert.equal(readFileSync(join(changes.dir, 'app.js'), 'utf8').includes('43'), true, 'at "changes" the edit needs no approval');
   await approve(changes.s, asked, true); await done(changes.s); assert.equal(changes.runs.length, 1);
+});
+
+test('model-requested Python follows the agent: it runs without asking at "auto" and asks at every other level', windows, async t => {
+  const ran = [], python = async input => { ran.push(input.code); return { status: 'complete', stdout: '2\n', stderr: '', exitCode: 0, elapsedMs: 2, artifacts: [], truncated: false }; };
+  const script = n => [call('python', { code: 'print(1+1)' }, 'call_py'), answer('Two.')][n - 1];
+  const ready = async level => { const setup = await agentSetup(t, { script, python }); setup.thread.settings.toolsMode = 'ask'; setup.s.workspace.pythonPath = 'C:\\Python\\python.exe'; await setup.s.setAgentApproval(setup.thread.id, level); return setup; };
+  const auto = await ready('auto'); await send(auto.s); await done(auto.s);
+  const tool = auto.s.workspace.threads[0].turns[0].replies[0].tools[0];
+  assert.deepEqual([tool.status, tool.autoApproved, ran.length, auto.s.approvals.size], ['complete', true, 1, 0]);
+  assert.match(exportMarkdown(auto.s.workspace.threads[0]), /### Tool: python \(complete; model; approved automatically\)/);
+  assert.equal(validateWorkspace(structuredClone(auto.s.workspace)).threads[0].turns[0].replies[0].tools[0].autoApproved, true);
+  const changes = await ready('changes'); await send(changes.s);
+  const pending = await nextApproval(changes.s); assert.equal(pending.tool.name, 'python');
+  await approve(changes.s, pending, false); await done(changes.s); assert.equal(ran.length, 1, 'at "changes" Python asks');
 });
 
 test('an agent reply may take 30 rounds, then stops and says so', windows, async t => {
