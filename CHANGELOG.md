@@ -6,9 +6,9 @@
 - Edit on a message puts it and its files in the composer, marked "Editing message N". Send makes the new version; the draft you had comes back after Send or Cancel.
 - Answers and their thinking text are edited where they are shown instead of in a dialog: the answer in place of its text, or the thinking inside its Reasoning box, one at a time, with the composer out of the way. The expanded draft editor stays.
 - The reply's actions (Edit, Copy, Source, Retry, Branch) are icons without words, named in their tooltips and for screen readers, and the Branch icon is redrawn; a message's Edit is an icon too.
-- The thinking effort panel stands on the composer's top edge and slides up out of it.
+- The thinking effort panel stands on the composer's top edge, across the whole composer on a phone, slides up out of it and back, and stays there while the keyboard, the window or the message changes size. Its thumb follows a finger or the mouse while dragged and settles on the nearest level when released; the gauge's needle turns to the new level.
 - Retry is offered on every finished reply, not only on failed ones.
-- Messages in other roles: Advanced → Editing → Add messages in other roles (off by default) shows a role choice in the composer, to add an assistant or system message without asking a model. Tinfoil cloud chats have no place for them.
+- Messages in other roles: Advanced → Editing → Add messages in other roles (off by default) shows a User, Assistant and System tab on the composer's top edge, to add an assistant or system message without asking a model; the tab returns to User after one is added. Tinfoil cloud chats have no place for them.
 - Android: a phone no longer shows the window title bar; the conversation starts under the status bar.
 - Android: Stay signed in on this phone, on by default. The Tinfoil website session is saved sealed with an Android Keystore key and restored at launch, so updates and restarts keep you signed in; signing out or turning it off deletes it.
 - Earlier versions cannot open a workspace that holds messages in other roles, and they drop set-aside versions when they save.

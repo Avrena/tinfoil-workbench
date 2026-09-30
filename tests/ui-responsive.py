@@ -63,6 +63,23 @@ with sync_playwright() as p:
   assert row['#composer-model .model-label']['width']>=50 and row['#send']['x']+row['#send']['width']<=row['.composer-tools']['x']+row['.composer-tools']['width']+1,(width,row)
   context.close()
  checks.append('phone composer at 360 and 393px: with a thinking-effort picker, Send stays on its row at the right and the model name keeps 50px or more')
+ # On a phone the effort panel spans the composer on its top edge, with square corners between them, and stays there as
+ # the composer grows. A touch drag keeps the thumb under the finger; the release applies the nearest level.
+ context=b.new_context(viewport={'width':360,'height':800},is_mobile=True,has_touch=True,device_scale_factor=1);page=context.new_page();page.on('pageerror',lambda e:errors.append(str(e)));page.set_content(html)
+ page.locator('#composer-model').tap();page.locator('[data-quick-model="deepseek-v4-pro"]').first.tap();page.locator('#quick-effort').tap();page.wait_for_timeout(300)
+ geometry="()=>{const p=document.querySelector('#effort-panel').getBoundingClientRect(),c=document.querySelector('.composer').getBoundingClientRect();return [p.left-c.left,p.right-c.right,p.bottom-c.top,getComputedStyle(document.querySelector('.composer')).borderTopLeftRadius]}"
+ edge=page.evaluate(geometry);assert abs(edge[0])<=.5 and abs(edge[1])<=.5 and abs(edge[2]-1)<=.5 and edge[3]=='0px',edge
+ page.evaluate("()=>{const p=document.querySelector('#prompt');p.value='one\\ntwo\\nthree\\nfour';p.dispatchEvent(new Event('input'))}");page.wait_for_timeout(300);edge=page.evaluate(geometry);assert abs(edge[2]-1)<=.5,edge
+ track=page.locator('.effort-track').bounding_box();y=track['y']+2;cdp=context.new_cdp_session(page)
+ cdp.send('Input.dispatchTouchEvent',{'type':'touchStart','touchPoints':[{'x':track['x']+1,'y':y}]})
+ for f in (.1,.3,.6,.85):cdp.send('Input.dispatchTouchEvent',{'type':'touchMove','touchPoints':[{'x':track['x']+track['width']*f,'y':y}]});page.wait_for_timeout(40)
+ thumb=page.locator('.effort-thumb').bounding_box();assert abs(thumb['x']+thumb['width']/2-(track['x']+track['width']*.85))<=2,(thumb,track);expect(page.locator('#effort-value')).to_have_text('Max')
+ cdp.send('Input.dispatchTouchEvent',{'type':'touchEnd','touchPoints':[]});page.wait_for_timeout(350);thumb=page.locator('.effort-thumb').bounding_box()
+ assert abs(thumb['x']+thumb['width']/2-(track['x']+track['width']))<=1,(thumb,track);expect(page.locator('#effort-gauge svg')).to_have_attribute('data-level','2')
+ page.locator('.transcript').tap(position={'x':40,'y':40});expect(page.locator('#effort-panel')).to_be_hidden();page.wait_for_timeout(300)
+ assert page.evaluate("getComputedStyle(document.querySelector('.composer')).borderTopLeftRadius")!='0px'
+ context.close()
+ checks.append('phone effort panel: spans the composer on its top edge with square corners between them and follows it as it grows; a touch drag keeps the thumb under the finger and applies the nearest level when released')
  # A model list longer than the picker scrolls; its rows keep their full height instead of overlapping.
  context=b.new_context(viewport={'width':360,'height':560},is_mobile=True,has_touch=True,device_scale_factor=1);page=context.new_page();page.on('pageerror',lambda e:errors.append(str(e)));page.set_content(html)
  page.locator('#composer-model').tap();expect(page.locator('#model-dialog')).to_be_visible()

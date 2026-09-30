@@ -15,17 +15,24 @@ const paths: Record<string,string> = {
   write:'m4 16 12-12 4 4L8 20H4zM13 7l4 4', spark:'m12 3 2.4 6.6L21 12l-6.6 2.4L12 21l-2.4-6.6L3 12l6.6-2.4z',
   cloud:'M7 18a4 4 0 0 1-.6-7.96A6 6 0 0 1 17.8 8.5 4.75 4.75 0 0 1 17.25 18z',
   minus:'M5 12h14', square:'M5 5h14v14H5z', check:'m5 12 4 4L19 6', down:'m6 9 6 6 6-6', pin:'m8 3 8 0-1 6 4 4H5l4-4zM12 13v8',
-  instructions:'M6 3h8l4 4v14H6zM14 3v4h4M9 12h6M9 16h4',
+  instructions:'M6 3h8l4 4v14H6zM14 3v4h4M9 12h6M9 16h4', person:'M12 4a4 4 0 1 0 0 8 4 4 0 0 0 0-8M5 20a7 7 0 0 1 14 0',
   image:'M4 5h16v14H4zM4 16l5-5 4 4 2-2 5 5M15 9h.01', tools:'M9 4H8a2 2 0 0 0-2 2v4l-2 2 2 2v4a2 2 0 0 0 2 2h1M15 4h1a2 2 0 0 1 2 2v4l2 2-2 2v4a2 2 0 0 1-2 2h-1',
 };
 export const icon = (name:string):string => `<svg viewBox="0 0 24 24" aria-hidden="true"><path d="${paths[name] ?? paths.chat}"/></svg>`;
 /** A dashboard gauge for the thinking effort: one segment per level the model offers, filled up to `level` (0 is the
  * provider default: nothing filled, the needle upright, no accent). */
-export function effortGauge(level:number,levels:number):string {
+export function effortGauge(levels:number):string {
   const n=Math.max(1,levels),cx=12,cy=16,r=8,gap=n>1?7:0,at=(deg:number,radius:number)=>`${(cx+radius*Math.cos(deg*Math.PI/180)).toFixed(2)} ${(cy-radius*Math.sin(deg*Math.PI/180)).toFixed(2)}`;
   let arcs='';
-  for(let i=0;i<n;i++){const from=180-i*180/n-(i?gap/2:0),to=180-(i+1)*180/n+(i<n-1?gap/2:0);arcs+=`<path class="${i<level?'on':'off'}" d="M${at(from,r)}A${r} ${r} 0 0 1 ${at(to,r)}"/>`;}
-  const needle=level?180-(level-.5)*180/n:90;
-  return `<svg viewBox="0 0 24 24" class="${level?'active':''}" data-level="${level}"><g fill="none" stroke-width="2.2" stroke-linecap="round">${arcs}</g><path class="needle" d="M${cx} ${cy}L${at(needle,r-3)}" fill="none" stroke-width="1.8" stroke-linecap="round"/><circle cx="${cx}" cy="${cy}" r="1.6"/></svg>`;
+  for(let i=0;i<n;i++){const from=180-i*180/n-(i?gap/2:0),to=180-(i+1)*180/n+(i<n-1?gap/2:0);arcs+=`<path class="off" data-segment="${i}" d="M${at(from,r)}A${r} ${r} 0 0 1 ${at(to,r)}"/>`;}
+  return `<svg viewBox="0 0 24 24" data-level="0" data-levels="${n}"><g fill="none" stroke-width="2.2" stroke-linecap="round">${arcs}</g><path class="needle" d="M${cx} ${cy}L${cx} ${cy-r+3}" fill="none" stroke-width="1.8" stroke-linecap="round"/><circle cx="${cx}" cy="${cy}" r="1.6"/></svg>`;
+}
+/** Sets a drawn gauge to `level`: the segments up to it fill and the needle turns to its segment (upright for the
+ * default), both animated by CSS because the gauge is changed in place rather than drawn again. */
+export function turnEffortGauge(svg:SVGSVGElement,level:number):void {
+  const n=Number(svg.dataset.levels)||1;
+  for(const segment of svg.querySelectorAll<SVGPathElement>('[data-segment]'))segment.setAttribute('class',Number(segment.dataset.segment)<level?'on':'off');
+  svg.querySelector<SVGPathElement>('.needle')!.style.transform=`rotate(${level?((level-.5)*180/n-90).toFixed(2):0}deg)`;
+  svg.classList.toggle('active',level>0);svg.dataset.level=String(level);
 }
 export const button = (action:string, label:string, glyph:string, extra=''):string => `<button type="button" data-action="${action}" title="${label}" aria-label="${label}" ${extra}>${icon(glyph)}</button>`;

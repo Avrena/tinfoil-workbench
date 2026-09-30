@@ -147,28 +147,47 @@
 .composer-tools { padding: 4px 8px 8px; gap: 4px; min-height: 44px; }
 .composer-tools > .icon-button { width: 32px; height: 32px; padding: 8px; }
 #composer-model { max-width: 230px; height: 32px; padding: 4px 8px; font-size: 11px; flex: 0 1 auto; }
-/* Thinking effort: the gauge button opens a panel with a slider over the model's levels. The panel is fixed above
-   the gauge, because the composer clips its overflow. */
+/* Thinking effort: the gauge button opens a panel with a slider over the model's levels. The panel is fixed, because
+   the composer clips its overflow, and placed on the composer's top edge (placeEffort in app.ts). */
 .quick-effort-wrap .quick-effort { width: 100%; height: 100%; min-width: 0; min-height: 0; margin: 0; padding: 0; display: flex; align-items: center; justify-content: center; border: 0; border-radius: 6px; background: transparent; }
 .quick-effort-wrap .quick-effort:hover { background: #ffffff0d; }
 .quick-effort-wrap .quick-effort[aria-expanded="true"] { background: #ffffff14; }
-.effort-panel { position: fixed; z-index: 40; width: 260px; max-width: calc(100vw - 24px); box-sizing: border-box; padding: 12px 14px 10px; border: 1px solid #404040; border-bottom-color: #25262a; border-radius: 10px 10px 0 0; background: #25262a; box-shadow: 0 -8px 24px #0006; }
-/* It slides up out of the composer's edge: the part still below the edge is clipped as it rises. */
-.effort-panel:not([hidden]) { animation: effort-rise 180ms cubic-bezier(.2, .8, .2, 1); }
+.effort-panel { position: fixed; z-index: 40; width: 280px; max-width: calc(100vw - 24px); box-sizing: border-box; padding: 12px 14px 6px; border: 1px solid #404040; border-bottom: 0; border-radius: 12px 12px 0 0; background: #252526; box-shadow: 0 -8px 24px #0006; transition: border-color 180ms ease; }
+/* One outline with the composer: its focus colour, and on a phone, where the panel spans it, square top corners. */
+.composer:focus-within .effort-panel { border-color: #518bc4; }
+.composer { transition: border-color 180ms ease, box-shadow 180ms ease, border-radius 180ms ease; }
+.composer.effort-attached { border-top-left-radius: 0; border-top-right-radius: 0; }
+/* It slides up out of the composer's edge and back into it: the part below the edge is clipped. */
+.effort-panel:not([hidden]) { animation: effort-rise 200ms cubic-bezier(.2, .8, .2, 1); }
+.effort-panel[data-closing] { animation: effort-sink 160ms cubic-bezier(.4, 0, 1, 1) forwards; pointer-events: none; }
 @keyframes effort-rise { from { transform: translateY(100%); clip-path: inset(-40px -40px 100% -40px); } to { transform: none; clip-path: inset(-40px -40px 0 -40px); } }
+@keyframes effort-sink { from { transform: none; clip-path: inset(-40px -40px 0 -40px); } to { transform: translateY(100%); clip-path: inset(-40px -40px 100% -40px); } }
 .effort-panel[hidden] { display: none; }
-.effort-panel-head { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; margin-bottom: 8px; font-size: 11px; color: #9a9ca1; }
+.effort-panel-head { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; margin-bottom: 4px; font-size: 11px; color: #9a9ca1; }
 .effort-panel-head strong { font-size: 12px; font-weight: 600; color: #e6e6e6; }
-#effort-slider { width: 100%; margin: 4px 0; accent-color: var(--accent); }
-.effort-stops { display: flex; justify-content: space-between; gap: 4px; margin-top: 4px; }
-.effort-stops button { min-width: 0; min-height: 0; padding: 2px 4px; border-radius: 4px; background: transparent; font-size: 10px; color: #8d9199; }
+/* The slider: the thumb follows the pointer while dragged (no transition) and glides to a level's stop otherwise. The
+   track is inset so the name under the first and last stop fits. --at is the thumb's place along the track (0 to 1). */
+.effort-slider { --at: 0; position: relative; height: 32px; margin: 0 20px; touch-action: none; cursor: pointer; outline: none; -webkit-tap-highlight-color: transparent; }
+.effort-slider[aria-disabled="true"] { cursor: not-allowed; opacity: .5; }
+.effort-track { position: absolute; left: 0; right: 0; top: 50%; height: 4px; margin-top: -2px; border-radius: 2px; background: #3a3d43; }
+.effort-fill { position: absolute; left: 0; top: 0; bottom: 0; width: calc(var(--at) * 100%); border-radius: 2px; background: var(--accent); }
+.effort-ticks { position: absolute; inset: 0; }
+.effort-tick { position: absolute; top: 50%; left: calc(var(--tick) * 100%); width: 4px; height: 4px; margin: -2px 0 0 -2px; border-radius: 50%; background: #ffffff59; }
+.effort-thumb { position: absolute; top: 50%; left: calc(var(--at) * 100%); width: 18px; height: 18px; margin: -9px 0 0 -9px; border-radius: 50%; background: var(--accent); box-shadow: 0 0 0 3px #252526, 0 2px 6px #0008; }
+.effort-fill, .effort-thumb { transition: width 220ms cubic-bezier(.2, .8, .2, 1), left 220ms cubic-bezier(.2, .8, .2, 1), transform 140ms ease; }
+.effort-slider.dragging .effort-fill, .effort-slider.dragging .effort-thumb { transition: transform 140ms ease; }
+.effort-slider.dragging .effort-thumb { transform: scale(1.18); }
+.effort-slider:focus-visible .effort-thumb { outline: 2px solid #e6e6e6; outline-offset: 3px; }
+.effort-stops { position: relative; height: 24px; margin: 0 20px; }
+.effort-stops button { position: absolute; top: 0; left: calc(var(--tick) * 100%); transform: translateX(-50%); min-width: 0; min-height: 0; height: 24px; padding: 0 5px; border-radius: 4px; background: transparent; font-size: 10px; white-space: nowrap; color: #8d9199; transition: color 160ms ease; }
 .effort-stops button[aria-pressed="true"] { color: var(--accent); }
-@media (pointer: coarse), (hover: none) { #effort-slider { height: 32px; } .effort-stops button { min-width: 44px; min-height: 36px; } }
+@media (pointer: coarse), (hover: none) { .effort-slider { height: 44px; } .effort-thumb { width: 22px; height: 22px; margin: -11px 0 0 -11px; } .effort-stops { height: 36px; } .effort-stops button { min-width: 44px; height: 36px; } }
 .effort-gauge svg { display: block; width: 20px; height: 20px; }
+.effort-gauge path { transition: stroke 220ms ease; }
 .effort-gauge .off { stroke: #5d6168; }
 .effort-gauge .on { stroke: var(--accent); }
-.effort-gauge .needle { stroke: #8d9199; }
-.effort-gauge circle { fill: #8d9199; }
+.effort-gauge .needle { stroke: #8d9199; transform-origin: 12px 16px; transition: transform 260ms cubic-bezier(.2, .8, .2, 1), stroke 220ms ease; }
+.effort-gauge circle { fill: #8d9199; transition: fill 220ms ease; }
 .effort-gauge svg.active .needle { stroke: var(--accent); }
 .effort-gauge svg.active circle { fill: var(--accent); }
 .quick-effort-wrap .quick-effort:disabled { opacity: .5; }
@@ -593,8 +612,21 @@ dialog:not(.message-editor) .modal-body { padding: 8px 20px 20px; }
 .message-edit-label svg { width: 13px; height: 13px; }
 .message-edit-note { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: #9fb6cc; }
 .message-edit button { padding: 4px 10px; font-size: 11px; }
-.composer-role { height: 30px; min-height: 0; max-width: 104px; padding: 0 6px; border: 1px solid #3a3c41; border-radius: 6px; background: #2a2c30; font-size: 11px; color: #d8dade; }
-.composer-role[hidden] { display: none; }
+/* Messages in other roles: a tab on the composer's top edge, like a folder tab, chooses the role of the next message.
+   It covers the composer's border where they meet, and takes its focus colour. */
+.role-tab-row { display: flex; max-width: var(--content-width); margin: 0 auto; padding-left: 14px; }
+.role-tab-row[hidden] { display: none; }
+.role-tab { position: relative; z-index: 1; display: flex; gap: 2px; margin-bottom: -1px; padding: 3px 3px 2px; border: 1px solid #404040; border-bottom: 0; border-radius: 10px 10px 0 0; background: #252526; transition: border-color 180ms ease; }
+.composer-region:has(.composer:focus-within) .role-tab { border-color: #518bc4; }
+.composer-region.effort-open .role-tab { opacity: 0; pointer-events: none; }
+.role-tab { transition: border-color 180ms ease, opacity 160ms ease; }
+.role-tab button { min-width: 0; min-height: 0; height: 24px; gap: 5px; padding: 0 9px; border-radius: 7px; font-size: 11px; font-weight: 500; color: #8d9199; transition: background-color 160ms ease, color 160ms ease; }
+.role-tab button:hover { background: #ffffff0d; color: #d8dade; }
+.role-tab button[aria-checked="true"] { background: #ffffff14; color: #e6e6e6; }
+.role-tab button[aria-checked="true"]:not([data-role-choice="user"]) { background: #1f2a35; color: #cfe3f5; }
+.role-tab button[aria-disabled="true"] { opacity: .45; }
+.role-tab button svg { width: 12px; height: 12px; }
+@media (pointer: coarse), (hover: none) { .role-tab button { height: 32px; padding: 0 11px; } }
 
 /* An answer and its thinking text edited where they are shown: the thinking inside its Reasoning box, the answer in
    place of its text, Save and Cancel in place of the reply's actions. The fields grow with their text instead of

@@ -22,7 +22,7 @@ An edit is saved only if the answer still matches what was opened. A stale answe
 
 ## Messages in other roles
 
-Advanced → Editing → *Add messages in other roles*, off by default and applying to every conversation, shows a role choice in the composer. With Assistant or System chosen, Send becomes Add: the message joins the conversation as written, no model is asked, and later requests send it in that role at its place in the conversation. Such messages carry no files and can be edited in the composer like your own. Tinfoil cloud chats have no place for them, so the choice is off in cloud chats and in conversations that will become one, and a conversation that holds them does not move to the cloud.
+Advanced → Editing → *Add messages in other roles*, off by default and applying to every conversation, shows a User, Assistant and System tab on the composer's top edge (drawn by Workbench, not the system's select list). With Assistant or System chosen, Send becomes Add: the message joins the conversation as written, no model is asked, and later requests send it in that role at its place in the conversation. After one is added the tab returns to User, for the question that usually follows. Such messages carry no files and can be edited in the composer like your own. Tinfoil cloud chats have no place for them, so only User can be chosen in cloud chats and in conversations that will become one (the other roles say why), and a conversation that holds them does not move to the cloud.
 
 Workbench versions before 1.2 cannot open a workspace that holds messages in other roles, and they drop set-aside versions when they save.
 

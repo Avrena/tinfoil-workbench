@@ -19,7 +19,7 @@ import { makerMark, modelRow, customModelRow, composerModel } from './model-view
 import { viewPreferences, type ViewPreferences } from '../core/preferences.js';
 import { renderDataPreview, staticPreview } from './artifacts.js';
 import { escapeHtml as e, clearMarkdownCaches, extractCodeBlocks } from '../core/markdown.js';
-import { effortGauge, icon, button } from './icons.js';
+import { effortGauge, turnEffortGauge, icon, button } from './icons.js';
 import { STARTER_INSTRUCTIONS, activeInstructions } from '../core/instructions.js';
 import { instructionsListMarkup, instructionsSummary } from './instructions-view.js';
 const app = document.querySelector<HTMLDivElement>('#app')!;
@@ -29,9 +29,9 @@ app.innerHTML = `<div class="shell no-inspector" id="shell">
   <main class="main"><header class="toolbar">${button('sidebar','Toggle conversation sidebar','panel','class="icon-button"')}<div class="thread-heading"><button class="project-breadcrumb" data-action="thread-project" id="project-breadcrumb" title="Move thread to project">Unfiled</button><h1><button class="toolbar-title" data-action="rename-thread" id="thread-title" title="Rename thread"></button></h1><button id="branch-origin" class="branch-origin hidden" data-action="original-thread">Original thread</button></div><span class="spacer"></span>${button('find','Find in conversation','search','class="icon-button"')}${button('view','Reading & visibility','eye','class="icon-button"')}<details class="export-menu"><summary aria-label="Conversation menu" title="Conversation menu">${icon('more')}</summary><div class="export-popover"><button data-action="account">Account & connection</button><button data-action="rename">Rename thread</button><button data-action="move-project">Move to project…</button><button data-action="cloud-upload" id="cloud-upload" hidden>Move to Tinfoil cloud</button><button class="mobile-menu-item" data-action="mobile-find">Find in thread</button><button class="mobile-menu-item" data-action="mobile-view">Reading & visibility</button><button data-action="pin">Pin / unpin</button><button data-action="compare" id="compare-toggle" aria-pressed="false">Compare models</button><button data-action="instructions-picker">System instructions…</button><button data-action="export-md">Export Markdown</button><button data-action="export-json">Export JSON</button><button data-action="import">Import conversation</button><button data-action="delete" class="danger">Delete conversation…</button></div></details>${button('artifacts','Artifact workspace','panel','class="icon-button"')}${button('inspector','Advanced conversation settings','settings','class="icon-button"')}</header>
     <div id="find-bar" class="find-bar hidden"><input id="find-input" type="search" placeholder="Find in this conversation" aria-label="Find in this conversation"><span id="find-count"></span>${button('find-prev','Previous match','up','class="icon-button"')}${button('find-next','Next match','down','class="icon-button"')}${button('find-close','Close find','close','class="icon-button"')}</div>
     <div id="notice" class="notice hidden" role="status"></div><div class="transcript" id="transcript" tabindex="0" aria-label="Conversation"><div id="transcript-inner" class="transcript-inner"></div></div><button class="jump hidden" id="jump" data-action="jump">${icon('down')}Latest</button>
-    <div class="composer-region"><div class="pending-settings hidden" id="pending-settings" role="status"><span>Unapplied settings</span><button type="button" data-action="apply-pending">Apply</button><button type="button" data-action="discard-pending">Discard</button></div><div class="message-edit hidden" id="message-edit" role="status"><span class="message-edit-label">${icon('write')}<span id="message-edit-label">Editing a message</span></span><span class="message-edit-note">Send makes a new version</span><button type="button" data-action="message-edit-cancel">Cancel</button></div><form id="composer-form" class="composer"><div class="attachments hidden" id="attachments"></div><textarea id="prompt" enterkeyhint="enter" placeholder="Message Tinfoil…" aria-label="Message" rows="1" maxlength="160000"></textarea><div class="composer-tools">${button('attach','Attach text or code files','attach','class="icon-button"')}${button('edit-draft','Expand message editor','expand','class="icon-button"')}<button type="button" data-action="model-picker" class="model-name" id="composer-model">Choose model</button><span id="quick-effort-wrap" class="quick-effort-wrap hidden"><button type="button" id="quick-effort" class="quick-effort" data-action="effort-toggle" aria-haspopup="dialog" aria-expanded="false" aria-controls="effort-panel" aria-label="Thinking effort"><span id="effort-gauge" class="effort-gauge" aria-hidden="true"></span></button><div id="effort-panel" class="effort-panel" role="dialog" aria-label="Thinking effort" hidden><div class="effort-panel-head"><span>Thinking effort</span><strong id="effort-value">Default</strong></div><input type="range" id="effort-slider" min="0" max="1" step="1" value="0" aria-label="Thinking effort"><div id="effort-stops" class="effort-stops"></div></div></span><button type="button" data-action="instructions-picker" class="instructions-chip" id="composer-instructions" aria-label="System instructions">${icon('instructions')}<span id="composer-instructions-name"></span></button><span id="tools-badge" class="tools-badge hidden">Python · ask first</span><select id="composer-role" class="composer-role" aria-label="Role of this message" hidden><option value="user">User</option><option value="assistant">Assistant</option><option value="system">System</option></select><span class="spacer"></span><button type="button" data-action="stop" class="stop hidden" id="stop">${icon('stop')}Stop</button><button type="submit" class="send" id="send" title="Send message">${icon('send')}<span class="sr-only">Send</span></button></div></form><div class="composer-meta"><span id="compose-hint">Enter to send · Shift + Enter for a new line</span><span id="context-size"></span></div></div>
+    <div class="composer-region"><div class="pending-settings hidden" id="pending-settings" role="status"><span>Unapplied settings</span><button type="button" data-action="apply-pending">Apply</button><button type="button" data-action="discard-pending">Discard</button></div><div class="message-edit hidden" id="message-edit" role="status"><span class="message-edit-label">${icon('write')}<span id="message-edit-label">Editing a message</span></span><span class="message-edit-note">Send makes a new version</span><button type="button" data-action="message-edit-cancel">Cancel</button></div><div class="role-tab-row" id="role-tab-row" hidden><div class="role-tab" id="role-tab" role="radiogroup" aria-label="Add this message as">${([['user','person','User'],['assistant','spark','Assistant'],['system','settings','System']] as const).map(([role,glyph,label])=>`<button type="button" role="radio" data-role-choice="${role}" aria-checked="${role==='user'}" tabindex="${role==='user'?0:-1}">${icon(glyph)}<span>${label}</span></button>`).join('')}</div></div><form id="composer-form" class="composer"><div class="attachments hidden" id="attachments"></div><textarea id="prompt" enterkeyhint="enter" placeholder="Message Tinfoil…" aria-label="Message" rows="1" maxlength="160000"></textarea><div class="composer-tools">${button('attach','Attach text or code files','attach','class="icon-button"')}${button('edit-draft','Expand message editor','expand','class="icon-button"')}<button type="button" data-action="model-picker" class="model-name" id="composer-model">Choose model</button><span id="quick-effort-wrap" class="quick-effort-wrap hidden"><button type="button" id="quick-effort" class="quick-effort" data-action="effort-toggle" aria-haspopup="dialog" aria-expanded="false" aria-controls="effort-panel" aria-label="Thinking effort"><span id="effort-gauge" class="effort-gauge" aria-hidden="true"></span></button><div id="effort-panel" class="effort-panel" role="dialog" aria-label="Thinking effort" hidden><div class="effort-panel-head"><span>Thinking effort</span><strong id="effort-value">Default</strong></div><div id="effort-slider" class="effort-slider" role="slider" tabindex="0" aria-label="Thinking effort" aria-valuemin="0" aria-valuemax="1" aria-valuenow="0"><div class="effort-track"><div class="effort-fill"></div><div id="effort-ticks" class="effort-ticks"></div><div class="effort-thumb"></div></div></div><div id="effort-stops" class="effort-stops"></div></div></span><button type="button" data-action="instructions-picker" class="instructions-chip" id="composer-instructions" aria-label="System instructions">${icon('instructions')}<span id="composer-instructions-name"></span></button><span id="tools-badge" class="tools-badge hidden">Python · ask first</span><span class="spacer"></span><button type="button" data-action="stop" class="stop hidden" id="stop">${icon('stop')}Stop</button><button type="submit" class="send" id="send" title="Send message">${icon('send')}<span class="sr-only">Send</span></button></div></form><div class="composer-meta"><span id="compose-hint">Enter to send · Shift + Enter for a new line</span><span id="context-size"></span></div></div>
   </main>
-  <aside class="inspector" id="inspector"><header class="inspector-header"><span>Advanced</span>${button('inspector','Close advanced settings','close','class="icon-button"')}</header><div class="inspector-body"><form id="config-form"><section><div class="eyebrow">Conversation</div><datalist id="models"></datalist><div id="compare-field" class="hidden"><label for="compare-model">Compare with</label><input id="compare-model" list="models" placeholder="Second model ID" autocomplete="off"><p>Two independent requests. Select one reply to continue.</p></div><div class="field-heading"><label for="instructions">System instructions <span class="field-optional">Optional</span></label><button type="button" class="field-action" data-action="instructions-picker" aria-label="Choose saved or starter instructions" title="Choose saved or starter instructions">Choose…</button></div><textarea id="instructions" maxlength="40000" aria-describedby="instructions-applied"></textarea><p id="instructions-applied" class="instructions-applied" hidden></p></section><section><div class="eyebrow">Generation</div><div class="two-fields"><div><label for="temperature">Temperature</label><input id="temperature" type="number" min="0" max="2" step="0.1" placeholder="Default"></div><div><label for="max-tokens">Output limit</label><input id="max-tokens" type="number" min="1" max="131072" step="1" value="32768"></div></div><div id="reasoning-controls"><label for="reasoning">Thinking effort</label><select id="reasoning"></select></div><div id="thinking-controls"><label for="thinking-mode">Thinking mode</label><select id="thinking-mode"><option value="default">Provider default</option><option value="enabled">Enabled</option><option value="disabled">Disabled</option></select></div><p id="capability-note"></p><div id="compare-reasoning-controls" class="hidden"><label for="compare-reasoning">Comparison model effort</label><select id="compare-reasoning"></select><div id="compare-thinking-controls"><label for="compare-thinking-mode">Comparison thinking mode</label><select id="compare-thinking-mode"><option value="default">Provider default</option><option value="enabled">Enabled</option><option value="disabled">Disabled</option></select></div><p id="compare-capability-note"></p></div><label class="toggle-row"><span>Charts, documents & visual tools</span><input id="visual-tools" type="checkbox"></label><p>Creates in-app artifacts without running Python. Files are saved only when you choose Save.</p><label for="tools-mode">Model-requested Python</label><select id="tools-mode"><option value="off">Off</option><option value="ask">Ask before every run</option></select><p>Local execution, not a Tinfoil-hosted sandbox. Every run needs approval.</p><div class="eyebrow activity-settings-heading">Provider tools & delegation</div><label class="toggle-row"><span>Tinfoil web search</span><input id="web-search" type="checkbox"></label><p>Uses Tinfoil’s built-in MCP-backed search. Requires provider access; additional tool usage may apply.</p><label for="delegate-mode">Text-only sub-agents</label><select id="delegate-mode"><option value="off">Off</option><option value="ask">Ask before each request</option></select><p>Client-orchestrated, same model, task-only context. Up to two additional requests per send; no child tools or recursion.</p><details class="tool-support"><summary>API support & limits</summary><p>Batch: multiple tool calls in one completion round, executed sequentially here. This is not an offline billing Batch API.</p><p>MCP: displays Tinfoil-managed search and code-execution events. Arbitrary MCP server connections are not configured by this client.</p><p>Native hosted sub-agent events have not been verified. The optional delegate tool makes a separate approved Chat Completions request.</p></details><button class="primary apply" type="submit" id="apply-settings">Apply settings</button></section></form><section class="inspector-editing"><div class="eyebrow">Editing · all conversations</div><label class="toggle-row"><span>Add messages in other roles</span><input id="view-roleMessages" type="checkbox"></label><p>Shows a User, Assistant and System choice in the composer, to add an assistant or system message without asking a model. Tinfoil cloud chats have no place for them.</p></section><details class="connection-details"><summary>Connection & verification</summary><div id="connection-card" class="connection-card"></div></details></div></aside>
+  <aside class="inspector" id="inspector"><header class="inspector-header"><span>Advanced</span>${button('inspector','Close advanced settings','close','class="icon-button"')}</header><div class="inspector-body"><form id="config-form"><section><div class="eyebrow">Conversation</div><datalist id="models"></datalist><div id="compare-field" class="hidden"><label for="compare-model">Compare with</label><input id="compare-model" list="models" placeholder="Second model ID" autocomplete="off"><p>Two independent requests. Select one reply to continue.</p></div><div class="field-heading"><label for="instructions">System instructions <span class="field-optional">Optional</span></label><button type="button" class="field-action" data-action="instructions-picker" aria-label="Choose saved or starter instructions" title="Choose saved or starter instructions">Choose…</button></div><textarea id="instructions" maxlength="40000" aria-describedby="instructions-applied"></textarea><p id="instructions-applied" class="instructions-applied" hidden></p></section><section><div class="eyebrow">Generation</div><div class="two-fields"><div><label for="temperature">Temperature</label><input id="temperature" type="number" min="0" max="2" step="0.1" placeholder="Default"></div><div><label for="max-tokens">Output limit</label><input id="max-tokens" type="number" min="1" max="131072" step="1" value="32768"></div></div><div id="reasoning-controls"><label for="reasoning">Thinking effort</label><select id="reasoning"></select></div><div id="thinking-controls"><label for="thinking-mode">Thinking mode</label><select id="thinking-mode"><option value="default">Provider default</option><option value="enabled">Enabled</option><option value="disabled">Disabled</option></select></div><p id="capability-note"></p><div id="compare-reasoning-controls" class="hidden"><label for="compare-reasoning">Comparison model effort</label><select id="compare-reasoning"></select><div id="compare-thinking-controls"><label for="compare-thinking-mode">Comparison thinking mode</label><select id="compare-thinking-mode"><option value="default">Provider default</option><option value="enabled">Enabled</option><option value="disabled">Disabled</option></select></div><p id="compare-capability-note"></p></div><label class="toggle-row"><span>Charts, documents & visual tools</span><input id="visual-tools" type="checkbox"></label><p>Creates in-app artifacts without running Python. Files are saved only when you choose Save.</p><label for="tools-mode">Model-requested Python</label><select id="tools-mode"><option value="off">Off</option><option value="ask">Ask before every run</option></select><p>Local execution, not a Tinfoil-hosted sandbox. Every run needs approval.</p><div class="eyebrow activity-settings-heading">Provider tools & delegation</div><label class="toggle-row"><span>Tinfoil web search</span><input id="web-search" type="checkbox"></label><p>Uses Tinfoil’s built-in MCP-backed search. Requires provider access; additional tool usage may apply.</p><label for="delegate-mode">Text-only sub-agents</label><select id="delegate-mode"><option value="off">Off</option><option value="ask">Ask before each request</option></select><p>Client-orchestrated, same model, task-only context. Up to two additional requests per send; no child tools or recursion.</p><details class="tool-support"><summary>API support & limits</summary><p>Batch: multiple tool calls in one completion round, executed sequentially here. This is not an offline billing Batch API.</p><p>MCP: displays Tinfoil-managed search and code-execution events. Arbitrary MCP server connections are not configured by this client.</p><p>Native hosted sub-agent events have not been verified. The optional delegate tool makes a separate approved Chat Completions request.</p></details><button class="primary apply" type="submit" id="apply-settings">Apply settings</button></section></form><section class="inspector-editing"><div class="eyebrow">Editing · all conversations</div><label class="toggle-row"><span>Add messages in other roles</span><input id="view-roleMessages" type="checkbox"></label><p>Shows a User, Assistant and System tab on the message box, to add an assistant or system message without asking a model. Tinfoil cloud chats have no place for them.</p></section><details class="connection-details"><summary>Connection & verification</summary><div id="connection-card" class="connection-card"></div></details></div></aside>
   <button id="drawer-backdrop" data-action="close-drawers" aria-label="Close drawer" tabindex="-1" hidden></button>
   <footer class="statusbar"><button data-action="verify" id="status-connection"></button><span class="spacer"></span><span id="status-activity" role="status" aria-live="polite"></span></footer>
 </div>
@@ -355,42 +355,72 @@ function effortOptions(select:HTMLSelectElement,model:string,value:string):void 
   select.value=cap.effort.includes(value)?value:'default';
 }
 function renderQuickEffort():void {
-  const s=current().settings,cap=capabilityFor(s.model,state.capabilities),levels=['default',...cap.effort],button=$<HTMLButtonElement>('quick-effort'),slider=$<HTMLInputElement>('effort-slider');
+  const s=current().settings,cap=capabilityFor(s.model,state.capabilities),levels=['default',...cap.effort],button=$<HTMLButtonElement>('quick-effort'),slider=$('effort-slider');
   const signature=JSON.stringify([s.model,s.reasoningEffort,cap.effort]);
-  if(button.dataset.signature!==signature){
-    const index=Math.max(0,levels.indexOf(s.reasoningEffort));
-    slider.max=String(levels.length-1);slider.value=String(index);
+  if(button.dataset.signature!==signature&&effortDrag===null){
+    const index=Math.max(0,levels.indexOf(s.reasoningEffort)),last=levels.length-1;
+    slider.setAttribute('aria-valuemax',String(last));
+    setMarkup($('effort-ticks'),levels.map(()=>'<span class="effort-tick"></span>').join(''));
     setMarkup($('effort-stops'),levels.map((level,i)=>`<button type="button" data-effort-stop="${i}" aria-pressed="${i===index}">${e(effortName(level))}</button>`).join(''));
-    showEffort(index);button.dataset.signature=signature;
+    // Each tick and stop name sits where the thumb stops for its level.
+    for(const list of [$('effort-ticks'),$('effort-stops')])[...list.children].forEach((item,i)=>(item as HTMLElement).style.setProperty('--tick',String(last?i/last:0)));
+    setEffort(index);button.dataset.signature=signature;
   }
-  $('quick-effort-wrap').classList.toggle('hidden',!cap.effort.length);button.disabled=slider.disabled=!!state.busyThreadId;
+  $('quick-effort-wrap').classList.toggle('hidden',!cap.effort.length);button.disabled=!!state.busyThreadId;slider.setAttribute('aria-disabled',String(!!state.busyThreadId));
   if(!cap.effort.length||state.busyThreadId)closeEffort();
 }
 const effortName=(level:string)=>level==='default'?'Default':level[0]!.toUpperCase()+level.slice(1);
+const effortLevels=()=>['default',...capabilityFor(current().settings.model,state.capabilities).effort];
 /** The composer's thinking effort: a gauge button that opens a slider over the model's levels. The gauge, the name
  * and the accessible labels follow the slider while it moves; the choice is applied when it is released. */
 function showEffort(index:number):void {
-  const levels=['default',...capabilityFor(current().settings.model,state.capabilities).effort],name=effortName(levels[index]??'default');
-  setMarkup($('effort-gauge'),effortGauge(index,levels.length-1));$('effort-value').textContent=name;$('effort-slider').setAttribute('aria-valuetext',name);
+  const levels=effortLevels(),name=effortName(levels[index]??'default'),gauge=$('effort-gauge');
+  if(gauge.querySelector('svg')?.dataset.levels!==String(Math.max(1,levels.length-1)))setMarkup(gauge,effortGauge(levels.length-1));
+  turnEffortGauge(gauge.querySelector('svg')!,index);$('effort-value').textContent=name;$('effort-slider').setAttribute('aria-valuetext',name);
   const label=index?`Thinking effort: ${name}`:'Thinking effort: Default (the provider setting)';$('quick-effort').title=label;$('quick-effort').setAttribute('aria-label',label);
   for(const stop of $('effort-stops').querySelectorAll<HTMLElement>('[data-effort-stop]'))stop.setAttribute('aria-pressed',String(Number(stop.dataset.effortStop)===index));
 }
+/** Moves the slider to a level: the thumb glides to its stop, or, while it is dragged, stays at `at` (0 to 1 along the
+ * track) under the pointer while the level it is nearest is shown. */
+function setEffort(index:number,at?:number):void {
+  const slider=$('effort-slider'),last=effortLevels().length-1;
+  slider.style.setProperty('--at',String(at??(last?index/last:0)));slider.setAttribute('aria-valuenow',String(index));showEffort(index);
+}
+/** The panel stands on the composer's top edge: across the whole composer on a phone, elsewhere centred on the gauge.
+ * The composer clips its overflow, so the panel is fixed, and it is placed again whenever the composer moves or
+ * changes size while it is open (the keyboard, a resized window, a longer message). It slides out of the edge. */
+function placeEffort():void {
+  const panel=$('effort-panel');if(panel.hidden)return;
+  const composer=document.querySelector<HTMLElement>('.composer')!,box=composer.getBoundingClientRect(),gauge=$('quick-effort').getBoundingClientRect(),full=matchMedia('(max-width: 600px)').matches;
+  composer.classList.toggle('effort-attached',full);panel.style.width=full?`${box.width}px`:'';
+  const width=panel.offsetWidth,inset=full?0:12;
+  panel.style.left=`${full?box.left:Math.max(box.left+inset,Math.min(box.right-inset-width,gauge.left+gauge.width/2-width/2))}px`;
+  panel.style.top=`${box.top+1-panel.offsetHeight}px`;
+}
 function openEffort():void {
-  const panel=$('effort-panel');panel.hidden=false;$('quick-effort').setAttribute('aria-expanded','true');
-  // The composer clips its overflow, so the panel is fixed: centred on the gauge within the composer, standing on the
-  // composer's top edge, out of which it slides (spacing.css).
-  const r=$('quick-effort').getBoundingClientRect(),box=document.querySelector('.composer')!.getBoundingClientRect(),width=panel.offsetWidth;
-  panel.style.left=`${Math.max(box.left,Math.min(box.right-width,r.left+r.width/2-width/2))}px`;panel.style.bottom=`${innerHeight-box.top-1}px`;
-  $('effort-slider').focus();
+  const panel=$('effort-panel');delete panel.dataset.closing;panel.hidden=false;$('quick-effort').setAttribute('aria-expanded','true');document.querySelector('.composer-region')!.classList.add('effort-open');
+  placeEffort();$('effort-slider').focus({preventScroll:true});
 }
 function closeEffort(refocus=false):void {
-  const panel=$('effort-panel');if(panel.hidden)return;panel.hidden=true;$('quick-effort').setAttribute('aria-expanded','false');if(refocus)$('quick-effort').focus();
+  const panel=$('effort-panel');if(panel.hidden||panel.dataset.closing)return;
+  $('quick-effort').setAttribute('aria-expanded','false');document.querySelector('.composer-region')!.classList.remove('effort-open');if(refocus)$('quick-effort').focus();
+  // It slides back into the composer before it is hidden (at once when motion is reduced).
+  const done=()=>{if(!panel.dataset.closing)return;delete panel.dataset.closing;panel.hidden=true;document.querySelector('.composer')!.classList.remove('effort-attached');};
+  panel.dataset.closing='true';
+  if(matchMedia('(prefers-reduced-motion: reduce)').matches)done();else{panel.addEventListener('animationend',done,{once:true});setTimeout(done,300);}
 }
 function commitEffort():void {
-  const slider=$<HTMLInputElement>('effort-slider'),level=['default',...capabilityFor(current().settings.model,state.capabilities).effort][Number(slider.value)]??'default';
+  const level=effortLevels()[Number($('effort-slider').getAttribute('aria-valuenow'))]??'default';
   if(configDirty){toast('Apply pending Advanced changes first.',true);delete $('quick-effort').dataset.signature;renderQuickEffort();return;}
   if(level!==current().settings.reasoningEffort)void dispatch({type:'thread.settings',id:current().id,settings:{...current().settings,reasoningEffort:level}});
 }
+/** The pointer being dragged along the effort slider (a finger, a pen or the mouse), or null. */
+let effortDrag:number|null=null;
+function effortPoint(event:PointerEvent):number {
+  const track=$('effort-slider').querySelector('.effort-track')!.getBoundingClientRect();
+  return track.width?Math.max(0,Math.min(1,(event.clientX-track.left)/track.width)):0;
+}
+function dragEffort(event:PointerEvent):void {const at=effortPoint(event);setEffort(Math.round(at*(effortLevels().length-1)),at);}
 function renderReasoningControls():void {
   const s=current().settings,model=s.model,compare=$<HTMLInputElement>('compare-model').value;
   for(const [id,m,value,mode] of [['reasoning',model,s.reasoningEffort,s.thinkingMode],['compare-reasoning',compare,s.compareReasoningEffort,s.compareThinkingMode]] as const){
@@ -403,12 +433,28 @@ function renderReasoningControls():void {
   }
   $('compare-reasoning-controls').classList.toggle('hidden',!s.compare);
 }
-$('effort-slider').addEventListener('input',()=>showEffort(Number($<HTMLInputElement>('effort-slider').value)));
-$('effort-slider').addEventListener('change',commitEffort);
-$('effort-stops').addEventListener('click',event=>{const stop=(event.target as Element).closest<HTMLElement>('[data-effort-stop]');if(!stop)return;$<HTMLInputElement>('effort-slider').value=stop.dataset.effortStop!;showEffort(Number(stop.dataset.effortStop));commitEffort();});
+// A press puts the thumb under the pointer, which it follows until released; it then settles on the nearest level.
+$('effort-slider').addEventListener('pointerdown',event=>{
+  const slider=$('effort-slider');if(event.button!==0||slider.getAttribute('aria-disabled')==='true')return;
+  event.preventDefault();slider.focus({preventScroll:true});slider.setPointerCapture(event.pointerId);effortDrag=event.pointerId;slider.classList.add('dragging');dragEffort(event);
+});
+$('effort-slider').addEventListener('pointermove',event=>{if(effortDrag===event.pointerId)dragEffort(event);});
+for(const type of ['pointerup','pointercancel','lostpointercapture'] as const)$('effort-slider').addEventListener(type,event=>{
+  if(effortDrag!==event.pointerId)return;effortDrag=null;$('effort-slider').classList.remove('dragging');
+  if(type==='pointerup'){setEffort(Number($('effort-slider').getAttribute('aria-valuenow')));commitEffort();}
+  else{delete $('quick-effort').dataset.signature;renderQuickEffort();}
+});
+$('effort-slider').addEventListener('keydown',event=>{
+  const slider=$('effort-slider'),last=effortLevels().length-1,now=Number(slider.getAttribute('aria-valuenow'));
+  const next=({ArrowLeft:now-1,ArrowDown:now-1,PageDown:now-1,ArrowRight:now+1,ArrowUp:now+1,PageUp:now+1,Home:0,End:last} as Record<string,number>)[event.key];
+  if(next===undefined)return;event.preventDefault();
+  const index=Math.max(0,Math.min(last,next));if(slider.getAttribute('aria-disabled')==='true'||index===now)return;
+  setEffort(index);commitEffort();
+});
+$('effort-stops').addEventListener('click',event=>{const stop=(event.target as Element).closest<HTMLElement>('[data-effort-stop]');if(!stop||$('effort-slider').getAttribute('aria-disabled')==='true')return;setEffort(Number(stop.dataset.effortStop));commitEffort();});
 document.addEventListener('pointerdown',event=>{if(!$('effort-panel').hidden&&!(event.target as Element).closest('#quick-effort-wrap'))closeEffort();},true);
-document.addEventListener('keydown',event=>{if(event.key==='Escape'&&!$('effort-panel').hidden){event.preventDefault();event.stopPropagation();closeEffort(true);}},true);
-addEventListener('resize',()=>closeEffort());
+document.addEventListener('keydown',event=>{if(event.key==='Escape'&&!$('effort-panel').hidden&&!$('effort-panel').dataset.closing){event.preventDefault();event.stopPropagation();closeEffort(true);}},true);
+addEventListener('resize',placeEffort);window.visualViewport?.addEventListener('resize',placeEffort);
 $('compare-model').addEventListener('input',renderReasoningControls);
 let connectionSignature='';
 function renderConnection():void {
@@ -564,37 +610,48 @@ async function submit():Promise<void> {
   const replace=edit?{replace:edit.turnId}:{};
   const success=await dispatch(role==='user'?{type:'send',id,text:value,attachments:files,...replace}:{type:'turn.add',id,role,text:value,...replace});
   sending=false;
-  if(success) { if(edit)endMessageEdit(id); else pendingFiles.delete(id); }
+  // After an assistant or system message the tab returns to User, for the question that usually follows.
+  if(success) { if(edit)endMessageEdit(id); else { pendingFiles.delete(id); if(role!=='user'){roleChoice='user';renderComposerRole();} } }
   else if(!drafts.get(id)) { drafts.set(id,value); if(current().id===id) $<HTMLTextAreaElement>('prompt').value=value; }
   accept(state); sizeComposer();
 }
-/** The role a message is added as: chosen in the composer when messages in other roles are on (Advanced → Editing),
- * otherwise the role of the message being edited, or the user. */
+/** The role a message is added as: chosen on the tab over the composer when messages in other roles are on (Advanced →
+ * Editing) or a message in another role is being edited, otherwise the role of the message being edited, or the user. */
+let roleChoice:'user'|'assistant'|'system'='user';
+const ROLE_CLOUD='Tinfoil cloud chats have no place for messages in other roles.';
 function composerRole():'user'|'assistant'|'system' {
-  const select=$<HTMLSelectElement>('composer-role');
-  return select.hidden?messageEdits.get(current().id)?.role??'user':select.value as 'user'|'assistant'|'system';
+  return $('role-tab-row').hidden?messageEdits.get(current().id)?.role??'user':roleChoice;
 }
 function renderComposerRole():void {
-  const thread=current(),select=$<HTMLSelectElement>('composer-role'),edit=messageEdits.get(thread.id);
+  const thread=current(),edit=messageEdits.get(thread.id);
   // Tinfoil cloud chats have no place for them (service.mjs refuses them as well).
   const cloud=!!thread.cloud||!!thread.cloudPending||!!state.workspace.projects.find(p=>p.id===thread.projectId)?.cloud;
-  select.hidden=!view.roleMessages&&!(edit&&edit.role!=='user');
-  select.disabled=cloud&&!edit;
-  if(cloud&&!edit)select.value='user';
-  select.title=cloud&&!edit?'Tinfoil cloud chats have no place for messages in other roles':'Add this message as';
+  $('role-tab-row').hidden=!view.roleMessages&&!(edit&&edit.role!=='user');
+  if(cloud&&!edit)roleChoice='user';
+  for(const choice of $('role-tab').querySelectorAll<HTMLElement>('[data-role-choice]')){
+    const role=choice.dataset.roleChoice,locked=cloud&&!edit&&role!=='user';
+    choice.setAttribute('aria-checked',String(role===roleChoice));choice.tabIndex=role===roleChoice?0:-1;choice.setAttribute('aria-disabled',String(locked));
+    choice.title=locked?ROLE_CLOUD:role==='user'?'Your message: the model answers it':`${role==='system'?'A system':'An assistant'} message: added without asking a model`;
+  }
+  const role=composerRole();$<HTMLTextAreaElement>('prompt').placeholder=role==='user'?'Message Tinfoil…':`${role==='system'?'System':'Assistant'} message to add…`;
+}
+function chooseRole(choice:HTMLElement):void {
+  if(!state)return;
+  if(choice.getAttribute('aria-disabled')==='true'){toast(ROLE_CLOUD,true);return;}
+  roleChoice=choice.dataset.roleChoice as typeof roleChoice;const edit=messageEdits.get(current().id);if(edit)edit.role=roleChoice;accept(state);
 }
 /** Edits a message in the composer; Send makes a new version of its turn. The draft that was there comes back after. */
 function startMessageEdit(thread:Thread,turn:Turn):void {
   const input=$<HTMLTextAreaElement>('prompt'),before=messageEdits.get(thread.id);
   messageEdits.set(thread.id,{turnId:turn.id,number:thread.turns.indexOf(turn)+1,role:turn.role??'user',draft:before?.draft??input.value,files:before?.files??structuredClone(pendingFiles.get(thread.id)??[])});
   clearTimeout(draftTimer);input.value=turn.prompt;drafts.set(thread.id,turn.prompt);pendingFiles.set(thread.id,structuredClone(turn.attachments));
-  $<HTMLSelectElement>('composer-role').value=turn.role??'user';
+  roleChoice=turn.role??'user';
   renderAttachments();renderMessageEdit();sizeComposer();input.focus();input.setSelectionRange(input.value.length,input.value.length);
 }
 function endMessageEdit(threadId:string):void {
   const edit=messageEdits.get(threadId);if(!edit)return;
   messageEdits.delete(threadId);drafts.set(threadId,edit.draft);pendingFiles.set(threadId,edit.files);
-  if(current().id===threadId){$<HTMLTextAreaElement>('prompt').value=edit.draft;$<HTMLSelectElement>('composer-role').value='user';renderAttachments();sizeComposer();}
+  if(current().id===threadId){$<HTMLTextAreaElement>('prompt').value=edit.draft;roleChoice='user';renderAttachments();sizeComposer();}
   renderMessageEdit();
 }
 function renderMessageEdit():void {
@@ -742,7 +799,7 @@ async function action(name:string, target?:HTMLElement):Promise<void> {
     case 'cloud-sync':await dispatch({type:'cloud.sync'});break;
     case 'cloud-disconnect':await dispatch({type:'cloud.disconnect'});break;
     case 'cloud-upload':await dispatch({type:'thread.cloud.upload',id:thread.id});break;
-    case 'effort-toggle':$('effort-panel').hidden?openEffort():closeEffort();break;
+    case 'effort-toggle':$('effort-panel').hidden||$('effort-panel').dataset.closing?openEffort():closeEffort();break;
     case 'row-cloud-upload':if(target?.dataset.row)await dispatch({type:'thread.cloud.upload',id:target.dataset.row});break;
     case 'row-delete':if(target?.dataset.row)await dispatch({type:'thread.delete',id:target.dataset.row});break;
     case 'thread-tab':if(target?.dataset.tab==='cloud'||target?.dataset.tab==='local')await setView({threadTab:target.dataset.tab});break;
@@ -979,6 +1036,7 @@ const composerObserver=new ResizeObserver(entries=>{
   if(Math.abs(box.blockSize-composerHeight)>.5){
     composerHeight=box.blockSize;
     $('shell').style.setProperty('--composer-region-height',`${composerHeight}px`);
+    placeEffort();
   }
   if(Math.abs(box.inlineSize-composerWidth)>.5){
     composerWidth=box.inlineSize;
@@ -988,7 +1046,13 @@ const composerObserver=new ResizeObserver(entries=>{
 composerObserver.observe(document.querySelector<HTMLElement>('.composer-region')!);
 window.visualViewport?.addEventListener('resize',()=>sizeComposer());
 $('prompt').addEventListener('input',()=>{sizeComposer(); if(state)saveDraft();});
-$('composer-role').addEventListener('change',()=>{if(!state)return;const edit=messageEdits.get(current().id);if(edit)edit.role=composerRole();accept(state);});
+$('role-tab').addEventListener('click',event=>{const choice=(event.target as Element).closest<HTMLElement>('[data-role-choice]');if(choice)chooseRole(choice);});
+// One tab stop for the group; the arrow keys move between the roles that can be chosen.
+$('role-tab').addEventListener('keydown',event=>{
+  const step=({ArrowLeft:-1,ArrowUp:-1,ArrowRight:1,ArrowDown:1} as Record<string,number>)[event.key];if(!step)return;event.preventDefault();
+  const choices=[...$('role-tab').querySelectorAll<HTMLElement>('[data-role-choice]:not([aria-disabled="true"])')],at=choices.indexOf(document.activeElement as HTMLElement);
+  const next=choices[(at+step+choices.length)%choices.length];if(next){chooseRole(next);next.focus();}
+});
 $('prompt').addEventListener('keydown',event=>{if(event.key==='Escape'&&!event.isComposing&&state&&messageEdits.has(current().id)&&!topModal()){event.preventDefault();endMessageEdit(current().id);return;}if(event.key==='Enter'&&!event.shiftKey&&!event.isComposing&&event.keyCode!==229&&(!responsive.touch||event.ctrlKey||event.metaKey)){event.preventDefault(); void submit();}});
 $('composer-form').addEventListener('submit',event=>{event.preventDefault(); void submit();});
 $('transcript').addEventListener('scroll',()=>{$('jump').classList.toggle('hidden',$('transcript').scrollHeight-$('transcript').scrollTop-$('transcript').clientHeight<150);});
