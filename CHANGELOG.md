@@ -8,6 +8,7 @@
 - Not in Tinfoil cloud chats or on Android; a conversation that used the agent stays on this computer.
 - A reply may now hold 128 tool runs and 160 tool-history messages. 1.2.0 cannot open a workspace with a reply over its limits of 96 and 24, which only the workspace agent produces.
 - AGENTS.md and SECURITY.md allow the workspace agent's approved commands; the page still has no shell or filesystem bridge.
+- Android: versionCode 1003000.
 
 ## 1.2.0 — versions inside a conversation
 

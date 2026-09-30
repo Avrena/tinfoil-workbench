@@ -1,4 +1,4 @@
-# Manual acceptance checklist — 1.2.0
+# Manual acceptance checklist — 1.3.0
 
 This checklist covers what automated checks cannot establish.
 
@@ -54,6 +54,8 @@ For optional Python, select an interpreter and request a harmless `print(1 + 1)`
 
 For opt-in delegation, inspect the explicit task and approve one short child request, then test a decline/cancel. The UI must separate child and parent usage and not imply parallel execution. Hosted MCP/search requests require live entitlement testing; passive event rendering is not proof of an authenticated hosted execution session.
 
+For the workspace agent (Windows), turn it on in Advanced for a new conversation and choose a folder with a small project in it; your home folder and a drive root must be refused. Ask what the project does: the model must list and read files without asking. Ask it to fix something small: each change must show its diff in the conversation and in a native dialog, and each command its exact text, shell and folder. Decline one command and one change and check that nothing ran or changed, then approve one of each. Edit a file yourself while a change to it waits for approval; approving must then write nothing. Stop a long command (`Start-Sleep -Seconds 60`) and check that it ends. Try Git Bash if Git for Windows is installed. A Tinfoil cloud chat must not offer the agent.
+
 ## 5. Display and packaging gate
 
 On Windows test normal and maximized windows, snap layouts and 100/125/150/200% scaling. Check a long thread title, long email, dialog focus return, high contrast/reduced motion, IME and rapid Reading/focus/sidebar toggles. A prior intermittent rapid checkbox hit-test issue did not recur in this revision’s 12-cycle run; continue this stress check rather than treating it as conclusively fixed.
@@ -66,7 +68,7 @@ After the checks above:
 npm run dist:win
 ```
 
-The command gates packaging behind doctor, tests and native smoke and never publishes. Expected outputs are `release/Tinfoil-Workbench-1.2.0-x64-Setup.exe` and `release/Tinfoil-Workbench-1.2.0-x64-Portable.exe`. Validate the generated filenames and test both on a clean standard-user Windows installation. Code signing is not configured; do not describe artifacts as signed or instructions to disable OS protection. ARM64 requires its own real machine/runner validation.
+The command gates packaging behind doctor, tests and native smoke and never publishes. Expected outputs are `release/Tinfoil-Workbench-1.3.0-x64-Setup.exe` and `release/Tinfoil-Workbench-1.3.0-x64-Portable.exe`. Validate the generated filenames and test both on a clean standard-user Windows installation. Code signing is not configured; do not describe artifacts as signed or instructions to disable OS protection. ARM64 requires its own real machine/runner validation.
 
 Optional PowerShell orchestration: `./scripts/Local-Build.ps1 -Bootstrap -Package`. This script’s native execution remains untested here; the npm commands above are the reference sequence.
 
