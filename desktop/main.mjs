@@ -1,7 +1,7 @@
 import { app, BrowserWindow, Menu, protocol, session, ipcMain, safeStorage, dialog, clipboard, shell, nativeTheme, powerMonitor } from 'electron';
 import { join, dirname, basename, extname, isAbsolute } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { mkdtempSync } from 'node:fs';
+import { mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { readFile, writeFile, open, stat } from 'node:fs/promises';
 import { renderPDF } from './pdf-renderer.mjs';
@@ -12,6 +12,8 @@ import { randomUUID } from 'node:crypto';
 import { EncryptedVault } from './vault.mjs';
 import { WorkbenchService } from './service.mjs';
 import { runPython } from './python-runner.mjs';
+import { createAgentTools, unsafeFolder } from './agent-tools.mjs';
+import { agentArguments, AGENT_SHELLS, diffCounts } from '../dist/core/agent.js';
 import { safeExternalURL } from '../dist/core/markdown.js';
 import { pythonArguments } from '../dist/core/tools.js';
 import { createProvider } from './provider.mjs';
@@ -52,9 +54,11 @@ async function launch() {
   account=new AccountSession(accountWindow,()=>service?.accountChanged(),{store:accountStore});
   // Timers do not run during sleep; requests recheck expiry anyway, and resume drops a stale key at once.
   powerMonitor.on('resume',()=>account?.resume());
+  // The workspace agent's file and command tools (docs/WORKSPACE-AGENT.md) exist only on Windows.
+  const agentTools = process.platform === 'win32' ? await createAgentTools().detect() : null;
   service = new WorkbenchService(vault, createProvider, snapshot => {
     if (window && !window.isDestroyed()) window.webContents.send('workbench:changed', snapshot);
-  }, runPython, {pdfRenderer:renderPDF,capabilityLoader:loadModelCapabilities,account,autoConnect:!smoke,cloud:host=>new CloudSync({host,account,client:new CloudClient({
+  }, runPython, {pdfRenderer:renderPDF,capabilityLoader:loadModelCapabilities,account,agentTools,autoConnect:!smoke,cloud:host=>new CloudSync({host,account,client:new CloudClient({
     // Tinfoil's sync enclave, attested like inference; the SDK is loaded only when cloud sync is used.
     secureClient: () => syncEnclave(service.workspace.cacheSecret),
     token: async force => (await account.sessionToken(force)).bearer,
@@ -149,7 +153,15 @@ async function launch() {
     // would otherwise fail every connection and nothing else. Building the client makes no request.
     const provider = await createProvider('smoke-test-placeholder', randomUUID() + randomUUID());
     if (typeof provider?.ready !== 'function') throw new Error('Attested SDK smoke test failed');
-    console.log('DESKTOP_SMOKE_OK: encrypted storage, bridge, attested SDK import, native PDF print and PDF.js canvas');
+    // The workspace agent's runner: one PowerShell command in a scratch folder, its UTF-8 output and exit code.
+    if (agentTools) {
+      const folder = mkdtempSync(join(tmpdir(), 'workbench-agent-smoke-'));
+      try {
+        const ran = await agentTools.run({ folder, shell: 'powershell', workdir: '.', command: "Write-Output 'agent \u2713'; exit 3", timeout_seconds: 60 });
+        if (ran.exitCode !== 3 || !ran.stdout.includes('agent \u2713')) throw new Error('Workspace agent smoke test failed');
+      } finally { rmSync(folder, { recursive: true, force: true }); }
+    }
+    console.log(`DESKTOP_SMOKE_OK: encrypted storage, bridge, attested SDK import, native PDF print and PDF.js canvas${agentTools ? ', workspace agent runner' : ''}`);
     await service.shutdown(); quitting = true; app.quit();
   }
 }
@@ -263,7 +275,23 @@ async function command(input) {
       const pending = service.approvals.get(identifier(c.toolId));
       if (!pending || pending.threadId !== identifier(c.id) || typeof c.approve !== 'boolean') throw new InputError('This execution request is no longer awaiting approval.');
       let approve = false;
-      if (c.approve && pending.tool.name === 'delegate_task') {
+      if (c.approve && ['run_command', 'edit_file', 'write_file'].includes(pending.tool.name)) {
+        // The workspace agent: the exact command, or the change, is shown natively; approval covers this call once.
+        const tool = pending.tool, args = agentArguments(tool.name, tool.arguments), folder = tool.agent?.folder;
+        if (!folder) throw new InputError('This action is not ready for approval.');
+        if (args.name === 'run_command') {
+          const result = await dialog.showMessageBox(window, { type: 'warning', buttons: ['Do not run', 'Run this command once'], defaultId: 0, cancelId: 0, noLink: true,
+            message: 'Run this command on your computer?',
+            detail: `NOT A SANDBOX: it runs with your Windows account's permissions and can change or send anything your account can. This approval covers this exact command once.\n\nShell: ${AGENT_SHELLS[tool.agent.shell ?? 'powershell']}\nFolder: ${args.workdir === '.' ? folder : join(folder, args.workdir)}\nTimeout: ${args.timeout_seconds} seconds\n\n${args.command}` });
+          approve = result.response === 1;
+        } else {
+          const diff = tool.agent?.diff ?? '', rows = diff.split('\n').slice(2), { added, removed } = diffCounts(diff);
+          const result = await dialog.showMessageBox(window, { type: 'question', buttons: ['Do not change', args.name === 'write_file' ? 'Write this file' : 'Apply this change'], defaultId: 0, cancelId: 0, noLink: true,
+            message: `${args.name === 'write_file' ? 'Write' : 'Change'} ${args.path}?`,
+            detail: `In ${folder}: ${added} ${added === 1 ? 'line' : 'lines'} added, ${removed} removed. The file is written only if it has not changed since this was proposed.\n\n${rows.slice(0, 80).join('\n')}${rows.length > 80 ? `\n… ${rows.length - 80} more lines, shown in the conversation` : ''}` });
+          approve = result.response === 1;
+        }
+      } else if (c.approve && pending.tool.name === 'delegate_task') {
         const child=pending.tool.delegate;
         if(!child)throw new InputError('The delegated task is not ready for approval.');
         const result=await dialog.showMessageBox(window,{type:'question',buttons:['Cancel','Send one delegated request'],defaultId:0,cancelId:0,noLink:true,
@@ -283,6 +311,23 @@ async function command(input) {
       await service.execute({ type: 'tool.approve', id: c.id, toolId: c.toolId, approve });
       break;
     }
+    // The workspace agent's folder is chosen here, never named by the page. Reading inside it needs no approval, so
+    // folders that hold keys, app data or the system are refused, and the choice is confirmed natively.
+    case 'agent.folder': {
+      if (!service.agentTools) throw new InputError('The workspace agent needs the Windows app.');
+      const selected = await dialog.showOpenDialog(window, { title: 'Choose the folder the workspace agent works in', properties: ['openDirectory'] });
+      if (selected.canceled || !selected.filePaths[0]) break;
+      const folder = selected.filePaths[0];
+      if (!isAbsolute(folder) || !(await stat(folder)).isDirectory()) throw new InputError('Choose a folder.');
+      const unsafe = unsafeFolder(folder);
+      if (unsafe) throw new InputError(`The workspace agent cannot work in ${unsafe}. Choose a project folder instead.`);
+      const result = await dialog.showMessageBox(window, { type: 'warning', buttons: ['Cancel', 'Use this folder'], defaultId: 0, cancelId: 0, noLink: true,
+        message: 'Let the workspace agent work in this folder?',
+        detail: `${folder}\n\nThe model can list, search and read files in this folder without asking. Every command and every file change needs your approval. Commands run with your Windows account's permissions, not in a sandbox.` });
+      if (result.response === 1) await service.setAgentFolder(identifier(c.id), folder);
+      break;
+    }
+    case 'agent.folder.clear': await service.setAgentFolder(identifier(c.id), null); break;
     case 'artifact.open': {
       const selected=await dialog.showOpenDialog(window,{title:'Open a local preview (not shared with the model)',properties:['openFile'],filters:[{name:'Artifacts',extensions:['pdf','html','svg','png','md','txt','json','csv']}]});
       if(selected.canceled||!selected.filePaths[0])break;

@@ -2,12 +2,16 @@ import type { AccountSnapshot, ConnectionMode } from './account.js';
 import type { ModelCapability, ThinkingMode } from './capabilities.js';
 import type { ViewPreferences } from './preferences.js';
 import type { CloudChatLink, CloudProjectLink } from './cloud.js';
+import type { AgentShell } from './agent.js';
 export type ReplyStatus = 'queued' | 'streaming' | 'complete' | 'stopped' | 'error' | 'interrupted' | 'awaiting_approval' | 'executing';
 export interface GenerationSettings {
   toolsMode: 'off' | 'ask';
   visualTools: boolean;
   webSearch: boolean;
   delegateMode: 'off' | 'ask';
+  /** The workspace agent (docs/WORKSPACE-AGENT.md), Windows only; it also needs the conversation's agentFolder. */
+  agentMode: 'off' | 'ask';
+  agentShell: AgentShell;
   thinkingMode: ThinkingMode;
   compareReasoningEffort: string;
   compareThinkingMode: ThinkingMode;
@@ -40,6 +44,8 @@ export interface ToolRun {
   delegate?: DelegateRun;
   provider?: ProviderActivity;
   contentOffset?: number;
+  /** A workspace agent call: the folder and shell it ran in, and for a change the diff shown for approval. */
+  agent?: { folder: string; shell?: AgentShell; diff?: string };
   id: string; callId: string; name: string; arguments: string;
   /** 'text': a drawing call the model wrote into its answer as text, which Workbench drew (see recoverTextCalls). */
   origin: 'model' | 'manual' | 'provider' | 'text'; status: 'queued' | 'awaiting_approval' | 'running' | 'complete' | 'error' | 'denied' | 'cancelled';
@@ -87,6 +93,8 @@ export interface Thread {
   cloud?: CloudChatLink;
   /** Started from the Cloud list: becomes a cloud chat after its first reply, like a conversation in a cloud project. */
   cloudPending?: true;
+  /** The workspace agent's folder: an absolute path, set only through the native folder picker. */
+  agentFolder?: string;
   id: string; title: string; pinned: boolean; createdAt: number; updatedAt: number;
   settings: GenerationSettings; turns: Turn[]; draft: string;
   /** Unsent reference files, encrypted with the draft and never sent until Send. */
@@ -120,6 +128,8 @@ export interface Snapshot {
   modelCatalog?: 'idle' | 'loading' | 'ready' | 'failed';
   busyThreadId: string | null; storage: 'os-encrypted' | 'preview';
   notice: string | null; pythonConfigured?: boolean;
+  /** The workspace agent: available in the Windows app, and whether Git Bash was found there. */
+  agent?: { available: boolean; gitBash: boolean };
   /** Set only by the Android host; absent on the Windows desktop. */
   platform?: 'android';
   /** Android only: whether this WebView can host Tinfoil's sign-in page (docs/ANDROID-ACCOUNT.md). */
@@ -146,6 +156,9 @@ export type Command =
   | { type: 'reply.edit'; id: string; turnId: string; replyId: string; content: string; reasoning: string; expectedContent: string; expectedReasoning: string }
   | { type: 'view.set'; view: ViewPreferences }
   | { type: 'python.pick' }
+  /** The workspace agent's folder: chosen in the host's native picker, or cleared. The page never names a path. */
+  | { type: 'agent.folder'; id: string }
+  | { type: 'agent.folder.clear'; id: string }
   | { type: 'tool.cancel'; id: string; toolId: string }
   | { type: 'tool.approve'; id: string; toolId: string; approve: boolean }
   | { type: 'code.run'; id: string; replyId: string; index: number }

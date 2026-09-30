@@ -1,4 +1,5 @@
 import type { ApiMessage } from './types.js';
+import { agentGuide, AGENT_SHELLS, type AgentShell } from './agent.js';
 
 /** The system message follows the XML-section layout of Tinfoil Chat's own client (tinfoilsh/tinfoil-webapp, read,
  * not copied): a guide to the tools offered on this request, then the user's own instructions unchanged, then the
@@ -11,7 +12,7 @@ export function escapePromptContent(value: string): string {
   return value.replaceAll('&', '&amp;').replaceAll('<', '&lt;').replaceAll('>', '&gt;');
 }
 
-export interface OfferedTools { visual: boolean; python: boolean }
+export interface OfferedTools { visual: boolean; python: boolean; agent?: AgentShell | null }
 
 const VISUALS = `<visuals>
 The render_* tools and create_artifact place a visual inline in your answer, where the user can expand it and see its data or source.
@@ -29,13 +30,23 @@ python runs code on the user's computer after they approve each call. Use it for
 
 /** Guidance for the tools offered on a request, or '' when none of them needs any. */
 export function toolGuide(tools: OfferedTools): string {
-  const sections = [tools.visual ? VISUALS : '', tools.python ? python(tools.visual) : ''].filter(Boolean);
+  const sections = [tools.visual ? VISUALS : '', tools.python ? python(tools.visual) : '', tools.agent ? agentGuide(tools.agent) : ''].filter(Boolean);
   if (!sections.length) return '';
   return `<workbench_tools>
 You are running in Tinfoil Workbench, a desktop app. The user's own instructions, if any, follow this section and take precedence over it.
 
 ${sections.join('\n\n')}
 </workbench_tools>`;
+}
+
+/** The workspace agent's folder and shell. It follows the guide, so the part shared by every conversation stays first. */
+export function agentEnvironment(folder: string, shell: AgentShell): string {
+  return `<environment>
+folder: ${escapePromptContent(folder)}
+shell: ${AGENT_SHELLS[shell]}
+approvals: the user approves every command and every file change; reading inside the folder is not approved separately
+network: not restricted
+</environment>`;
 }
 
 /** Puts the guide at the start of the system message, before the user's instructions and project context. */

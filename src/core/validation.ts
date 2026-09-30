@@ -61,6 +61,7 @@ export function settings(value: unknown): GenerationSettings {
     visualTools: v.visualTools === true,
     webSearch: v.webSearch === true,
     delegateMode: v.delegateMode === 'ask' ? 'ask' : 'off',
+    agentMode: v.agentMode === 'ask' ? 'ask' : 'off', agentShell: v.agentShell === 'bash' ? 'bash' : 'powershell',
     thinkingMode: ['enabled','disabled'].includes(String(v.thinkingMode)) ? v.thinkingMode as 'enabled'|'disabled' : 'default',
     compareReasoningEffort: ['minimal','low','medium','high','xhigh','max','ultra'].includes(String(v.compareReasoningEffort)) ? v.compareReasoningEffort as string : 'default',
     compareThinkingMode: ['enabled','disabled'].includes(String(v.compareThinkingMode)) ? v.compareThinkingMode as 'enabled'|'disabled' : 'default',
@@ -139,7 +140,8 @@ function reply(value: unknown): Reply {
   return {
     id: identifier(v.id), model: text(v.model, 'Model', 200),
     ...(v.edit === undefined ? {} : {edit:validateEdit(v.edit,v.content,v.reasoning)}),
-    tools: list(v.tools ?? [], 96).map(validateTool), toolMessages: list(v.toolMessages ?? [], 24).map(validateToolMessage),
+    // A workspace agent reply holds up to 60 calls in 30 rounds, besides provider activity.
+    tools: list(v.tools ?? [], 128).map(validateTool), toolMessages: list(v.toolMessages ?? [], 160).map(validateToolMessage),
     content: text(v.content, 'Reply', LIMITS.response), reasoning: text(v.reasoning, 'Reasoning', LIMITS.response),
     ...(v.finalContentOffset === undefined ? {} : {finalContentOffset: offset(v.finalContentOffset, String(v.content ?? '').length)}),
     ...(['waiting','thinking','answering'].includes(String(v.phase)) ? {phase: v.phase as Reply['phase']} : {}),
@@ -191,6 +193,7 @@ export function validateThread(value: unknown): Thread {
     ...(v.branchOf === undefined ? {} : {branchOf:identifier(v.branchOf)}),
     ...(v.cloud === undefined ? {} : {cloud:cloudChatLink(v.cloud)}),
     ...(v.cloudPending === true && v.cloud === undefined ? {cloudPending:true as const} : {}),
+    ...(v.agentFolder === undefined ? {} : {agentFolder:agentFolder(v.agentFolder)}),
     ...(v.connectionOwner === undefined ? {} : {connectionOwner:text(v.connectionOwner,'Connection owner',250,true)}),
     createdAt: stamp(v.createdAt), updatedAt: stamp(v.updatedAt), settings: settings(v.settings),
     draft: text(v.draft, 'Draft', LIMITS.prompt), draftAttachments: attachments(v.draftAttachments ?? []), turns,
@@ -250,6 +253,7 @@ export function validateTool(value: unknown): ToolRun {
     ...(v.batchId === undefined ? {} : {batchId:identifier(v.batchId), batchIndex:integer(v.batchIndex,0,3),batchSize:integer(v.batchSize,1,4)}),
     ...(v.delegate === undefined ? {} : {delegate:validateDelegate(v.delegate)}),
     ...(v.provider === undefined ? {} : {provider:validateProvider(v.provider)}),
+    ...(v.agent === undefined ? {} : {agent:validateAgentRun(v.agent)}),
     arguments: text(v.arguments, 'Tool arguments', 128000), origin: v.origin === 'provider' ? 'provider' : v.origin === 'model' ? 'model' : v.origin === 'text' ? 'text' : 'manual', status: v.status as ToolRun['status'],
     stdout: text(v.stdout, 'Tool stdout', 100000), stderr: text(v.stderr, 'Tool stderr', 100000),
     exitCode: v.exitCode === null ? null : numeric(v.exitCode, -2147483648, 4294967295), elapsedMs: numeric(v.elapsedMs, 0, 1e12),
@@ -269,6 +273,17 @@ function validateToolMessage(value: unknown): ApiMessage {
   return message;
 }
 
+/** An absolute Windows folder path on a drive (no UNC or device paths), as the native folder picker returns it. */
+export function agentFolder(value: unknown): string {
+  const folder = text(value, 'Workspace folder', 1024, true);
+  if (!/^[a-zA-Z]:\\/.test(folder) || /[\x00-\x1f"<>|?*]/.test(folder) || folder.slice(2).includes(':')) throw new InputError('The workspace folder must be an absolute path on a drive.');
+  return folder;
+}
+function validateAgentRun(value: unknown): NonNullable<ToolRun['agent']> {
+  const v = record(value);
+  return { folder: agentFolder(v.folder), ...(v.shell === 'powershell' || v.shell === 'bash' ? { shell: v.shell } : {}),
+    ...(v.diff === undefined ? {} : { diff: text(v.diff, 'Change', 300_000) }) };
+}
 function integer(value: unknown, low: number, high: number): number {
   const n=numeric(value,low,high); if(!Number.isInteger(n)) throw new InputError('Expected an integer.'); return n;
 }

@@ -648,6 +648,31 @@ dialog:not(.message-editor) .modal-body { padding: 8px 20px 20px; }
 .inline-editor-discard button { font-size: 12px; padding: 4px 10px; }
 @media (pointer: coarse), (hover: none) { .inline-editor > button, .inline-editor-discard button { min-height: 40px; } }
 
+/* Workspace agent (docs/WORKSPACE-AGENT.md): the folder on the composer, and each call's command, change or plan. */
+.agent-folder { display: inline-flex; align-items: center; gap: 6px; flex: 0 1 auto; min-width: 0; max-width: 180px; height: 32px; padding: 0 8px; border: 1px solid #3a3c41; border-radius: 6px; background: transparent; font-size: 11px; color: #c7cad0; }
+.agent-folder span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.agent-folder svg { width: 14px; height: 14px; flex: none; }
+.agent-folder.unset { border-style: dashed; color: #e6c07a; }
+.agent-folder.hidden { display: none; }
+@media (max-width: 600px) { .agent-folder { max-width: 120px; height: 44px; } }
+.agent-subject { min-width: 0; max-width: 45%; padding: 1px 6px; overflow: hidden; border-radius: 4px; background: #ffffff0d; font-size: 11px; white-space: nowrap; text-overflow: ellipsis; color: #c7cad0; }
+.agent-command { margin: 6px 0 4px; white-space: pre-wrap; overflow-wrap: anywhere; }
+.agent-where { margin: 0 0 6px; font-size: 11px; color: #8f949c; overflow-wrap: anywhere; }
+.agent-diff { margin: 6px 0; padding: 6px 0; overflow-x: auto; border: 1px solid #34373c; border-radius: 6px; background: #1b1c1f; font-size: 12px; line-height: 1.5; }
+.agent-diff span { display: block; padding: 0 10px; white-space: pre; }
+.agent-diff .add { background: #1f3325; color: #b8e0c0; }
+.agent-diff .del { background: #3a2222; color: #f0b4ab; }
+.agent-diff .hunk { color: #7f9bb8; }
+.agent-plan-current { margin: 4px 0 8px; padding: 8px 12px; border: 1px solid #34373c; border-radius: 8px; }
+.agent-plan-current .agent-plan { margin: 2px 0 0; }
+.agent-plan-title { font-size: 11px; color: #8f949c; }
+.agent-plan { margin: 6px 0; padding: 0; list-style: none; font-size: 13px; }
+.agent-plan li { display: flex; align-items: baseline; gap: 8px; padding: 2px 0; color: #c7cad0; }
+.agent-plan .plan-mark { flex: none; width: 14px; text-align: center; color: #8f949c; }
+.agent-plan li[data-status="completed"] { color: #8f949c; }
+.agent-plan li[data-status="completed"] .plan-mark { color: #6fbf87; }
+.agent-plan li[data-status="in_progress"] { color: #e6e6e6; font-weight: 600; }
+
 /* While an answer or its thinking is edited, the composer steps aside to leave the field the room. */
 .answer-editing .composer-region { display: none; }
 .inspector-editing { margin-top: 18px; }

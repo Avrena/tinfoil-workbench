@@ -13,7 +13,7 @@ let previewAccount=signedOutAccount(),previewMode='api-key',previewRemember=true
 let previewCloud={state:'off',keyId:null,user:null,lastSyncAt:null,message:null,chats:0,projects:0,older:0},previewLoading=[];
 const workspace=newWorkspace(),listeners=new Set();let sequence=0,busy=null,stopped=false;
 Object.assign(workspace.threads[0].settings,{model:'demo/writer',compareModel:'demo/analyst'});
-const snapshot=()=>({sequence:++sequence,account:structuredClone(previewAccount),connectionMode:previewMode,rememberAccount:previewRemember,cloud:structuredClone(previewCloud),cloudLoading:[...previewLoading],workspace:structuredClone({version:workspace.version,activeId:workspace.activeId,threads:workspace.threads,projects:workspace.projects,instructionPresets:workspace.instructionPresets,view:workspace.view}),pythonConfigured:false,hasKey:false,models:['demo/writer','demo/analyst','deepseek-v4-pro','kimi-k3'],capabilities:structuredClone(previewCatalog),modelCatalog:'ready',verification:{state:'idle',checkedAt:null,steps:[]},busyThreadId:busy,storage:'preview',notice:'OFFLINE PREVIEW · Synthetic responses · No API connection or local persistence'});
+const snapshot=()=>({sequence:++sequence,account:structuredClone(previewAccount),connectionMode:previewMode,rememberAccount:previewRemember,cloud:structuredClone(previewCloud),cloudLoading:[...previewLoading],workspace:structuredClone({version:workspace.version,activeId:workspace.activeId,threads:workspace.threads,projects:workspace.projects,instructionPresets:workspace.instructionPresets,view:workspace.view}),pythonConfigured:false,agent:{available:true,gitBash:true},hasKey:false,models:['demo/writer','demo/analyst','deepseek-v4-pro','kimi-k3'],capabilities:structuredClone(previewCatalog),modelCatalog:'ready',verification:{state:'idle',checkedAt:null,steps:[]},busyThreadId:busy,storage:'preview',notice:'OFFLINE PREVIEW · Synthetic responses · No API connection or local persistence'});
 const emit=()=>{const s=snapshot();for(const fn of listeners)fn(s);};
 // Synthetic picker metadata. Display-only (`known: false`), so the bundled reasoning profiles still apply.
 function previewModel(id,display){return {id,label:display.name,known:false,source:'unknown',reasoning:false,effort:[],toggle:false,defaultEnabled:true,enable:{},disable:{},toolCalling:null,
@@ -76,8 +76,27 @@ async function activityShowcase(thread,jobs){
     reply.status=stopped?'stopped':'complete';reply.phase='answering';reply.finishReason=stopped?null:'stop';reply.error=stopped?'Stopped synthetic demonstration.':null;
   }));busy=null;emit();
 }
+/** Synthetic workspace agent calls in each state, for the renderer: nothing is read, changed or run. */
+async function agentShowcase(thread,jobs){
+  await Promise.all(jobs.map(async job=>{
+    const reply=thread.turns.find(t=>t.id===job.turnId).replies.find(r=>r.id===job.replyId),folder=thread.agentFolder??'C:\\Preview\\example-project';
+    const call=(name,args,patch={})=>({id:crypto.randomUUID(),callId:crypto.randomUUID(),name,arguments:JSON.stringify(args),origin:'model',status:'complete',stdout:'',stderr:'',exitCode:null,elapsedMs:40,artifacts:[],truncated:false,agent:{folder},...patch});
+    reply.content='This is a **synthetic workspace agent demonstration**. Nothing was read, changed or run.\n\n';reply.status='streaming';emit();await pause(200);
+    const diff='--- a/src/sum.js\n+++ b/src/sum.js\n@@ -1,3 +1,3 @@\n export function sum(values) {\n-  return values.reduce((a, b) => a + b);\n+  return values.reduce((a, b) => a + b, 0);\n }\n';
+    reply.tools.push(
+      call('update_plan',{steps:[{text:'Find the failing test',status:'completed'},{text:'Fix the sum of an empty list',status:'in_progress'},{text:'Run the tests',status:'pending'}]},{stdout:'[x] Find the failing test\n[>] Fix the sum of an empty list\n[ ] Run the tests'}),
+      call('list_files',{path:'.',depth:2},{stdout:'src/\nsrc/sum.js\ntest/\ntest/sum.test.js\npackage.json'}),
+      call('read_file',{path:'src/sum.js'},{stdout:'src/sum.js · lines 1–3 of 3\n1\texport function sum(values) {\n2\t  return values.reduce((a, b) => a + b);\n3\t}\n'}),
+      call('run_command',{command:'npm test',timeout_seconds:120},{agent:{folder,shell:'powershell'},stdout:'✖ sum of an empty list is 0\n  TypeError: Reduce of empty array with no initial value',exitCode:1,elapsedMs:1800}),
+      call('edit_file',{path:'src/sum.js',old_text:'a + b);',new_text:'a + b, 0);'},{status:'awaiting_approval',agent:{folder,diff}}),
+      call('run_command',{command:'npm test -- --reporter dot',workdir:'.',timeout_seconds:120},{status:'awaiting_approval',agent:{folder,shell:'powershell'}}));
+    reply.toolMessages.push({role:'assistant',content:'',tool_calls:[]},{role:'assistant',content:'',tool_calls:[]});
+    reply.status='awaiting_approval';emit();
+  }));busy=null;emit();
+}
 async function simulate(thread,jobs){
   if (/tool activity demo/i.test(thread.turns.at(-1).prompt)) return activityShowcase(thread,jobs);
+  if (/workspace agent demo/i.test(thread.turns.at(-1).prompt)) return agentShowcase(thread,jobs);
   if (/inline visualization demo/i.test(thread.turns.at(-1).prompt)) return showcase(thread,jobs);
   const answers=[
     'The estimate is **about 3 minutes per repair**. The average alone is not enough to set a safe deadline; travel and failed attempts still need room.\n\nFor three equally weighted observations, the mean is:\n\n$$\\bar{x}=\\frac{1}{n}\\sum_{i=1}^{n}x_i=\\frac{142+180+218}{3}=180\\;\\text{s}$$\n\n| Measure | Result |\n| :--- | ---: |\n| Mean repair time | 180 s |\n| Sample standard deviation | 38 s |\n| Suggested initial buffer | 20% |\n\nThe following code makes the calculation reproducible:\n\n```python\nfrom statistics import mean, stdev\n\nrepairs = [142, 180, 218]\nprint(f"Mean: {mean(repairs):.0f} s")\nprint(f"Standard deviation: {stdev(repairs):.0f} s")\n```\n\nUse $t = 1.2 \\times 180 = 216$ seconds as an **illustrative starting point**, then check it against observed completion rates.\n\nThis is a synthetic preview response, not a model completion.',
@@ -111,7 +130,10 @@ window.tinfoil=Object.freeze({
       case 'account.remember':previewRemember=c.enabled===true;break;
       case 'cloud.connect':case 'cloud.key.file':case 'cloud.sync':case 'cloud.disconnect':case 'thread.cloud.upload':throw new InputError('Offline preview cannot connect to Tinfoil cloud.');
       case 'view.set':workspace.view=viewPreferences(c.view);break;
-      case 'tool.cancel':case 'tool.approve':throw new InputError('Offline preview does not execute Python, contact MCP servers or run sub-agents. Use the desktop app.');
+      case 'tool.cancel':case 'tool.approve':throw new InputError('Offline preview does not execute Python, run commands, change files, contact MCP servers or run sub-agents. Use the desktop app.');
+      // No folder picker here: a synthetic path stands in, and nothing is read from it.
+      case 'agent.folder':if(c.id===busy)throw new InputError('Stop the response first.');findThread(workspace,c.id).agentFolder='C:\\Preview\\example-project';break;
+      case 'agent.folder.clear':delete findThread(workspace,c.id).agentFolder;break;
       case 'artifact.pdf':case 'artifact.open':case 'python.pick':case 'code.run':case 'artifact.save':throw new InputError('Offline preview does not execute Python or create files. Use the desktop app.');
       case 'open.url':throw new InputError('Offline preview does not open external links.');
       case 'thread.new':{const t=newProjectThread(workspace,c.projectId);if(c.cloud===true&&previewCloud.state!=='off'&&t.projectId==null)t.cloudPending=true;break;}

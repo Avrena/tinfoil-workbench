@@ -1,14 +1,15 @@
 import { editReply } from '../dist/core/editing.js';
 import { createProject,renameProject,removeProject,moveThread,newProjectThread } from '../dist/core/projects.js';
 import { saveInstructionPreset, deleteInstructionPreset } from '../dist/core/instructions.js';
-import { InputError, record, text, identifier, settings, attachments, validateWorkspace, LIMITS, validateTool } from '../dist/core/validation.js';
+import { InputError, record, text, identifier, settings, attachments, validateWorkspace, LIMITS, validateTool, agentFolder } from '../dist/core/validation.js';
 import { newWorkspace, findThread, addThread, beginTurn, retryTurn, addMessage, chooseReply, forkThread, recoverInterrupted, importThread, outputLimitNotice } from '../dist/core/workspace.js';
 import { showVersion } from '../dist/core/versions.js';
 import { viewPreferences } from '../dist/core/preferences.js';
 import { extractCodeBlocks } from '../dist/core/markdown.js';
 import { ToolCallAccumulator, PYTHON_TOOL, pythonArguments, findTextToolCalls } from '../dist/core/tools.js';
 import { VISUAL_TOOLS, VISUAL_TOOL_NAMES, RENDER_KINDS } from '../dist/core/visual-tools.js';
-import { toolGuide, withToolGuide } from '../dist/core/prompt.js';
+import { toolGuide, withToolGuide, agentEnvironment } from '../dist/core/prompt.js';
+import { AGENT_TOOLS, AGENT_TOOL_NAMES, AGENT_APPROVED, AGENT_LIMITS, agentArguments, compactAgentHistory, shortenOutput } from '../dist/core/agent.js';
 import { capabilityFor, reasoningParameters, normalizeCapability } from '../dist/core/capabilities.js';
 import { executeVisual } from './visual-runtime.mjs';
 import { DELEGATE_TOOL, delegateArguments, toolActive } from '../dist/core/activity.js';
@@ -19,6 +20,8 @@ import { publicError, networkFailure, moduleFailure } from '../dist/core/securit
 import { projectContext } from '../dist/core/cloud.js';
 const idleVerification = () => ({ state: 'idle', checkedAt: null, steps: [] });
 /** A reply cut off because the Android app left the screen (see the `backgroundedSince` host option). */
+export const AGENT_CLOUD = 'Tinfoil cloud chats cannot use the workspace agent: its commands, reads and file changes exist only on this computer. Use a local conversation.';
+export const AGENT_UNAVAILABLE = 'The workspace agent needs the Windows app.';
 export const ROLE_MESSAGES_CLOUD = 'Tinfoil cloud chats have no place for messages added in another role. Keep this conversation on this device to add them.';
 export const BACKGROUND_INTERRUPTION = 'The reply stopped because Workbench left the screen: Android pauses apps in the background, which ends their connections. Partial output was preserved. Retry asks again in a new version.';
 const bounded = (v, max = 100) => typeof v === 'string' ? v.slice(0, max) : '';
@@ -38,10 +41,20 @@ function abortable(promise, signal) {
   });
 }
 
+/** A workspace agent call's result for the model. A command's output is shortened to its start and end, which usually
+ * holds the error; a read, list or search result is already bounded. */
+function agentResult(tool) {
+  if (tool.name === 'run_command') return { status: tool.status, exit_code: tool.exitCode,
+    ...(tool.stdout ? { stdout: shortenOutput(tool.stdout) } : {}), ...(tool.stderr ? { stderr: shortenOutput(tool.stderr, 2000, 4000) } : {}) };
+  return { status: tool.status, ...(tool.stdout ? { result: tool.stdout } : {}), ...(tool.stderr ? { error: tool.stderr } : {}) };
+}
+/** A conversation that has used the workspace agent, whose commands, reads and changes exist only on this computer. */
+export const agentConversation = t => !!t.agentFolder || t.turns.some(turn => turn.replies.some(r => (r.tools ?? []).some(tool => tool.agent)));
+
 export class WorkbenchService {
   constructor(vault, providerFactory, onChange = () => {}, toolExecutor = null, options = {}) {
     this.vault = vault; this.providerFactory = providerFactory; this.onChange = onChange;
-    this.options = options; this.capabilities = []; this.toolExecutor = toolExecutor; this.approvals = new Map(); this.delegateControllers = new Map(); this.delegationCount = 0;
+    this.options = options; this.agentTools = options.agentTools ?? null; this.capabilities = []; this.toolExecutor = toolExecutor; this.approvals = new Map(); this.delegateControllers = new Map(); this.delegationCount = 0;
     this.sequence = 0; this.workspace = null; this.client = null; this.connection = null; this.epoch = 0; this.clients = new WeakMap();
     this.models = []; this.verification = idleVerification(); this.busyThreadId = null;
     // The public catalog outlives connections; `listed` is the verified endpoint's own list.
@@ -71,6 +84,7 @@ export class WorkbenchService {
       pythonConfigured: !!this.workspace.pythonPath, models: [...this.models], capabilities: structuredClone(this.capabilities), modelCatalog: this.catalogState, verification: structuredClone(this.verification),
       account: this.options.account?.snapshot()??signedOutAccount(), connectionMode:this.workspace.connectionMode??'api-key', rememberAccount:this.workspace.rememberAccount!==false,
       cloud: this.cloud?.snapshot() ?? { state: 'off', keyId: null, user: null, lastSyncAt: null, message: null, chats: 0, projects: 0, older: 0 }, cloudLoading: this.cloud ? [...this.cloud.loading] : [],
+      agent: { available: !!this.agentTools, gitBash: !!this.agentTools?.gitBash },
       busyThreadId: this.busyThreadId, storage: 'os-encrypted', notice: this.notice };
   }
   emit() { this.onChange(this.snapshot()); }
@@ -86,6 +100,22 @@ export class WorkbenchService {
       this.emit();
       throw new InputError(this.notice);
     }
+  }
+  /** A conversation that is, or will become, a Tinfoil cloud chat. */
+  cloudBound(t) { return !!(t.cloud || t.cloudPending || this.workspace.projects.find(p => p.id === t.projectId)?.cloud); }
+  /** The workspace agent's folder and shell for a conversation (docs/WORKSPACE-AGENT.md), or null when it is off, has no
+   * folder yet, or is not available here. */
+  agentFor(thread, s = thread.settings) {
+    if (!this.agentTools || s.agentMode !== 'ask' || !thread.agentFolder || this.cloudBound(thread)) return null;
+    return { folder: thread.agentFolder, shell: s.agentShell === 'bash' ? 'bash' : 'powershell' };
+  }
+  /** The main process sets the folder after its native folder picker; no renderer command can name one. */
+  async setAgentFolder(id, folder) {
+    const t = this.editable(id);
+    if (!this.agentTools) throw new InputError(AGENT_UNAVAILABLE);
+    if (this.cloudBound(t)) throw new InputError(AGENT_CLOUD);
+    if (folder === null) delete t.agentFolder; else t.agentFolder = agentFolder(folder);
+    t.updatedAt = Date.now(); await this.save(); this.emit(); return this.snapshot();
   }
   editable(id) {
     identifier(id);
@@ -302,6 +332,7 @@ export class WorkbenchService {
       case 'thread.move': {
         const id = identifier(c.id), projectId = c.projectId === null ? null : identifier(c.projectId);
         if (this.workspace.projects.find(p => p.id === projectId)?.cloud && findThread(this.workspace, id).turns.some(t => t.role)) throw new InputError(ROLE_MESSAGES_CLOUD);
+        if (this.workspace.projects.find(p => p.id === projectId)?.cloud && agentConversation(findThread(this.workspace, id))) throw new InputError(AGENT_CLOUD);
         if (this.cloud?.move(id, projectId)) cloudChanged = id; else moveThread(this.workspace, id, projectId);
         if (projectId != null) delete findThread(this.workspace, id).cloudPending;
         break;
@@ -346,6 +377,7 @@ export class WorkbenchService {
       }
       case 'thread.settings': {
         const t=this.editable(c.id), next=settings(c.settings);
+        if(next.agentMode==='ask'&&t.settings.agentMode!=='ask'){if(!this.agentTools)throw new InputError(AGENT_UNAVAILABLE);if(this.cloudBound(t))throw new InputError(AGENT_CLOUD);}
         if(t.settings.model!==next.model){next.reasoningEffort='default';next.thinkingMode='default';}
         if(t.settings.compareModel!==next.compareModel){next.compareReasoningEffort='default';next.compareThinkingMode='default';}
         t.settings=next; break;
@@ -394,6 +426,12 @@ export class WorkbenchService {
     if(this.needsAuthorization(threadId))throw new InputError('Review and allow this existing thread for the selected account before sending.');
     const thread = findThread(this.workspace, threadId);
     if (thread.cloud && !thread.cloud.loaded) throw new InputError('This chat is still loading from Tinfoil cloud. Wait a moment, then send.');
+    if (thread.settings.agentMode === 'ask') {
+      if (!this.agentTools) throw new InputError(AGENT_UNAVAILABLE);
+      if (this.cloudBound(thread)) throw new InputError(AGENT_CLOUD);
+      if (!thread.agentFolder) throw new InputError('Choose a folder for the workspace agent first, with the folder button on the message box.');
+      if (thread.settings.agentShell === 'bash' && !this.agentTools.gitBash) throw new InputError('Git Bash was not found. Install Git for Windows, or choose PowerShell in Advanced.');
+    }
     if (thread.settings.toolsMode === 'ask' && (!this.toolExecutor || !this.workspace.pythonPath)) throw new InputError('Choose an installed Python interpreter in Settings → Execution before enabling model-requested Python.');
     const project = thread.projectId ? this.workspace.projects.find(p => p.id === thread.projectId) : null;
     const jobs = begin(thread, project ? projectContext(project) : '');
@@ -425,26 +463,35 @@ export class WorkbenchService {
   offeredTools(job) {
     const s = job.settings;
     if (capabilityFor(job.model, this.capabilities).toolCalling === false) return [];
-    return [...(s.visualTools ? VISUAL_TOOLS : []), ...(s.toolsMode === 'ask' ? [PYTHON_TOOL] : []), ...(s.delegateMode === 'ask' ? [DELEGATE_TOOL] : [])];
+    const agent = this.agentFor(findThread(this.workspace, job.threadId), s);
+    return [...(s.visualTools ? VISUAL_TOOLS : []), ...(s.toolsMode === 'ask' ? [PYTHON_TOOL] : []), ...(s.delegateMode === 'ask' ? [DELEGATE_TOOL] : []), ...(agent ? AGENT_TOOLS : [])];
   }
   async run(job, ctrl) {
     const reply = findThread(this.workspace, job.threadId).turns.find(t => t.id === job.turnId).replies.find(r => r.id === job.replyId);
     const start = Date.now(); let timeout = false, lastSaved = start, idle;
-    const total = setTimeout(() => { timeout = true; ctrl.abort(); }, 600000);
-    const resetIdle = () => { clearTimeout(idle); idle = setTimeout(() => { timeout = true; ctrl.abort(); }, 90000); };
     // The tools are fixed for the whole request, and the system message starts with a guide to them (core/prompt.ts).
     const offeredTools = this.offeredTools(job);
-    const messages = withToolGuide(structuredClone(job.messages), toolGuide({ visual: offeredTools.some(t => VISUAL_TOOL_NAMES.has(t.function.name)), python: offeredTools.some(t => t.function.name === 'python') }));
+    const agent = offeredTools.some(t => AGENT_TOOL_NAMES.has(t.function.name)) ? this.agentFor(findThread(this.workspace, job.threadId), job.settings) : null;
+    const guide = toolGuide({ visual: offeredTools.some(t => VISUAL_TOOL_NAMES.has(t.function.name)), python: offeredTools.some(t => t.function.name === 'python'), agent: agent?.shell ?? null });
+    const messages = withToolGuide(structuredClone(job.messages), agent ? `${guide}\n\n${agentEnvironment(agent.folder, agent.shell)}` : guide);
+    // A reply may take 10 minutes; a workspace agent reply 60, not counting the time it waits for the user's approval.
+    const limit = agent ? AGENT_LIMITS.activeMs : 600000, rounds = agent ? AGENT_LIMITS.rounds : 5, callBudget = agent ? AGENT_LIMITS.calls : 8;
+    let spent = 0, since = start, total = setTimeout(() => { timeout = true; ctrl.abort(); }, limit);
+    const clock = { pause: () => { clearTimeout(total); spent += Date.now() - since; },
+      resume: () => { since = Date.now(); total = setTimeout(() => { timeout = true; ctrl.abort(); }, Math.max(1, limit - spent)); } };
+    const resetIdle = () => { clearTimeout(idle); idle = setTimeout(() => { timeout = true; ctrl.abort(); }, 90000); };
     let previousInput = 0, previousOutput = 0, executed = 0;
     reply.tools ??= []; reply.toolMessages ??= [];
     let client = null;
     try {
       client = this.bound(await abortable(this.connect(), ctrl.signal), job.owner);
-      for (let round = 0; round < 5; round++) {
+      for (let round = 0; round < rounds; round++) {
         if(round>0&&this.workspace.connectionMode==='chat-account')client=this.bound(await abortable(this.connect(),ctrl.signal),job.owner);
         if (ctrl.signal.aborted) throw new Error('Stopped');
-        if (JSON.stringify(messages).length > LIMITS.context) throw new InputError('Tool context exceeded the local size limit. Start a shorter conversation.');
-        const body = { model: job.model, messages: structuredClone(messages), stream: true,
+        // Older agent results go as excerpts (core/agent.ts); the reply keeps them whole.
+        const sent = agent ? compactAgentHistory(messages) : messages;
+        if (JSON.stringify(sent).length > LIMITS.context) throw new InputError('Tool context exceeded the local size limit. Start a shorter conversation.');
+        const body = { model: job.model, messages: structuredClone(sent), stream: true,
           max_tokens: job.settings.maxTokens, stream_options: { include_usage: true } };
         if (job.settings.temperature !== null) body.temperature = job.settings.temperature;
         const cap=capabilityFor(job.model,this.capabilities), primary=job.lane!=='comparison';
@@ -498,7 +545,7 @@ export class WorkbenchService {
         if (finish === 'tool_calls') {
           if (!offeredTools.length) { reply.status = 'interrupted'; reply.error = 'Tools are disabled or the provider marks this model as not supporting tool calls.'; return; }
           if (!calls.length) throw new InputError('The provider ended with tool_calls but returned no valid tool call.');
-          if (round >= 4 || executed + calls.length > 8) throw new InputError('The per-response tool budget was reached (four rounds / eight calls). Nothing further was executed.');
+          if (round >= rounds - 1 || executed + calls.length > callBudget) throw new InputError(agent ? `The workspace agent reached its limit for one message (${rounds} rounds or ${callBudget} tool calls). Nothing further was run; send a message to let it continue.` : 'The per-response tool budget was reached (four rounds / eight calls). Nothing further was executed.');
           const assistant = { role: 'assistant', content: roundContent, tool_calls: calls };
           if (roundReasoning) assistant.reasoning_content = roundReasoning;
           messages.push(assistant); reply.toolMessages.push(structuredClone(assistant));
@@ -517,6 +564,7 @@ export class WorkbenchService {
             if(!offeredTools.some(t=>t.function.name===tool.name)){ tool.status='error';tool.stderr='This tool was not offered for this request. No action was performed.'; }
             else if(VISUAL_TOOL_NAMES.has(tool.name)) await this.runVisualTool(job.threadId,reply,tool,ctrl);
             else if(tool.name==='delegate_task') await this.runDelegate(job,reply,tool,ctrl,client);
+            else if(AGENT_TOOL_NAMES.has(tool.name)) await this.runAgentTool(job,reply,tool,ctrl,agent,clock);
             else await this.runTool(job.threadId, reply, tool, ctrl, true);
             const result = this.toolResult(call.id, tool);
             messages.push(result); reply.toolMessages.push(structuredClone(result));
@@ -526,7 +574,7 @@ export class WorkbenchService {
         }
         if (calls.length) throw new InputError('The provider returned tool calls without the expected completion marker. Nothing was executed.');
         if (['stop','length','content_filter'].includes(finish)) {
-          if (finish === 'stop') await this.recoverTextCalls(job, reply, offeredTools, ctrl, 8 - executed);
+          if (finish === 'stop') await this.recoverTextCalls(job, reply, offeredTools, ctrl, Math.min(8, callBudget - executed));
           reply.status = 'complete';
           if (finish === 'length') reply.error = outputLimitNotice(reply.content, reply.reasoning, job.settings.maxTokens);
           if (finish === 'content_filter') reply.error = 'The provider filtered part of this answer.';
@@ -671,8 +719,55 @@ export class WorkbenchService {
   }
   /** Tinfoil cloud chats are connected: a chat key is set and sync is not off. */
   cloudReady() { return !!this.cloud && this.cloud.snapshot().state !== 'off'; }
+  /** A workspace agent call (docs/WORKSPACE-AGENT.md). Reads, lists, searches and plans run at once. Edits, writes and
+   * commands wait for the user's approval in a native dialog (main.mjs); an edit or write is prepared first, so the
+   * dialog shows its diff, and is written only if the file has not changed since. Waiting does not count against the
+   * reply's time. */
+  async runAgentTool(job, reply, tool, ctrl, agent, clock) {
+    const tools = this.agentTools;
+    try {
+      if (!agent || !tools) throw new InputError('The workspace agent is off for this conversation. No action was performed.');
+      const args = agentArguments(tool.name, tool.arguments), started = Date.now();
+      tool.agent = { folder: agent.folder, ...(args.name === 'run_command' ? { shell: agent.shell } : {}) };
+      if (args.name === 'update_plan') {
+        tool.stdout = args.steps.map(step => `${step.status === 'completed' ? '[x]' : step.status === 'in_progress' ? '[>]' : '[ ]'} ${step.text}`).join('\n');
+        tool.status = 'complete'; return;
+      }
+      if (!AGENT_APPROVED.has(args.name)) {
+        tool.status = 'running'; this.emit();
+        const result = args.name === 'list_files' ? await tools.list({ folder: agent.folder, ...args })
+          : args.name === 'search_files' ? await tools.search({ folder: agent.folder, ...args, signal: ctrl.signal }) : await tools.read({ folder: agent.folder, ...args });
+        Object.assign(tool, { stdout: result.text.slice(0, 100000), elapsedMs: Date.now() - started, status: 'complete' }); return;
+      }
+      const change = args.name === 'edit_file' ? await tools.prepareEdit({ folder: agent.folder, ...args })
+        : args.name === 'write_file' ? await tools.prepareWrite({ folder: agent.folder, ...args }) : null;
+      if (change) tool.agent.diff = change.diff;
+      tool.status = 'awaiting_approval'; reply.status = 'awaiting_approval';
+      const approved = new Promise(resolve => this.approvals.set(tool.id, { threadId: job.threadId, tool, resolve }));
+      await this.save(); this.emit();
+      let allow; clock.pause();
+      try { allow = await abortable(approved, ctrl.signal); } finally { this.approvals.delete(tool.id); clock.resume(); }
+      if (!allow) {
+        tool.status = 'denied';
+        tool.stderr = change ? 'The user declined this change. Do not make it again unless the user asks.' : 'The user declined this command. Do not run it again unless the user asks.';
+        return;
+      }
+      if (ctrl.signal.aborted) throw new InputError('Cancelled.');
+      tool.status = 'running'; reply.status = 'executing'; await this.save(); this.emit();
+      const begun = Date.now();
+      if (change) { Object.assign(tool, { stdout: await tools.apply(change), elapsedMs: Date.now() - begun, status: 'complete' }); return; }
+      const result = await tools.run({ folder: agent.folder, shell: agent.shell, ...args, signal: ctrl.signal,
+        onOutput: partial => { tool.stdout = String(partial.stdout ?? '').slice(0, 100000); tool.stderr = String(partial.stderr ?? '').slice(0, 100000); this.emitSoon(); } });
+      Object.assign(tool, { stdout: result.stdout.slice(0, 100000), stderr: result.stderr.slice(0, 100000), exitCode: result.exitCode, elapsedMs: result.elapsedMs,
+        truncated: result.truncated, status: result.stopped ? 'cancelled' : result.timedOut ? 'error' : 'complete' });
+    } catch (error) {
+      tool.status = ctrl.signal.aborted ? 'cancelled' : 'error';
+      tool.stderr = error instanceof InputError ? error.message : ctrl.signal.aborted ? 'Cancelled.' : `The workspace tool failed${error?.code ? ` (${error.code})` : ''}.`;
+    } finally { this.approvals.delete(tool.id); await this.save().catch(() => {}); this.emit(); }
+  }
   /** The tool message that answers a call, as the model sees it in later requests. */
   toolResult(callId, tool) {
+    if (AGENT_TOOL_NAMES.has(tool.name)) return { role: 'tool', tool_call_id: callId, content: JSON.stringify(agentResult(tool)) };
     return { role: 'tool', tool_call_id: callId, content: JSON.stringify({
       status: tool.status, stdout: tool.stdout, stderr: tool.stderr, exit_code: tool.exitCode,
       ...(tool.delegate?{model:tool.delegate.model,usage:tool.delegate.usage,orchestration:'client',context:'explicit task only'}:{}),

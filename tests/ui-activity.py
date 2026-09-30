@@ -1,5 +1,5 @@
 """v0.8 production renderer: synthetic snapshots, never live requests or approvals."""
-import argparse,json
+import argparse,json,re
 from pathlib import Path
 from playwright.sync_api import sync_playwright,expect
 parser=argparse.ArgumentParser();parser.add_argument('--chromium',default=None);args=parser.parse_args()
@@ -57,6 +57,29 @@ with sync_playwright() as p:
   page.evaluate("window.__activitySeed('complete');window.__activityView({reasoning:'collapsed'})");page.locator('details.batch-activity > summary').click();page.locator('[data-tool-id=delegate] .activity-item-details > summary').click();page.locator('#transcript').evaluate('e=>e.scrollTop=0');page.wait_for_timeout(120)
   if width in [390,820,1280]:page.screenshot(path=str(root/'docs'/f'activity-{width}.png'))
   context.close()
+ # The workspace agent (docs/WORKSPACE-AGENT.md): off by default, turned on in Advanced, its folder chosen natively (a
+ # synthetic path in the preview), its calls drawn by kind; the offline preview never applies or runs anything.
+ context=browser.new_context(viewport={'width':1280,'height':900});page=context.new_page();page.on('pageerror',lambda e:errors.append(str(e)));page.on('request',lambda r:requests.append(r.url));page.set_content(html)
+ expect(page.locator('#composer-folder')).to_be_hidden();page.locator('.toolbar [data-action=inspector]').click();expect(page.locator('#agent-settings')).to_be_visible();expect(page.locator('#agent-mode')).not_to_be_checked()
+ page.locator('#agent-mode').check();page.locator('#apply-settings').click();page.locator('#inspector [data-action=inspector]').click()
+ chip=page.locator('#composer-folder');expect(chip).to_be_visible();expect(chip).to_have_class(re.compile(r'\bunset\b'));expect(chip).to_have_text('Choose folder')
+ chip.click();expect(page.locator('#composer-folder-name')).to_have_text('example-project');expect(chip).not_to_have_class(re.compile(r'\bunset\b'));expect(chip).to_have_attribute('title',re.compile(r'C:\\Preview\\example-project'))
+ checks.append('the workspace agent is off by default, turned on in Advanced, and its folder is shown on the composer once chosen')
+ page.locator('#prompt').fill('workspace agent demo');page.locator('#send').click()
+ edit=page.locator('.tool-run[data-state=awaiting_approval]').filter(has_text='Edit file');expect(edit).to_be_visible()
+ expect(edit.locator('.agent-subject')).to_have_text('src/sum.js');expect(edit.locator('.agent-diff .del')).to_have_text('-  return values.reduce((a, b) => a + b);');expect(edit.locator('.agent-diff .add')).to_have_text('+  return values.reduce((a, b) => a + b, 0);')
+ expect(edit.locator('[data-action=approve-tool]')).to_have_text('Review & apply…')
+ command=page.locator('.tool-run[data-state=awaiting_approval]').filter(has_text='Command');expect(command.locator('.agent-command')).to_have_text('npm test -- --reporter dot')
+ expect(command.locator('.agent-where')).to_contain_text('Windows PowerShell 5.1');expect(command.locator('.approval-warning')).to_contain_text('not in a sandbox');expect(command.locator('[data-action=approve-tool]')).to_have_text('Review & run once…')
+ expect(page.locator('.response-activity')).to_contain_text('Approval needed · step 2 of 30')
+ plan=page.locator('.agent-plan-current li');expect(plan).to_have_count(3);assert [plan.nth(i).get_attribute('data-status') for i in range(3)]==['completed','in_progress','pending']
+ checks.append('agent calls are drawn by kind: a change as a coloured diff, a command with its folder and shell, the current plan above them, and the step count in the status line')
+ page.locator('.tool-activity > summary').filter(has_text='4 tool runs').click();finished=page.locator('.tool-run[data-state=complete]')
+ expect(finished.filter(has_text='Read file').locator('.agent-subject')).to_have_text('src/sum.js')
+ failed=finished.filter(has_text='npm test');expect(failed.locator('.tool-stdout')).to_contain_text('TypeError');expect(failed.locator('.tool-metadata')).to_contain_text('exit 1')
+ edit.locator('[data-action=approve-tool]').click();expect(page.locator('#toast')).to_contain_text('does not execute Python, run commands, change files')
+ checks.append('finished agent calls keep their results in the history, and the offline preview refuses to apply or run anything')
+ page.screenshot(path=str(root/'docs'/'agent-1280.png'));context.close()
  assert not errors,errors;assert not [u for u in requests if u.startswith(('http:','https:'))],requests;checks.append('activity checks produced no unhandled JavaScript errors or external requests')
  browser.close()
 report={'checks':len(checks),'passed':checks,'javascript_errors':errors,'scope':'Linux Chromium with synthetic snapshots; emulated touch; no live MCP, sub-agent, API billing or native approval execution.'}

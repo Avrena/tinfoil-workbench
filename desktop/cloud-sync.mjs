@@ -239,6 +239,7 @@ export class CloudSync {
     const t = findThread(this.ws, id); if (t.cloud) return;
     if (!t.turns.length) throw new InputError('Send a message in this conversation before moving it to Tinfoil cloud.');
     if (t.turns.some(turn => turn.role)) throw new InputError('Tinfoil cloud chats have no place for messages added in another role. This conversation stays on this device.');
+    if (t.agentFolder || t.turns.some(turn => turn.replies.some(r => (r.tools ?? []).some(tool => tool.agent)))) throw new InputError('This conversation used the workspace agent, whose commands, reads and file changes exist only on this computer. It stays on this device.');
     if (t.projectId && !this.ws.projects.find(p => p.id === t.projectId)?.cloud)
       throw new InputError('This conversation is in a local project. Move it out of the project, or into a cloud project, before moving it to Tinfoil cloud.');
     if (this.ws.threads.filter(x => x.cloud).length >= LIMITS.cloudChats) throw new InputError('Too many cloud chats on this device. Delete some first.');

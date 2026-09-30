@@ -3,7 +3,7 @@ import type { ApiMessage, Attachment, GenerationJob, GenerationSettings, Reply, 
 import { addVersion, everyTurn } from './versions.js';
 import { InputError, LIMITS, attachments as checkAttachments, text, validateThread } from './validation.js';
 export const defaults: GenerationSettings = {
-  toolsMode: 'off', visualTools: true, webSearch: false, delegateMode: 'off', thinkingMode: 'default', compareReasoningEffort: 'default', compareThinkingMode: 'default', model: '', compareModel: '', compare: false, systemPrompt: '', systemPromptName: '',
+  toolsMode: 'off', visualTools: true, webSearch: false, delegateMode: 'off', agentMode: 'off', agentShell: 'powershell', thinkingMode: 'default', compareReasoningEffort: 'default', compareThinkingMode: 'default', model: '', compareModel: '', compare: false, systemPrompt: '', systemPromptName: '',
   temperature: null, maxTokens: 32768, reasoningEffort: 'default',
 };
 /** The output limit of new conversations before 0.18.0. Reasoning counts against it, and some reasoning models spent
@@ -20,7 +20,8 @@ export function outputLimitNotice(content: string, reasoning: string, limit: num
 export const uid = (): string => crypto.randomUUID();
 export function newThread(seed: GenerationSettings = defaults): Thread {
   const now = Date.now();
-  return { id: uid(), title: 'New conversation', createdAt: now, updatedAt: now, pinned: false, settings: { ...seed }, turns: [], draft: '', draftAttachments: [] };
+  // The workspace agent is turned on per conversation, with its folder; a new conversation starts without it.
+  return { id: uid(), title: 'New conversation', createdAt: now, updatedAt: now, pinned: false, settings: { ...seed, agentMode: 'off' }, turns: [], draft: '', draftAttachments: [] };
 }
 export function newWorkspace(): Workspace {
   const thread = newThread();
@@ -150,6 +151,8 @@ export function forkThread(workspace: Workspace, sourceId: string, turnId: strin
   branch.title = `${source.title.slice(0, 102)} · branch`;
   branch.projectId = source.projectId ?? null; branch.branchOf = source.id;
   if(source.connectionOwner)branch.connectionOwner=source.connectionOwner;
+  // A branch continues in the same folder.
+  branch.settings.agentMode = source.settings.agentMode; if (source.agentFolder) branch.agentFolder = source.agentFolder;
   branch.turns = structuredClone(source.turns.slice(0, before ? index : index + 1));
   // A branch starts from the path shown; the versions set aside stay with the source.
   for (const t of branch.turns) { delete t.versions; delete t.version; }
@@ -219,6 +222,7 @@ export function exportMarkdown(thread: Thread): string {
         lines.push(`### Tool: ${tool.name} (${tool.status}; ${tool.origin})`, '');
         if (tool.batchId) lines.push(`Batch: ${tool.batchId} · action ${(tool.batchIndex ?? 0)+1}/${tool.batchSize ?? '?'} · sequential client execution`, '');
         if (tool.provider) lines.push('Provider-reported Tinfoil-managed MCP activity; not executed by this client.', '', ...tool.provider.sources.map(s=>`Source: ${s.title} — ${s.url}`), '');
+        if (tool.agent) lines.push(`Workspace agent · folder ${tool.agent.folder}${tool.agent.shell ? ` · ${tool.agent.shell === 'bash' ? 'Git Bash' : 'Windows PowerShell 5.1'}` : ''}`, '', ...(tool.agent.diff ? ['```diff', tool.agent.diff.trimEnd(), '```', ''] : []));
         if (tool.delegate) lines.push(`Client-orchestrated sub-agent: ${tool.delegate.model} · explicit task only`, '', ...(tool.delegate.usage ? [`Delegate usage only: ${tool.delegate.usage.input} input / ${tool.delegate.usage.output} output tokens`, ''] : []));
         lines.push(tool.arguments, '', 'Output:', '', tool.stdout, '', tool.stderr, '', ...tool.artifacts.map(a => `Artifact: ${a.name} (${a.mime}; binary content is included in JSON export only)`), '');
         if (tool.delegate?.reasoning) lines.push('#### Child reasoning (provider-returned)', '', tool.delegate.reasoning, '');
