@@ -1,3 +1,4 @@
+import { defaultTheme, themePreferences, type ThemePreferences } from './themes.js';
 export interface ViewPreferences {
   motion: 'system' | 'reduced'; autoArtifacts: boolean; sidebar: boolean; inspector: boolean; focus: boolean;
   reasoning: 'collapsed' | 'expanded' | 'hidden';
@@ -8,11 +9,13 @@ export interface ViewPreferences {
   roleMessages: boolean;
   /** The sidebar's Projects and Threads sections, folded to their headings. */
   projectsFolded: boolean; threadsFolded: boolean;
+  /** Settings → Appearance (core/themes.ts). */
+  theme: ThemePreferences;
 }
 export const defaultView: ViewPreferences = {
   motion: 'system', autoArtifacts: false, sidebar: true, inspector: false, focus: false, reasoning: 'collapsed',
   markdown: true, math: true, metadata: false, wrapCode: false, threadTab: 'cloud', roleMessages: false,
-  projectsFolded: false, threadsFolded: false,
+  projectsFolded: false, threadsFolded: false, theme: defaultTheme,
 };
 export function viewPreferences(value: unknown): ViewPreferences {
   const v = value && typeof value === 'object' ? value as Record<string, unknown> : {};
@@ -23,5 +26,6 @@ export function viewPreferences(value: unknown): ViewPreferences {
   if (['collapsed','expanded','hidden'].includes(String(v.reasoning))) result.reasoning = v.reasoning as ViewPreferences['reasoning'];
   if (v.motion === 'reduced') result.motion = 'reduced';
   if (v.threadTab === 'local') result.threadTab = 'local';
+  result.theme = themePreferences(v.theme);
   return result;
 }

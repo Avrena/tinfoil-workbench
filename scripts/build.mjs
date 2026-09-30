@@ -14,9 +14,13 @@ await mkdir('dist', { recursive: true });
 await copyFile('src/renderer/index.html', 'dist/index.html');
 // The approval window's page and styles (desktop/approval-window.mjs); its script is compiled with the rest.
 await copyFile('src/renderer/approval.html', 'dist/approval.html');
-await copyFile('src/renderer/approval.css', 'dist/approval.css');
+// Colours are theme tokens; the Workbench dark values come first as the defaults, until the page applies the user's
+// theme (src/core/themes.ts), and in the approval window, which gets the theme from the main process.
+const { themeTokens, tokenRule, THEME_PRESETS } = await import(new URL('../dist/core/themes.js', import.meta.url).href);
+const defaults = tokenRule(':root', themeTokens(THEME_PRESETS[0].dark, 'dark')).replace('{', '{color-scheme:dark;') + '\n';
+await writeFile('dist/approval.css', defaults + await readFile('src/renderer/approval.css', 'utf8'));
 // Keep a dedicated spacing layer, bundled into the same local stylesheet.
-await writeFile('dist/style.css', (await readFile('src/renderer/style.css', 'utf8')) + '\n' + (await readFile('src/renderer/spacing.css', 'utf8')));
+await writeFile('dist/style.css', defaults + (await readFile('src/renderer/style.css', 'utf8')) + '\n' + (await readFile('src/renderer/spacing.css', 'utf8')));
 console.log('Built TypeScript core and renderer.');
 
 if (existsSync('node_modules/pdfjs-dist/build/pdf.mjs')) {

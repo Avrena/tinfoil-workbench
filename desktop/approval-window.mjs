@@ -4,9 +4,10 @@ import { join } from 'node:path';
  * one pending call, or for a question it asks before acting (`confirmation`), from app://approval: another origin than
  * the conversation page, with its own preload. It shows the request the main process built (core/approval.ts), and
  * only that window can answer it; closing it declines. */
-export function createApprovals({ BrowserWindow, ipcMain, screen, root, devTools = false }) {
+export function createApprovals({ BrowserWindow, ipcMain, screen, root, devTools = false, theme = null }) {
   const open = new Map(); // webContents id -> { request, win, decided, fitted }
-  ipcMain.handle('approval:request', event => open.get(event.sender.id)?.request ?? null);
+  // The request, with the conversation window's theme so the approval window matches it.
+  ipcMain.handle('approval:request', event => { const entry = open.get(event.sender.id); return entry ? { ...entry.request, ...(entry.theme ? { theme: entry.theme } : {}) } : null; });
   ipcMain.on('approval:decide', (event, approve) => {
     const entry = open.get(event.sender.id);
     if (!entry || entry.decided !== null) return;
@@ -26,12 +27,13 @@ export function createApprovals({ BrowserWindow, ipcMain, screen, root, devTools
     /** Resolves true only when the person chose to approve in this window. `onShow` is for the smoke test. */
     ask(parent, request, { onShow } = {}) {
       return new Promise(resolve => {
+        const look = theme?.() ?? null;
         const win = new BrowserWindow({ parent: parent ?? undefined, modal: !!parent, show: false, width: request.kind === 'confirm' ? 520 : 680, height: 420, useContentSize: true,
-          minWidth: 420, minHeight: request.kind === 'confirm' ? 120 : 220, title: 'Tinfoil Workbench', backgroundColor: '#1e1e1e', autoHideMenuBar: true,
+          minWidth: 420, minHeight: request.kind === 'confirm' ? 120 : 220, title: 'Tinfoil Workbench', backgroundColor: look?.tokens.n0 ?? '#1e1e1e', autoHideMenuBar: true,
           minimizable: false, maximizable: false, fullscreenable: false,
           webPreferences: { preload: join(root, 'desktop', 'approval-preload.cjs'), contextIsolation: true, nodeIntegration: false,
             sandbox: true, webSecurity: true, webviewTag: false, spellcheck: false, devTools } });
-        const id = win.webContents.id, entry = { request, win, decided: null, fitted: false };
+        const id = win.webContents.id, entry = { request, theme: look, win, decided: null, fitted: false };
         open.set(id, entry);
         win.setMenu(null);
         // The heading already asks the question; the title bar names the app.

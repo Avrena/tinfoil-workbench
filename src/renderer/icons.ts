@@ -16,7 +16,8 @@ const paths: Record<string,string> = {
   cloud:'M7 18a4 4 0 0 1-.6-7.96A6 6 0 0 1 17.8 8.5 4.75 4.75 0 0 1 17.25 18z',
   minus:'M5 12h14', square:'M5 5h14v14H5z', check:'m5 12 4 4L19 6', down:'m6 9 6 6 6-6', pin:'m8 3 8 0-1 6 4 4H5l4-4zM12 13v8',
   instructions:'M6 3h8l4 4v14H6zM14 3v4h4M9 12h6M9 16h4', person:'M12 4a4 4 0 1 0 0 8 4 4 0 0 0 0-8M5 20a7 7 0 0 1 14 0',
-  image:'M4 5h16v14H4zM4 16l5-5 4 4 2-2 5 5M15 9h.01', tools:'M9 4H8a2 2 0 0 0-2 2v4l-2 2 2 2v4a2 2 0 0 0 2 2h1M15 4h1a2 2 0 0 1 2 2v4l2 2-2 2v4a2 2 0 0 1-2 2h-1',
+  image:'M4 5h16v14H4zM4 16l5-5 4 4 2-2 5 5M15 9h.01', monitor:'M3 4h18v12H3zM8 20h8M12 16v4',
+  sun:'M12 8a4 4 0 1 0 0 8 4 4 0 0 0 0-8M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4', moon:'M20 14.5A8 8 0 1 1 9.5 4a6.5 6.5 0 0 0 10.5 10.5z', tools:'M9 4H8a2 2 0 0 0-2 2v4l-2 2 2 2v4a2 2 0 0 0 2 2h1M15 4h1a2 2 0 0 1 2 2v4l2 2-2 2v4a2 2 0 0 1-2 2h-1',
 };
 export const icon = (name:string):string => `<svg viewBox="0 0 24 24" aria-hidden="true"><path d="${paths[name] ?? paths.chat}"/></svg>`;
 /** A dashboard gauge for the thinking effort: one segment per level the model offers, filled up to `level` (0 is the

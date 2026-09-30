@@ -48,9 +48,17 @@ function marked(text: string, paths: string[]): DocumentFragment {
   return fragment;
 }
 
+/** The conversation window's theme, checked like any other input: token names and hex colours only. */
+function applyTheme(theme: ApprovalRequest['theme']): void {
+  if (!theme) return;
+  const root = document.documentElement;
+  for (const [name, value] of Object.entries(theme.tokens)) if (/^[a-z][a-z0-9-]{0,40}$/.test(name) && /^#[0-9a-f]{6}([0-9a-f]{2})?$/.test(value)) root.style.setProperty(`--${name}`, value);
+  root.style.colorScheme = theme.variant === 'light' ? 'light' : 'dark';
+}
 async function show(): Promise<void> {
   const request = await bridge.request();
   if (!request) { bridge.decide(false); return; }
+  applyTheme(request.theme);
   document.title = request.title; document.body.dataset.kind = request.kind; document.body.dataset.tone = request.tone ?? '';
   if (request.kind === 'confirm') $('title').replaceChildren(mark(request.tone ?? 'question'), element('span', 'title-text', request.title));
   else $('title').textContent = request.title;

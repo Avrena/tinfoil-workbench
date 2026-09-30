@@ -29,6 +29,7 @@ import { AccountStore } from './account-store.mjs';
 import { resourcePath, trustedFrame, publicError } from '../dist/core/security.js';
 import { InputError, record, identifier, text, attachments, LIMITS } from '../dist/core/validation.js';
 import { findThread, exportThread, exportMarkdown } from '../dist/core/workspace.js';
+import { themePreferences, themeTokens, themeVariant } from '../dist/core/themes.js';
 import { TEXT_EXTENSIONS, IMAGE_EXTENSIONS, IMAGE_LIMITS, PDF_SOURCE_BYTES, attachmentKind, folderKey, unknownFolder } from '../dist/core/attachments.js';
 const root = dirname(dirname(fileURLToPath(import.meta.url)));
 const smoke = process.argv.includes('--smoke-test');
@@ -70,6 +71,7 @@ async function launch() {
     token: async force => (await account.sessionToken(force)).bearer,
   })})});
   await service.initialize();
+  syncTheme();
   // Cloud chats sync after sign-in and then every ten minutes while the app is open.
   if (!smoke) setInterval(() => service.syncCloud(), 600_000).unref?.();
   await account.setRemember(service.workspace.rememberAccount!==false);
@@ -98,9 +100,9 @@ async function launch() {
     const u = new URL(details.url);
     callback({ cancel: !(u.protocol === 'app:' && (u.hostname === 'workbench' || u.hostname === 'approval')) && !['about:', 'data:'].includes(u.protocol) });
   });
-  approvals = createApprovals({ BrowserWindow, ipcMain, screen, root, devTools: !app.isPackaged });
+  approvals = createApprovals({ BrowserWindow, ipcMain, screen, root, devTools: !app.isPackaged, theme: currentTheme });
   window = new BrowserWindow({ width: 1440, height: 920, minWidth: 360, minHeight: 420,
-    title: 'Tinfoil Workbench', backgroundColor: '#1e1e1e', frame: false, show: false,
+    title: 'Tinfoil Workbench', backgroundColor: currentTheme().tokens.n0, frame: false, show: false,
     icon: join(root, 'assets', 'icon.ico'),
     webPreferences: { preload: join(root, 'desktop', 'preload.cjs'), contextIsolation: true,
       nodeIntegration: false, sandbox: true, webSecurity: true, webviewTag: false,
@@ -188,6 +190,17 @@ function guarded(handler) {
     } catch (error) { return { ok: false, error: publicError(error) }; }
   };
 }
+/** The theme the windows show (Settings → Appearance), for the approval window and window backgrounds. */
+function currentTheme() {
+  const theme = themePreferences(service?.workspace.view.theme), variant = themeVariant(theme.mode, nativeTheme.shouldUseDarkColors);
+  return { variant, tokens: themeTokens(theme[variant], variant) };
+}
+/** Native dialogs, the window frame and the page's prefers-color-scheme follow the chosen mode. */
+function syncTheme() {
+  const { mode } = themePreferences(service.workspace.view.theme);
+  nativeTheme.themeSource = mode;
+  if (window && !window.isDestroyed()) window.setBackgroundColor(currentTheme().tokens.n0);
+}
 /** Folders the user dropped or pasted in this session (preload `folderFor`), which a message may attach. */
 const droppedFolders = new Set();
 async function droppedFolder(input) {
@@ -227,6 +240,7 @@ async function boundedRead(path, limit) {
 async function command(input) {
   const c = record(input); text(c.type, 'Command', 80, true);
   if (c.type === 'send' || c.type === 'thread.draft') checkFolders(c);
+  if (c.type === 'view.set') { await service.execute(c); syncTheme(); return { snapshot: service.snapshot() }; }
   switch (c.type) {
     case 'account.login': {
       if(service.busyThreadId||service.connection)throw new InputError('Stop the response or wait for verification before signing in.');

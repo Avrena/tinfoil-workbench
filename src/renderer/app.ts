@@ -18,6 +18,7 @@ import { capabilityFor } from '../core/capabilities.js';
 import { pickerModels, pickerModel, modelMatches, type PickerModel } from '../core/model-list.js';
 import { makerMark, modelRow, customModelRow, composerModel } from './model-view.js';
 import { viewPreferences, type ViewPreferences } from '../core/preferences.js';
+import { themeTokens, themeVariant, type ThemePreferences } from '../core/themes.js';
 import { renderDataPreview, staticPreview } from './artifacts.js';
 import { escapeHtml as e, clearMarkdownCaches, extractCodeBlocks } from '../core/markdown.js';
 import { effortGauge, turnEffortGauge, icon, button } from './icons.js';
@@ -25,6 +26,7 @@ import { AGENT_TOOL_NAMES, AGENT_LIMITS } from '../core/agent.js';
 import { STARTER_INSTRUCTIONS, activeInstructions } from '../core/instructions.js';
 import { instructionsListMarkup, instructionsSummary } from './instructions-view.js';
 import { prepareFile, pickedFile } from './attach.js';
+import { AppearanceSettings } from './appearance.js';
 const app = document.querySelector<HTMLDivElement>('#app')!;
 type ChoiceOption=readonly [value:string,glyph:string,short:string,title:string];
 const THINKING:ChoiceOption[]=[['default','spark','Default','Provider default'],['enabled','check','On','Enabled'],['disabled','minus','Off','Disabled']];
@@ -48,7 +50,7 @@ app.innerHTML = `<div class="shell no-inspector" id="shell">
   <footer class="statusbar"><button data-action="verify" id="status-connection"></button><span class="spacer"></span><span id="status-activity" role="status" aria-live="polite"></span></footer>
 </div>
 <dialog id="account-dialog" aria-labelledby="account-title"><div class="modal-head"><h2 id="account-title">Account & connection</h2>${button('dismiss','Close account','close','class="icon-button"')} </div><div class="modal-body" id="account-body"></div></dialog>
-<dialog id="settings-dialog"><div class="modal-head"><h2>Settings</h2>${button('dismiss','Close settings','close','class="icon-button"')}</div><div class="modal-body"><form id="key-form"><div class="settings-account-link"><div><strong>Tinfoil Chat account</strong><p>Sign in with your subscription, or use a separate API key below.</p></div><button type="button" data-action="account">Account…</button></div><div class="eyebrow">Developer API key</div><p>This key is separate from a Chat subscription. Saving a key does not switch an active Chat account to API billing.</p><div class="key-status" id="key-status"></div><label for="api-key">Tinfoil API key</label><input id="api-key" type="password" placeholder="Paste a new API key" autocomplete="off" spellcheck="false" maxlength="4096"><div class="modal-actions"><button type="button" data-action="docs">API key guide</button><button type="button" data-action="forget-key" class="danger" id="forget-key">Forget key</button><button type="submit" class="primary" id="save-key">Save & verify</button></div><p class="modal-foot" id="key-feedback" role="status"></p></form><p class="muted small settings-notice">Tinfoil Workbench is an unofficial client for Tinfoil. It is not affiliated with or endorsed by Tinfoil, and its icon is its own.</p></div></dialog>
+<dialog id="settings-dialog"><div class="modal-head"><h2>Settings</h2>${button('dismiss','Close settings','close','class="icon-button"')}</div><div class="modal-body settings-body"><section class="settings-section" aria-labelledby="appearance-title"><div class="eyebrow" id="appearance-title">Appearance</div>${choice('theme-mode','Theme',[['system','monitor','System','Follow the system setting'],['light','sun','Light','Light'],['dark','moon','Dark','Dark']])}<div class="theme-cards" id="theme-cards"></div></section><div class="theme-popover" id="theme-popover" hidden></div><form id="key-form"><div class="settings-account-link"><div><strong>Tinfoil Chat account</strong><p>Sign in with your subscription, or use a separate API key below.</p></div><button type="button" data-action="account">Account…</button></div><div class="eyebrow">Developer API key</div><p>This key is separate from a Chat subscription. Saving a key does not switch an active Chat account to API billing.</p><div class="key-status" id="key-status"></div><label for="api-key">Tinfoil API key</label><input id="api-key" type="password" placeholder="Paste a new API key" autocomplete="off" spellcheck="false" maxlength="4096"><div class="modal-actions"><button type="button" data-action="docs">API key guide</button><button type="button" data-action="forget-key" class="danger" id="forget-key">Forget key</button><button type="submit" class="primary" id="save-key">Save & verify</button></div><p class="modal-foot" id="key-feedback" role="status"></p></form><p class="muted small settings-notice">Tinfoil Workbench is an unofficial client for Tinfoil. It is not affiliated with or endorsed by Tinfoil, and its icon is its own.</p></div></dialog>
 <dialog id="view-dialog"><div class="modal-head"><h2>Reading & visibility</h2>${button('dismiss','Close reading settings','close','class="icon-button"')}</div><div class="modal-body"><label for="view-reasoning">Model reasoning</label><select id="view-reasoning"><option value="collapsed">Collapsed by default</option><option value="expanded">Expanded</option><option value="hidden">Hidden</option></select><p>Only reasoning actually returned by the provider is shown. Hiding it does not disable model reasoning.</p><label class="toggle-row"><span>Render Markdown</span><input id="view-markdown" type="checkbox"></label><label class="toggle-row"><span>Render LaTeX maths</span><input id="view-math" type="checkbox"></label><label class="toggle-row"><span>Show timing, tokens & context size</span><input id="view-metadata" type="checkbox"></label><label class="toggle-row"><span>Wrap long code lines</span><input id="view-wrapCode" type="checkbox"></label><label class="toggle-row"><span>Also open the workspace automatically</span><input id="view-autoArtifacts" type="checkbox"></label><label for="view-motion">Animations</label><select id="view-motion"><option value="system">Follow Windows motion preference</option><option value="reduced">Reduced motion</option></select><label class="toggle-row"><span>Focus mode <kbd>Ctrl Shift F</kbd></span><input id="view-focus" type="checkbox"></label><p>Tool approvals and errors remain visible in every mode.</p></div></dialog>
 <dialog id="model-dialog"><div class="modal-head"><h2>Choose model</h2>${button('dismiss','Close model picker','close','class="icon-button"')}</div><form id="model-form" class="modal-body"><label for="quick-model" class="sr-only">Search models</label><input id="quick-model" type="search" placeholder="Search models or enter a model ID" autocomplete="off" spellcheck="false" enterkeyhint="go"><div id="model-options" class="model-options" role="group" aria-label="Models"></div><div class="modal-actions"><button type="button" data-action="show-inspector">Advanced…</button><button class="primary" type="submit">Use model</button></div></form></dialog>
 <dialog id="instructions-dialog" aria-labelledby="instructions-title"><div class="modal-head"><h2 id="instructions-title">System instructions</h2>${button('instructions-close','Close system instructions','close','class="icon-button"')}</div><div class="modal-body">
@@ -156,7 +158,8 @@ function accept(snapshot:Snapshot):void {
   // An answer being edited can leave its conversation's path without a save, for example when a cloud chat is read again.
   const answer=inlineEditor.session;
   if(answer&&!inlineEditor.isSaving&&!state.workspace.threads.find(t=>t.id===answer.threadId)?.turns.some(t=>t.id===answer.turnId&&t.replies.some(r=>r.id===answer.replyId))){inlineEditor.close();toast('The answer being edited is no longer shown, so its edit was closed.',true);}
-  view = viewPreferences(snapshot.workspace.view); applyView();
+  // A theme still being edited (Settings → Appearance) stays until it is saved.
+  const stored=viewPreferences(snapshot.workspace.view); view=themeTimer?{...stored,theme:view.theme}:stored; applyView();
   const switched=currentId!==state.workspace.activeId;
   if (switched) { currentId=state.workspace.activeId; configDirty=!!configDrafts.get(currentId); }
   renderSidebar();
@@ -1005,7 +1008,7 @@ async function action(name:string, target?:HTMLElement):Promise<void> {
     case 'account-mode-api':await dispatch({type:'connection.mode',mode:'api-key'});break;
     case 'account-api':dismiss();$('key-feedback').textContent='';showDialog('settings-dialog');break;
     case 'account-connect':await connect();break;
-    case 'settings': $('key-feedback').textContent=''; showDialog('settings-dialog'); break;
+    case 'settings': $('key-feedback').textContent=''; renderAppearance(); showDialog('settings-dialog'); break;
     case 'dismiss': dismiss(); break;
     case 'inspector':if(responsive.compact)responsive.showAdvanced();else{artifactPanel.close();await setView({inspector:!view.inspector,focus:false});}findPythonIfNeeded();break;
     case 'sidebar':if(responsive.compact)responsive.showNavigation();else await setView({sidebar:!view.sidebar,focus:false});break;
@@ -1133,7 +1136,42 @@ document.addEventListener('click',event=>{
   if(target.dataset.removeFile!==undefined) { const files=pendingFiles.get(current().id)??[]; files.splice(Number(target.dataset.removeFile),1); renderAttachments(); saveDraft(); return; }
   if(target.classList.contains('copy-code')) { const content=target.closest('.code-block')?.querySelector('pre code')?.textContent; if(content) void dispatch({type:'clipboard',text:content}).then(ok=>{if(ok)toast('Code copied.');}); }
 });
+/** Settings → Appearance. A change applies at once and is saved a moment after the last one, so dragging a slider or
+ * a colour does not write the workspace on every step; snapshots meanwhile keep the theme being edited. */
+const appearance=new AppearanceSettings($('theme-cards'),$('theme-popover'),theme=>setTheme(theme));
+let themeTimer:ReturnType<typeof setTimeout>|undefined;
+function setTheme(theme:ThemePreferences):void {
+  view={...view,theme};applyTheme(theme);
+  clearTimeout(themeTimer);themeTimer=setTimeout(()=>{themeTimer=undefined;void dispatch({type:'view.set',view});},300);
+}
+function renderAppearance():void {
+  $<HTMLSelectElement>('theme-mode').value=view.theme.mode;syncChoices();
+  appearance.render(view.theme,matchMedia('(prefers-color-scheme: dark)').matches);
+}
+/** Sets the theme's tokens on the page (core/themes.ts) and keeps a copy, so the next launch starts in it rather than
+ * in the default until the workspace has loaded. */
+function applyTheme(theme:ThemePreferences):void {
+  const variant=themeVariant(theme.mode,matchMedia('(prefers-color-scheme: dark)').matches),tokens=themeTokens(theme[variant],variant);
+  paintTheme(variant,tokens);
+  try{localStorage.setItem('workbench-theme',JSON.stringify({variant,tokens}));}catch{/* Only a faster first paint is lost. */}
+}
+let paintedTheme='',rethemeTimer:ReturnType<typeof setTimeout>|undefined;
+function paintTheme(variant:string,tokens:Record<string,string>):void {
+  const root=document.documentElement,key=variant+JSON.stringify(tokens);
+  if(paintedTheme===key)return;
+  for(const [name,value] of Object.entries(tokens))root.style.setProperty(`--${name}`,value);
+  root.style.colorScheme=variant;root.dataset.variant=variant;
+  // Artifact documents take the theme's colours when they are made, so the conversation is drawn again once the
+  // theme stops changing.
+  if(paintedTheme&&state){clearTimeout(rethemeTimer);rethemeTimer=setTimeout(()=>{renderId='';scheduleTranscript(true);},400);}
+  paintedTheme=key;
+}
+try{const saved=JSON.parse(localStorage.getItem('workbench-theme')??'null');if(saved&&(saved.variant==='dark'||saved.variant==='light')&&saved.tokens&&typeof saved.tokens==='object')paintTheme(saved.variant,Object.fromEntries(Object.entries(saved.tokens as Record<string,unknown>).filter(([k,v])=>/^[a-z][a-z0-9-]{0,40}$/.test(k)&&typeof v==='string'&&/^#[0-9a-f]{6,8}$/.test(v)) as [string,string][]));}catch{/* The stylesheet's defaults stay. */}
+matchMedia('(prefers-color-scheme: dark)').addEventListener('change',()=>{if(view.theme.mode!=='system')return;applyTheme(view.theme);if($<HTMLDialogElement>('settings-dialog').open)renderAppearance();});
+$('theme-mode').addEventListener('change',()=>{setTheme({...view.theme,mode:$<HTMLSelectElement>('theme-mode').value as ThemePreferences['mode']});renderAppearance();});
+$('settings-dialog').addEventListener('close',()=>appearance.close(false));
 function applyView():void {
+  applyTheme(view.theme);
   if(view.focus)artifactPanel.close(false);
   responsive.apply(view.sidebar,view.inspector,view.focus);
   document.documentElement.classList.toggle('reduce-motion',view.motion==='reduced');
@@ -1309,9 +1347,9 @@ document.addEventListener('keydown',event=>{
 });
 document.addEventListener('selectionchange',()=>{if(state&&window.getSelection()?.isCollapsed)scheduleTranscript(true);});
 $('tools-mode').addEventListener('change',()=>{renderPython();findPythonIfNeeded();});
-$('config-form').addEventListener('click',event=>{const b=(event.target as Element).closest<HTMLButtonElement>('.segmented button[data-value]');if(b)pickChoice(b);});
+for(const host of [$('config-form'),$('settings-dialog')])host.addEventListener('click',event=>{const b=(event.target as Element).closest<HTMLButtonElement>('.segmented button[data-value]');if(b)pickChoice(b);});
 // Arrow keys move between a choice's buttons and choose, as in a radio group.
-$('config-form').addEventListener('keydown',event=>{
+for(const host of [$('config-form'),$('settings-dialog')])host.addEventListener('keydown',event=>{
   const b=(event.target as Element).closest<HTMLButtonElement>('.segmented button[data-value]');
   if(!b||!['ArrowLeft','ArrowRight','ArrowUp','ArrowDown','Home','End'].includes(event.key))return;
   event.preventDefault();

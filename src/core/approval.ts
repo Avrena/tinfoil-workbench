@@ -10,6 +10,8 @@ export interface ApprovalRequest {
   message?: string; tone?: 'question' | 'warning' | 'danger';
   text?: string; diff?: string[];
   facts: string[]; outside: string[]; warning: string;
+  /** Added by the approval window: the conversation window's theme tokens (core/themes.ts). */
+  theme?: { variant: 'dark' | 'light'; tokens: Record<string, string> };
 }
 /** A question the main process asks before it acts (signing out, deleting, exporting, raising the agent's approval
  * level…), drawn by Workbench instead of a Windows message box. `text` is shown as is, in a fixed-width block (a

@@ -3,10 +3,23 @@ import { escapeHtml, markdown } from '../core/markdown.js';
  * navigation, form actions, event attributes and all external resources are removed.
  * The opaque-origin sandbox and restrictive CSP are independent additional boundaries.
  */
+/** The theme's text and line colours (core/themes.ts), so an artifact's own document reads on the conversation's
+ * background. Only hex values the theme set are used; anything else falls back to the dark defaults. */
+function documentColors(): { scheme: string; ink: string; line: string; theme: (source: string) => string } {
+  const style = getComputedStyle(document.documentElement);
+  const read = (name: string, fallback: string): string => { const value = style.getPropertyValue(name).trim(); return /^#[0-9a-f]{6}$/i.test(value) ? value : fallback; };
+  const map = Object.fromEntries(Object.entries(THEMED).map(([hex, token]) => [hex, read(token, hex)]));
+  return { scheme: document.documentElement.dataset.variant === 'light' ? 'light' : 'dark', ink: read('--n100', '#d4d4d4'), line: read('--n12', '#3c3c3c'),
+    theme: source => source.replace(/#(?:d4d4d4|a6a6a6|252526|1e1e1e|75b9ff|3c3c3c|363636)\b/gi, hex => map[hex.toLowerCase()] ?? hex) };
+}
+/** The colours the create_artifact tool asks models to use for inline visualizations (core/visual-tools.ts), which are
+ * the dark theme's; in an artifact they stand for the theme's text, muted text, panels, background, accent and lines. */
+const THEMED: Record<string, string> = { '#d4d4d4': '--n100', '#a6a6a6': '--n75', '#252526': '--n4', '#1e1e1e': '--n0', '#75b9ff': '--a100', '#3c3c3c': '--n12', '#363636': '--n13' };
 export function staticPreview(source: string): string {
+  const c = documentColors();
   // Parse in a detached, non-browsing document before applying an allowlist.
   const template = document.implementation.createHTMLDocument('').createElement('template');
-  template.innerHTML = source.slice(0, 200000);
+  template.innerHTML = c.theme(source.slice(0, 200000));
   const tags = new Set('html head body title style div span p h1 h2 h3 h4 h5 h6 b strong i em u s br hr pre code blockquote ul ol li dl dt dd table thead tbody tfoot tr th td caption main section article aside header footer nav figure figcaption a button label svg g path rect circle ellipse line polyline polygon text tspan defs lineargradient radialgradient stop clippath mask'.split(' '));
   const attributes = new Set('class style title role aria-label viewbox xmlns width height x y x1 x2 y1 y2 cx cy r rx ry d points fill stroke stroke-width stroke-linecap stroke-linejoin opacity transform offset stop-color stop-opacity preserveaspectratio text-anchor font-size font-family colspan rowspan'.split(' '));
   const inlineRules: string[] = [];
@@ -22,7 +35,7 @@ export function staticPreview(source: string): string {
     if (element.tagName.toLowerCase() === 'style') element.setAttribute('nonce', 'workbench-artifact');
     if (element.tagName.toLowerCase() === 'button') element.setAttribute('disabled', '');
   }
-  return '<!doctype html><html><head><meta http-equiv="Content-Security-Policy" content="default-src \'none\'; script-src \'none\'; style-src \'unsafe-inline\'; img-src \'none\'; connect-src \'none\'; frame-src \'none\'; object-src \'none\'; base-uri \'none\'; form-action \'none\'"><style nonce="workbench-artifact">html{color-scheme:dark;background:transparent}body{font:15px/1.6 system-ui;color:#d4d4d4;background:transparent;margin:0;padding:8px 0;overflow-wrap:anywhere}table{border-collapse:collapse}td,th{padding:8px;border:0;border-bottom:1px solid #3c3c3c}svg{max-width:100%;height:auto}pre{white-space:pre-wrap}' + inlineRules.join('\n') + '</style></head><body>' + template.innerHTML + '</body></html>';
+  return '<!doctype html><html><head><meta http-equiv="Content-Security-Policy" content="default-src \'none\'; script-src \'none\'; style-src \'unsafe-inline\'; img-src \'none\'; connect-src \'none\'; frame-src \'none\'; object-src \'none\'; base-uri \'none\'; form-action \'none\'"><style nonce="workbench-artifact">html{color-scheme:' + c.scheme + ';background:transparent}body{font:15px/1.6 system-ui;color:' + c.ink + ';background:transparent;margin:0;padding:8px 0;overflow-wrap:anywhere}table{border-collapse:collapse}td,th{padding:8px;border:0;border-bottom:1px solid ' + c.line + '}svg{max-width:100%;height:auto}pre{white-space:pre-wrap}' + inlineRules.join('\n') + '</style></head><body>' + template.innerHTML + '</body></html>';
 }
 export function renderDataPreview(language: string, source: string): string {
   if (['markdown','md'].includes(language)) return `<div class="reply-content artifact-markdown">${markdown(source, {codeTools: false})}</div>`;
@@ -36,8 +49,9 @@ export function renderDataPreview(language: string, source: string): string {
 /** Explicit, per-preview interaction. The child stays opaque: no same-origin,
  * preload, model bridge, navigation, popups, downloads, workers or network. */
 export function interactivePreview(source:string):string {
+  const c=documentColors();
   const template=document.implementation.createHTMLDocument('').createElement('template');
-  template.innerHTML=source.slice(0,100000);
+  template.innerHTML=c.theme(source.slice(0,100000));
   for(const element of [...template.content.querySelectorAll('*')]) {
     const tag=element.tagName.toLowerCase();
     if(['iframe','frame','frameset','object','embed','base','meta','link'].includes(tag)){element.remove();continue;}
@@ -53,5 +67,5 @@ export function interactivePreview(source:string):string {
     }
     if(tag==='style')element.setAttribute('nonce','workbench-artifact');
   }
-  return '<!doctype html><html><head><meta charset="utf-8"><meta http-equiv="Content-Security-Policy" content="default-src \'none\'; script-src \'nonce-workbench-artifact\'; style-src \'unsafe-inline\'; img-src data:; connect-src \'none\'; frame-src \'none\'; object-src \'none\'; worker-src \'none\'; base-uri \'none\'; form-action \'none\'"><style nonce="workbench-artifact">html{color-scheme:dark;background:transparent}body{font:15px/1.55 system-ui;margin:0;padding:8px 0;background:transparent;color:#d4d4d4}img,svg{max-width:100%}</style></head><body>'+template.innerHTML+'</body></html>';
+  return '<!doctype html><html><head><meta charset="utf-8"><meta http-equiv="Content-Security-Policy" content="default-src \'none\'; script-src \'nonce-workbench-artifact\'; style-src \'unsafe-inline\'; img-src data:; connect-src \'none\'; frame-src \'none\'; object-src \'none\'; worker-src \'none\'; base-uri \'none\'; form-action \'none\'"><style nonce="workbench-artifact">html{color-scheme:'+c.scheme+';background:transparent}body{font:15px/1.55 system-ui;margin:0;padding:8px 0;background:transparent;color:'+c.ink+'}img,svg{max-width:100%}</style></head><body>'+template.innerHTML+'</body></html>';
 }

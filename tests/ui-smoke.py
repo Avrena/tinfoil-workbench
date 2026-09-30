@@ -123,6 +123,19 @@ with sync_playwright() as p:
  assert page.locator('#settings-dialog #python-status, #settings-dialog [data-action=python-pick]').count()==0
  page.locator('#api-key').fill('preview-must-not-store');page.locator('#save-key').click();expect(page.locator('#api-key')).to_have_value('');expect(page.locator('#toast')).to_contain_text('cannot accept API keys');page.keyboard.press('Escape')
  checks.append('command palette opens settings; preview rejects and clears credentials')
+ # Settings → Appearance: a light preset recolours the page at once, is stored, and Escape in its popover keeps Settings open.
+ page.locator('.sidebar-bottom [data-action=settings]').click();expect(page.locator('#settings-dialog')).to_be_visible()
+ expect(page.locator('#theme-cards .theme-card')).to_have_count(1);page.locator('[data-for=theme-mode] [data-value=light]').click()
+ page.locator('[data-theme-preset=light]').click();expect(page.locator('#theme-popover [data-preset]')).to_have_count(17);page.locator('#theme-popover [data-preset=github]').click()
+ assert page.evaluate("getComputedStyle(document.querySelector('.main')).backgroundColor")=='rgb(255, 255, 255)',page.evaluate("getComputedStyle(document.querySelector('.main')).backgroundColor")
+ page.locator('[data-theme-color=light][data-key=accent]').click();page.locator('#theme-popover [data-hex]').fill('#aa3366');page.wait_for_timeout(100)
+ expect(page.locator('[data-theme-reset=light]')).to_have_count(0);page.keyboard.press('Escape');expect(page.locator('#settings-dialog')).to_be_visible();expect(page.locator('[data-theme-reset=light]')).to_be_visible()
+ page.wait_for_function("window.tinfoil.snapshot().then(s=>s.workspace.view.theme.light.accent==='#aa3366'&&s.workspace.view.theme.mode==='light')",timeout=3000)
+ page.locator('[data-theme-reset=light]').click();page.locator('[data-for=theme-mode] [data-value=system]').click();expect(page.locator('#theme-cards .theme-card')).to_have_count(2)
+ page.locator('[data-for=theme-mode] [data-value=dark]').click();page.keyboard.press('Escape');expect(page.locator('#settings-dialog')).to_be_hidden()
+ page.wait_for_function("window.tinfoil.snapshot().then(s=>s.workspace.view.theme.mode==='dark')",timeout=3000)
+ assert page.evaluate("getComputedStyle(document.querySelector('.main')).backgroundColor")=='rgb(30, 30, 30)'
+ checks.append('Settings → Appearance: a light preset recolours the page and is stored, a picked colour marks it edited, System shows both variants')
  # All fixture content below is synthetic; test hook exists only in this in-memory page.
  page.evaluate('window.__fixture({content:"```html\\n<h1 style=\\\"color:rgb(0, 255, 0)\\\">Static preview</h1><script>parent.fixturePwned=true</script><a href=\\\"https://evil.test/x\\\">No navigation</a><img src=\\\"https://evil.test/tracker\\\">\\n```",reasoning:""})')
  page.locator('.preview-code').click();expect(page.locator('#artifact-panel')).to_be_visible();frame=page.frame_locator('#artifact-stage iframe')
