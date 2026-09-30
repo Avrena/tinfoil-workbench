@@ -6,7 +6,7 @@ const paths: Record<string,string> = {
   settings:'M12 8a4 4 0 1 0 0 8 4 4 0 0 0 0-8M10 3h4l1 3 3-1 2 4-2 3 2 3-2 4-3-1-1 3h-4l-1-3-3 1-2-4 2-3-2-3 2-4 3 1z',
   shield:'M12 3 4 6v6c0 5 8 9 8 9s8-4 8-9V6zM8 12l3 3 5-6',
   lock:'M6 10h12v11H6zM8 10V6a4 4 0 0 1 8 0v4', compare:'M3 4h7v16H3zM14 4h7v16h-7z',
-  branch:'M6 3v13a3 3 0 1 0 3 3H6M6 9h6a6 6 0 0 0 6-6M16 3h4',
+  branch:'M6 3v12M18 9a9 9 0 0 1-9 9M18 3a3 3 0 1 0 0 6a3 3 0 1 0 0-6M6 15a3 3 0 1 0 0 6a3 3 0 1 0 0-6',
   attach:'m8 13 6-6a3 3 0 0 1 4 4l-8 8a5 5 0 0 1-7-7l8-8',
   send:'M12 20V4M5 11l7-7 7 7', stop:'M6 6h12v12H6z', close:'m6 6 12 12M18 6 6 18',
   more:'M5 12h.01M12 12h.01M19 12h.01', panel:'M3 4h18v16H3zM15 4v16',

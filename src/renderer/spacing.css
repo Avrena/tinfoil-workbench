@@ -152,7 +152,10 @@
 .quick-effort-wrap .quick-effort { width: 100%; height: 100%; min-width: 0; min-height: 0; margin: 0; padding: 0; display: flex; align-items: center; justify-content: center; border: 0; border-radius: 6px; background: transparent; }
 .quick-effort-wrap .quick-effort:hover { background: #ffffff0d; }
 .quick-effort-wrap .quick-effort[aria-expanded="true"] { background: #ffffff14; }
-.effort-panel { position: fixed; z-index: 40; width: 260px; max-width: calc(100vw - 24px); padding: 12px 14px 10px; border: 1px solid #3c3e43; border-radius: 10px; background: #26282c; box-shadow: 0 10px 30px #0008; }
+.effort-panel { position: fixed; z-index: 40; width: 260px; max-width: calc(100vw - 24px); box-sizing: border-box; padding: 12px 14px 10px; border: 1px solid #404040; border-bottom-color: #25262a; border-radius: 10px 10px 0 0; background: #25262a; box-shadow: 0 -8px 24px #0006; }
+/* It slides up out of the composer's edge: the part still below the edge is clipped as it rises. */
+.effort-panel:not([hidden]) { animation: effort-rise 180ms cubic-bezier(.2, .8, .2, 1); }
+@keyframes effort-rise { from { transform: translateY(100%); clip-path: inset(-40px -40px 100% -40px); } to { transform: none; clip-path: inset(-40px -40px 0 -40px); } }
 .effort-panel[hidden] { display: none; }
 .effort-panel-head { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; margin-bottom: 8px; font-size: 11px; color: #9a9ca1; }
 .effort-panel-head strong { font-size: 12px; font-weight: 600; color: #e6e6e6; }
@@ -612,3 +615,13 @@ dialog:not(.message-editor) .modal-body { padding: 8px 20px 20px; }
 .inline-editor-discard span { margin-right: auto; }
 .inline-editor-discard button { font-size: 12px; padding: 4px 10px; }
 @media (pointer: coarse), (hover: none) { .inline-editor > button, .inline-editor-discard button { min-height: 40px; } }
+
+/* While an answer or its thinking is edited, the composer steps aside to leave the field the room. */
+.answer-editing .composer-region { display: none; }
+.inspector-editing { margin-top: 18px; }
+/* On a phone the arrows and the five reply actions share one row: the 44px touch targets sit side by side. */
+@media (max-width: 600px) {
+  .reply-footer .reply-actions { gap: 0; }
+  .reply-footer .version-pager { margin-right: 0; }
+  .reply-footer .version-pager .version-step { min-width: 36px; }
+}

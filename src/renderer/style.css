@@ -156,8 +156,6 @@ p{line-height:1.6}
 .reply-actions{display:flex;align-items:center;gap:7px;margin-top:13px;min-height:32px}
 .reply-actions button{font-size:10px;padding:5px 6px;color:#9198a4}
 .reply-actions svg{width:14px}
-.reply-actions button span{opacity:0;max-width:0;overflow:hidden;transition:opacity .1s}
-.reply:hover .reply-actions button span,.reply:focus-within .reply-actions button span{opacity:1;max-width:120px}
 .reply-actions .choose-reply{opacity:1;color:#9acaf3;border:1px solid #35546e;padding:5px 9px;margin-left:auto}
 .chosen-label{font-size:10px;color:#95bda6;margin-left:auto}
 .usage{font-size:10px;color:#888f9b;margin-left:auto}
@@ -343,7 +341,6 @@ svg.maker-logo path{fill:currentColor;stroke:none}
 .preview-label{display:none}
 .composer-meta{font-size:9px}
 .user-prompt{max-width:100%}
-.reply-actions button span{opacity:1;max-width:100px}
 }
 @media(prefers-reduced-motion:reduce){*,*:before{animation:none!important;transition:none!important;scroll-behavior:auto!important}
 }
@@ -705,7 +702,6 @@ html,body,#app{height:var(--app-height,100dvh);min-height:0;overflow:hidden}
   input,textarea,select{font-size:16px!important}
   .turn-actions,.reply-actions,.inline-artifact-toolbar{opacity:1}
   .turn-actions button,.reply-actions button,.reasoning-actions button{min-height:44px;font-size:12px}
-  .reply-actions button span{opacity:1;max-width:none}
   .thread{min-height:46px}
   .project-breadcrumb{min-height:20px} /* Paired with a 44px thread-heading target group. */
   .editor-modes button{min-height:44px}
@@ -746,7 +742,6 @@ html,body,#app{height:var(--app-height,100dvh);min-height:0;overflow:hidden}
   .reply-content{font-size:14px;line-height:1.75}
   .reply-actions{flex-wrap:wrap;gap:2px;opacity:1;margin-top:10px}
   .reply-actions button{padding:8px;min-height:40px;font-size:11px}
-  .reply-actions button span{max-width:none;opacity:1}
   .message-label{margin-bottom:11px;gap:7px}
   .reasoning summary{min-height:40px;display:flex;align-items:center}
   .reasoning-content{font-size:12px}

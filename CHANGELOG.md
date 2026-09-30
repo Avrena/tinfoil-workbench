@@ -4,9 +4,11 @@
 
 - Versions: an edited message, Retry, and an edited answer or thinking text make a new version of that point in the same conversation instead of a new conversation in the sidebar. ‹ 2/3 › arrows on a message switch between its different wordings, each showing its latest answer; arrows on a reply switch between the answers to the same message. Only the version shown is sent to a model, exported as Markdown and written to a Tinfoil cloud chat; the JSON export keeps all of them. Branch still copies the conversation shown into a new one.
 - Edit on a message puts it and its files in the composer, marked "Editing message N". Send makes the new version; the draft you had comes back after Send or Cancel.
-- Answers and their thinking text are edited where they are shown instead of in a dialog: the answer in place of its text, the thinking inside its Reasoning box. The expanded draft editor stays.
+- Answers and their thinking text are edited where they are shown instead of in a dialog: the answer in place of its text, or the thinking inside its Reasoning box, one at a time, with the composer out of the way. The expanded draft editor stays.
+- The reply's actions (Edit, Copy, Source, Retry, Branch) are icons without words, named in their tooltips and for screen readers, and the Branch icon is redrawn; a message's Edit is an icon too.
+- The thinking effort panel stands on the composer's top edge and slides up out of it.
 - Retry is offered on every finished reply, not only on failed ones.
-- Messages in other roles: Settings → Editing → Add messages in other roles (off by default) shows a role choice in the composer, to add an assistant or system message without asking a model. Tinfoil cloud chats have no place for them.
+- Messages in other roles: Advanced → Editing → Add messages in other roles (off by default) shows a role choice in the composer, to add an assistant or system message without asking a model. Tinfoil cloud chats have no place for them.
 - Android: a phone no longer shows the window title bar; the conversation starts under the status bar.
 - Earlier versions cannot open a workspace that holds messages in other roles, and they drop set-aside versions when they save.
 - Android: versionCode 1002000.

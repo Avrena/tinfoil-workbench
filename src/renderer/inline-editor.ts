@@ -6,8 +6,8 @@ export interface InlineEdit {
   content: string; reasoning: string;
   draftContent: string; draftReasoning: string; focus: 'content' | 'reasoning';
 }
-/** Edits an answer and its thinking text where they are shown: the thinking inside its Reasoning box, the answer in place
- * of its text, and Save and Cancel in place of the reply's actions. Saving makes a new version of the turn
+/** Edits an answer, or its thinking text, where it is shown: the answer in place of its text, or the thinking inside its
+ * Reasoning box; one field at a time, with Save and Cancel in place of the reply's actions. Saving makes a new version of the turn
  * (core/editing.ts), so the answer as it was stays one arrow away. The fields keep their text across redraws and
  * conversation switches; snapshots never write into them. Thinking that is not shown (Reading & visibility hides it)
  * is kept as it is. */
@@ -27,18 +27,18 @@ export class InlineReplyEditor {
   mount(node: HTMLElement): void {
     const s = this.session; if (!s || this.mounted(node)) return;
     const hide = (el: Element | null): void => { if (el instanceof HTMLElement) { el.hidden = true; el.dataset.inlineHidden = ''; } };
-    const reasoning = node.querySelector<HTMLDetailsElement>('details.reasoning');
+    const reasoning = s.focus === 'reasoning' ? node.querySelector<HTMLDetailsElement>('details.reasoning') : null;
     if (reasoning) {
       this.reasoningWasOpen = reasoning.open; reasoning.open = true;
       reasoning.querySelectorAll('.reasoning-content,.reasoning-actions').forEach(hide);
       reasoning.insertAdjacentHTML('beforeend', `<div class="inline-field" data-inline-part><textarea id="inline-reasoning" class="inline-editor-text inline-thinking" aria-label="Thinking text" aria-describedby="inline-thinking-note" spellcheck="true" maxlength="2000000"></textarea><p class="inline-field-note" id="inline-thinking-note">A local note: edited thinking is not sent to the model.</p></div>`);
     }
-    const answer = node.querySelector('.reply-content'); hide(answer);
+    const answer = reasoning ? null : node.querySelector('.reply-content'); hide(answer);
     answer?.insertAdjacentHTML('afterend', `<textarea id="inline-content" class="inline-editor-text inline-answer" data-inline-part aria-label="Answer" spellcheck="true" maxlength="2000000"></textarea>`);
     const footer = node.querySelector('.reply-footer'); hide(footer);
     footer?.insertAdjacentHTML('beforebegin', `<div class="inline-editor" data-inline-part>
       <div class="inline-editor-discard" hidden><span>Discard your changes?</span><button type="button" data-action="inline-keep">Keep editing</button><button type="button" class="danger" data-action="inline-discard">Discard</button></div>
-      <span class="inline-editor-note">Saving keeps the answer as it was, and the messages after it, as the version before.</span><span class="inline-editor-status sr-only" role="status" aria-live="polite"></span>
+      <span class="inline-editor-note">Saving keeps the reply as it was, and the messages after it, as the version before.</span><span class="inline-editor-status sr-only" role="status" aria-live="polite"></span>
       <button type="button" data-action="inline-cancel">Cancel</button><button type="button" class="primary" data-action="inline-save">Save as new version</button></div>`);
     const fields: [string, 'draftContent' | 'draftReasoning'][] = [['inline-content', 'draftContent'], ['inline-reasoning', 'draftReasoning']];
     for (const [id, key] of fields) {
@@ -52,7 +52,7 @@ export class InlineReplyEditor {
       });
     }
     this.refresh(node);
-    const focus = node.querySelector<HTMLTextAreaElement>(s.focus === 'reasoning' && reasoning ? '#inline-reasoning' : '#inline-content');
+    const focus = node.querySelector<HTMLTextAreaElement>('#inline-reasoning,#inline-content');
     focus?.focus({ preventScroll: true }); focus?.scrollIntoView({ block: 'nearest' });
   }
   private node(): HTMLElement | null { return this.session ? document.getElementById('reply-' + this.session.replyId) : null; }
@@ -69,7 +69,7 @@ export class InlineReplyEditor {
     if (this.dirty && discard) { discard.hidden = false; discard.querySelector<HTMLButtonElement>('[data-action=inline-keep]')?.focus(); }
     else this.close();
   }
-  keep(): void { const node = this.node(); if (!node) return; node.querySelector<HTMLElement>('.inline-editor-discard')!.hidden = true; node.querySelector<HTMLTextAreaElement>('#inline-content')?.focus(); }
+  keep(): void { const node = this.node(); if (!node) return; node.querySelector<HTMLElement>('.inline-editor-discard')!.hidden = true; node.querySelector<HTMLTextAreaElement>('#inline-reasoning,#inline-content')?.focus(); }
   close(): void {
     const s = this.session; if (this.saving || !s) return;
     const node = this.node();
