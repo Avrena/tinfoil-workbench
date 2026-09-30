@@ -140,7 +140,10 @@ async function runTask(model, task) {
   const reply = t().turns.at(-1).replies[0], tools = reply.tools ?? [], after = hashes(dir);
   // For a made folder: its name, and whether the answer or the reasoning speaks of the folder or repeats its name.
   const folderName = madeRoot ? dir.split(/[\\/]/).pop() : undefined;
-  const mentions = text => !!folderName && (text.includes(folderName) || /\b(folder|workspace|directory)\b/i.test(text));
+  // The answer should not speak of the folder at all; the reasoning may quote the guide's line on greetings, so only the
+  // folder's name (or its date prefix) counts there.
+  const names = text => !!folderName && (text.includes(folderName) || /\b\d{4}-\d{2}-\d{2} /.test(text));
+  const mentions = text => names(text) || (!!folderName && /\b(folder|workspace|directory)\b/i.test(text));
   const calls = {}; for (const tool of tools) calls[tool.name] = (calls[tool.name] ?? 0) + 1;
   const changed = Object.keys({ ...before, ...after }).filter(k => before[k] !== after[k]);
   const usage = reply.usage ?? { input: 0, output: 0 }; spentInput += usage.input; spentOutput += usage.output;
@@ -149,7 +152,7 @@ async function runTask(model, task) {
     changedFiles: changed, testsPassAfter: task.id === 'fix' ? testsPass(dir) : undefined,
     textFormCalls: /\b(run_command|read_file|edit_file|list_files|write_file)\s*[({]/.test(reply.content), seconds: Math.round((Date.now() - started) / 1000),
     usage, spent: { input: spentInput, output: spentOutput }, answer: reply.content.slice(-700),
-    ...(madeRoot ? { folderName, answerMentionsFolder: mentions(reply.content), reasoningMentionsFolder: mentions(reply.reasoning ?? ''), reasoning: (reply.reasoning ?? '').slice(0, 700) } : {}) });
+    ...(madeRoot ? { folderName, answerMentionsFolder: mentions(reply.content), reasoningNamesFolder: names(reply.reasoning ?? ''), reasoning: (reply.reasoning ?? '').slice(0, 700) } : {}) });
   rmSync(dir, { recursive: true, force: true });
   if (madeRoot) rmSync(madeRoot, { recursive: true, force: true });
 }

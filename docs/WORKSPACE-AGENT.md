@@ -171,6 +171,13 @@ Settings, the folder and the `agent` field of tool runs are optional; 1.2.0 igno
 
   All calls were native tool calls; none failed, none was written as text, and no command had to be declined. Both models first ran `npm test`, which Windows PowerShell's default execution policy blocks (`npm.ps1` is a script); Kimi K3 went on with `node --test` and GLM-5.3 with `npm.cmd test`, each at the cost of one more approval and round. DeepSeek V4 Pro is no longer in Tinfoil's model list; DeepSeek V4.1 Flash took its place and ran after two changes: the PowerShell guide now says to run npm.cmd and the like, and an agent step may make 16 calls. Its first try at the second task, with the guide change only, failed at the second step with "Unsupported streamed tool call.": it asked for more than four calls at once, the earlier limit. With both changes it ran `npm.cmd test 2>&1 | Select-Object -First 40` from the start, so no command was blocked.
 
+  The greet task (`--tasks greet`) checks the folder origin line: a greeting, "Hello there", in a new conversation whose folder Workbench makes under a root and names after that message ("2026-09-30 Hello there …"). Before the line, a model answered such a greeting with remarks about the workspace, having taken the folder's name for something the user wrote. With it, one sample each at temperature 0:
+
+  | Model | Answer | Tool calls | Folder in the answer | Folder name in the reasoning | Input / output tokens |
+  |---|---|---|---|---|---|
+  | Kimi K3 | "Hello! How can I help you today?" | none | no | no (it cites the guide's line on greetings) | 1,822 / 96 |
+  | DeepSeek V4.1 Flash | "Hello! What can I help you with today?" | none | no | no reasoning returned | 2,092 / 12 |
+
 ## Later
 
 - **Finer approvals:** per conversation "always allow this command" rules using Codex's splitting (never for commands with redirection, substitution, variables or wildcards, never for deletion, interpreters or git history rewrites), besides the approval levels. Long-running processes with `write_stdin`-style polling, for development servers.
