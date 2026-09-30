@@ -2,6 +2,8 @@
 
 Tinfoil Workbench is an unofficial client. It is not endorsed by Tinfoil, OpenAI, Microsoft or the authors of the interface inspirations. Product names identify compatibility or inspiration only. The original application code remains private and UNLICENSED; inclusion of third-party libraries does not grant a public license to the whole project.
 
+Tinfoil and its logo are trademarks of their owner. Tinfoil Workbench names Tinfoil only to say which service it connects to. Its app icon and title-bar mark are its own drawing and do not reproduce Tinfoil's logo; no Tinfoil artwork is copied from Tinfoil's repositories. The Settings dialog says that the app is unofficial.
+
 The interface is original application code inspired by familiar editor/chat layouts, not a copied Codex application or VS Code theme package. The charcoal/blue palette is an approximation, not a claim to bundle an official theme.
 
 The Tinfoil SDK is an external npm dependency under its own license. Electron, TypeScript, electron-builder and transitive dependencies also retain their licenses. Review the resolved dependency tree and notices after bootstrap; this source package does not contain a downloaded npm dependency tree or a fabricated lockfile.
