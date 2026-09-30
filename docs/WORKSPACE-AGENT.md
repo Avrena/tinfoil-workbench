@@ -149,7 +149,16 @@ Settings, the folder and the `agent` field of tool runs are optional; 1.2.0 igno
 - `tests/agent.test.mjs`: argument and path checks; search patterns and globs; output shortening; diffs; the guide and environment; excerpts of older results; new conversations and branches; refused folders; CLIXML errors. On Windows also: reads, lists and searches confined through a junction; changes that keep CRLF and a byte order mark and are refused once the file changed; PowerShell with UTF-8 output, exit codes and plain errors; timeouts and Stop ending a command and its children; Git Bash with a quoted command; and through the service: tools offered only with a folder in a local conversation of the Windows app, reads without approval, changes and commands only after approval, declined calls, a change refused after the file changed, a path outside the folder, the 30-round limit, and the move to a cloud project refused.
 - `tests/ui-activity.py`: the Advanced switch, the folder button, each call rolling into the activity row in turn, the cards for a change and a command, the plan, the step count, finished calls in the opened row, and the offline preview refusing to run or apply anything.
 - `--smoke-test`: one PowerShell command in a scratch folder, with its UTF-8 output and exit code.
-- **Live, with a real account:** not run yet. Proposed: a small fixture project in a temporary folder with one failing test; two tasks per model: "What does this project do and how are its tests run?" (reading only) and "Make the failing test pass" (reading, one change, running the tests); Kimi K3, GLM-5.3 and DeepSeek V4 Pro, one sample each at temperature 0; about 700,000 input and 60,000 output tokens in all.
+- **Live, with a real account:** `tests/agent-live.mjs` (manual; a person signs in to Tinfoil Chat in its window, which uses a temporary profile). It writes a small Node project with one failing test to a temporary folder and gives each model two tasks, one sample at temperature 0: "What does this project do, and how are its tests run? Do not change anything." and "One of the tests fails. Find out why, make it pass, and run the tests again." It approves every change, and a command only when it names nothing outside the folder and does not delete, install, reach the network or touch git history. Run on 2026-09-30 at 59b61a7:
+
+  | Model | Task | Rounds | Calls | Result | Input / output tokens |
+  |---|---|---|---|---|---|
+  | Kimi K3 | explain | 3 | 1 list, 7 reads | correct; nothing changed or run | 8,636 / 865 |
+  | Kimi K3 | fix | 7 | 1 list, 7 reads, 3 commands, 1 change | `src/sum.js` fixed; the tests pass | 24,460 / 1,442 |
+  | GLM-5.3 | explain | 3 | 1 list, 7 reads | correct; nothing changed or run | 8,348 / 1,084 |
+  | GLM-5.3 | fix | 7 | 1 list, 7 reads, 3 commands, 1 change | `src/sum.js` fixed; the tests pass | 22,580 / 1,044 |
+
+  All calls were native tool calls; none failed, none was written as text, and no command had to be declined. Both models first ran `npm test`, which Windows PowerShell's default execution policy blocks (`npm.ps1` is a script); Kimi K3 went on with `node --test` and GLM-5.3 with `npm.cmd test`, each at the cost of one more approval and round. DeepSeek V4 Pro is no longer in Tinfoil's model list (DeepSeek V4.1 Flash is) and was not run.
 
 ## Later
 
