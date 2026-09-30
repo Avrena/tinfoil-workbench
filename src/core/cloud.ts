@@ -9,7 +9,9 @@ import { RENDER_KINDS, artifactFileName, structuredVisual, visualArguments } fro
 /** A conversation that is also a Tinfoil cloud chat. `turns` is how many turns came from the cloud at the last sync:
  * later turns are Workbench's own until they are written back. `loaded` is false for a listed chat whose messages
  * have not been fetched yet. `format` is the CLOUD_FORMAT its messages were read with; absent before 2. */
-export interface CloudChatLink { id: string; etag: string; project: string | null; turns: number; loaded: boolean; dirty: boolean; syncedAt: number; format?: number }
+export interface CloudChatLink { id: string; etag: string; project: string | null; turns: number; loaded: boolean; dirty: boolean; syncedAt: number; format?: number;
+  /** The path changed at `turns` (another version was made or shown): the cloud chat's messages after it are replaced. */
+  rewritten?: true }
 /** How much of a cloud chat's messages Workbench reads: 2 added Tinfoil Chat's widgets. A loaded chat read with an
  * older format is read again at the next sync. */
 export const CLOUD_FORMAT = 2;
@@ -136,6 +138,7 @@ export function cloudWidgets(message: Json | null, content: string): ToolRun[] {
 
 /** Maps a cloud chat's plaintext onto a conversation. `existing` keeps the local conversation's identity and
  * settings; replies get fresh IDs because Tinfoil's messages have none. */
+const selected = (turn: Turn): Reply | undefined => turn.replies.find(r => r.id === turn.selectedReplyId);
 export function threadFromCloud(plain: Json, link: Omit<CloudChatLink, 'turns' | 'loaded' | 'dirty' | 'syncedAt'>, projectId: string | null, now: number, existing?: Thread, loaded = true): Thread {
   const messages = Array.isArray(plain.messages) ? plain.messages : [];
   const created = time(plain.createdAt, now), updated = time(plain.updatedAt, created);
@@ -148,17 +151,24 @@ export function threadFromCloud(plain: Json, link: Omit<CloudChatLink, 'turns' |
       finishReason: null, error: answer?.isError === true ? 'The reply failed in Tinfoil Chat.' : answer ? null : 'No reply was saved in Tinfoil Chat.', usage: null, elapsedMs: 0 }];
     return { id: uid(), prompt: str(user?.content, LIMITS.prompt), attachments: cloudAttachments(user), createdAt: time(user?.timestamp, created), replies, selectedReplyId: replies[0]!.id };
   }) : [];
+  // Versions exist only in Workbench. They stay with the turns that the cloud chat still has as they were.
+  if (existing && loaded) for (let j = 0; j < turns.length && j < existing.turns.length; j++) {
+    const before = existing.turns[j]!, after = turns[j]!;
+    if (before.role || before.prompt !== after.prompt || selected(before)?.content !== selected(after)?.content) break;
+    if (before.versions) { after.versions = before.versions; if (before.version) after.version = before.version; }
+  }
   const base = existing ?? { id: uid(), pinned: false, draft: '', draftAttachments: [], settings: { ...defaults, model } };
   return { ...base, title: cloudTitle(plain.title), createdAt: created, updatedAt: updated, turns: loaded ? turns : existing?.turns ?? [],
     projectId, cloud: { ...link, turns: loaded ? turns.length : existing?.cloud?.turns ?? 0, loaded: loaded || !!existing?.cloud?.loaded, dirty: false, syncedAt: now,
       ...(loaded ? { format: CLOUD_FORMAT } : existing?.cloud?.format ? { format: existing.cloud.format } : {}) } } as Thread;
 }
 
-const selected = (turn: Turn): Reply | undefined => turn.replies.find(r => r.id === turn.selectedReplyId);
 /** Changes Workbench made to a cloud chat, applied to its latest plaintext. `remote` must be the version the
  * conversation was last synced from (same etag); the caller checks that. Unchanged messages are kept byte for byte,
  * with every field Workbench does not know; a message whose text changed keeps its other fields but loses its
- * `timeline`, which would still show the old text. Only completed replies are written. */
+ * `timeline`, which would still show the old text. Only completed replies are written. After another version was made
+ * or shown (`rewritten`), the messages after the known turns are replaced by the path shown. Messages added in another
+ * role are never written; conversations holding them do not become cloud chats. */
 export function cloudPatch(remote: Json, thread: Thread, clock: { v: number; w: string; version: number }, now: number): Json {
   const messages = Array.isArray(remote.messages) ? [...remote.messages] as unknown[] : [];
   const groups = groupMessages(messages), known = Math.min(thread.cloud?.turns ?? 0, groups.length, thread.turns.length);
@@ -177,9 +187,10 @@ export function cloudPatch(remote: Json, thread: Thread, clock: { v: number; w: 
       next = g.assistant + 1;
     } else if (reply?.status === 'complete') out.push(newAnswer(reply, now));
   }
-  // Remote messages past the known turns (a chat longer than Workbench's turn limit) are kept, never dropped.
-  while (next < messages.length) out.push(messages[next++]);
+  // Remote messages past the known turns (a chat longer than Workbench's turn limit) are kept, unless the path changed.
+  if (!thread.cloud?.rewritten) while (next < messages.length) out.push(messages[next++]);
   for (const turn of thread.turns.slice(known)) {
+    if (turn.role) continue;
     const reply = selected(turn);
     out.push({ role: 'user', content: turn.prompt, timestamp: new Date(turn.createdAt).toISOString(),
       ...(turn.attachments.length ? { attachments: turn.attachments.map(a => ({ id: uid(), type: 'document', fileName: a.name, textContent: a.content })) } : {}) });

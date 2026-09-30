@@ -1,5 +1,6 @@
 import { defaultView } from './preferences.js';
-import type { ApiMessage, Attachment, GenerationJob, GenerationSettings, Reply, Thread, Workspace } from './types.js';
+import type { ApiMessage, Attachment, GenerationJob, GenerationSettings, Reply, Thread, Turn, Workspace } from './types.js';
+import { addVersion, everyTurn } from './versions.js';
 import { InputError, LIMITS, attachments as checkAttachments, text, validateThread } from './validation.js';
 export const defaults: GenerationSettings = {
   toolsMode: 'off', visualTools: true, webSearch: false, delegateMode: 'off', thinkingMode: 'default', compareReasoningEffort: 'default', compareThinkingMode: 'default', model: '', compareModel: '', compare: false, systemPrompt: '', systemPromptName: '',
@@ -48,9 +49,11 @@ export function buildHistory(thread: Thread, before = thread.turns.length, conte
   const own = thread.settings.systemPrompt.trim() ? thread.settings.systemPrompt : '', project = context ? `<project_context>\n${context}\n</project_context>` : '';
   if (own || project) messages.push({ role: 'system', content: own && project ? `${own}\n\n${project}` : own || project });
   for (const turn of thread.turns.slice(0, before)) {
+    if (turn.role) { messages.push({ role: turn.role, content: turn.prompt }); continue; }
     const selected = turn.replies.find(r => r.id === turn.selectedReplyId);
-    if (!selected || selected.status !== 'complete')
-      throw new InputError('Select a completed reply before continuing. Retry an interrupted turn in a new branch.');
+    if (!selected) throw new InputError('Choose one of the earlier answers before continuing.');
+    if (selected.status !== 'complete')
+      throw new InputError('Every earlier reply must be complete before continuing. Retry an unfinished one, or show another of its versions.');
     messages.push({ role: 'user', content: userContent(turn.prompt, turn.attachments) });
     // A manually revised answer supersedes prior narration, never tool calls/results.
     const history = structuredClone(selected.toolMessages ?? []);
@@ -60,13 +63,53 @@ export function buildHistory(thread: Thread, before = thread.turns.length, conte
   }
   return messages;
 }
-export function beginTurn(thread: Thread, prompt: string, files: Attachment[], context = ''): GenerationJob[] {
+/** Starts a reply to `prompt`: in a new turn at the end, or, with `replace`, in a new version of that turn (an edited
+ * message), answered from the turns before it. */
+export function beginTurn(thread: Thread, prompt: string, files: Attachment[], context = '', replace?: string): GenerationJob[] {
   text(prompt, 'Prompt', LIMITS.prompt, true);
   files = checkAttachments(files);
-  if (thread.turns.length >= LIMITS.turns) throw new InputError('Conversation limit reached. Start a new conversation.');
+  const at = place(thread, replace);
+  const jobs = startTurn(thread, prompt, files, context, at);
+  // An edited message comes from the composer too, but the draft stored there is the one from before the edit.
+  if (replace === undefined) { thread.draft = ''; thread.draftAttachments = []; }
+  if (thread.turns.length === 1 && thread.title === 'New conversation') thread.title = prompt.trim().replace(/\s+/g, ' ').slice(0, 70);
+  return jobs;
+}
+/** Asks again: a new version of the turn, with the same message, answered afresh. The draft is kept. */
+export function retryTurn(thread: Thread, turnId: string, context = ''): GenerationJob[] {
+  const turn = thread.turns.find(t => t.id === turnId);
+  if (!turn) throw new InputError('Turn not found.');
+  if (turn.role) throw new InputError('A message you added has no reply to retry.');
+  return startTurn(thread, turn.prompt, turn.attachments, context, thread.turns.indexOf(turn));
+}
+/** Adds a message in another role, written by the user and sent as that role later; no model is asked. With `replace`
+ * it becomes a new version of that turn. */
+export function addMessage(thread: Thread, role: 'assistant' | 'system', content: string, replace?: string): Turn {
+  if (role !== 'assistant' && role !== 'system') throw new InputError('Invalid message role.');
+  text(content, 'Message', LIMITS.prompt, true);
+  const at = place(thread, replace);
+  buildHistory(thread, at); // Earlier replies must be complete, as for a message sent to a model.
+  const turn: Turn = { id: uid(), prompt: content, attachments: [], createdAt: Date.now(), replies: [], selectedReplyId: null, role };
+  if (at < thread.turns.length) addVersion(thread, at, turn); else thread.turns.push(turn);
+  if (replace === undefined) { thread.draft = ''; thread.draftAttachments = []; }
+  thread.updatedAt = Date.now();
+  if (thread.turns.length === 1 && thread.title === 'New conversation') thread.title = content.trim().replace(/\s+/g, ' ').slice(0, 70);
+  return turn;
+}
+/** Where a new turn goes: the end, or the place of the turn it replaces. */
+function place(thread: Thread, replace?: string): number {
+  if (replace === undefined) {
+    if (thread.turns.length >= LIMITS.turns) throw new InputError('Conversation limit reached. Start a new conversation.');
+    return thread.turns.length;
+  }
+  const at = thread.turns.findIndex(t => t.id === replace);
+  if (at < 0) throw new InputError('The message being edited is no longer in this conversation.');
+  return at;
+}
+function startTurn(thread: Thread, prompt: string, files: Attachment[], context: string, at: number): GenerationJob[] {
   const models = thread.settings.compare ? [thread.settings.model, thread.settings.compareModel] : [thread.settings.model];
   if (models.some(m => !m.trim())) throw new InputError('Choose a model for every lane before sending.');
-  const messages = buildHistory(thread, thread.turns.length, context);
+  const messages = buildHistory(thread, at, context);
   messages.push({ role: 'user', content: userContent(prompt, files) });
   if (JSON.stringify(messages).length > LIMITS.context)
     throw new InputError('Context exceeds the local 800,000-character safety limit. Start a shorter conversation; model token limits may be lower.');
@@ -75,10 +118,10 @@ export function beginTurn(thread: Thread, prompt: string, files: Attachment[], c
   const replies: Reply[] = models.map(model => ({
     id: uid(), model, ...instructions, content: '', reasoning: '', tools: [], toolMessages: [], status: 'queued', finishReason: null, error: null, usage: null, elapsedMs: 0,
   }));
-  const turn = { id: uid(), prompt, attachments: structuredClone(files), createdAt: Date.now(), replies,
+  const turn: Turn = { id: uid(), prompt, attachments: structuredClone(files), createdAt: Date.now(), replies,
     selectedReplyId: replies.length === 1 ? replies[0]!.id : null };
-  thread.turns.push(turn); thread.draft = ''; thread.draftAttachments = []; thread.updatedAt = Date.now();
-  if (thread.turns.length === 1 && thread.title === 'New conversation') thread.title = prompt.trim().replace(/\s+/g, ' ').slice(0, 70);
+  if (at < thread.turns.length) addVersion(thread, at, turn); else thread.turns.push(turn);
+  thread.updatedAt = Date.now();
   return replies.map((reply, index) => ({ lane: index === 1 ? 'comparison' as const : 'primary' as const, threadId: thread.id, turnId: turn.id, replyId: reply.id, model: reply.model,
     settings: { ...thread.settings }, messages: structuredClone(messages) }));
 }
@@ -108,6 +151,8 @@ export function forkThread(workspace: Workspace, sourceId: string, turnId: strin
   branch.projectId = source.projectId ?? null; branch.branchOf = source.id;
   if(source.connectionOwner)branch.connectionOwner=source.connectionOwner;
   branch.turns = structuredClone(source.turns.slice(0, before ? index : index + 1));
+  // A branch starts from the path shown; the versions set aside stay with the source.
+  for (const t of branch.turns) { delete t.versions; delete t.version; }
   branch.draft = before ? turn.prompt : '';
   branch.draftAttachments = before ? structuredClone(turn.attachments) : [];
   if (!before) {
@@ -120,7 +165,7 @@ export function forkThread(workspace: Workspace, sourceId: string, turnId: strin
 }
 export function recoverInterrupted(workspace: Workspace): boolean {
   let changed = false;
-  for (const thread of workspace.threads) for (const turn of thread.turns) for (const reply of turn.replies) {
+  for (const thread of workspace.threads) for (const turn of everyTurn(thread.turns)) for (const reply of turn.replies) {
     for (const tool of reply.tools ?? []) if (tool.status === 'queued' || tool.status === 'running' || tool.status === 'awaiting_approval') { tool.status = 'cancelled'; changed = true; }
     if (reply.status === 'queued' || reply.status === 'streaming' || reply.status === 'awaiting_approval' || reply.status === 'executing') {
       reply.status = 'interrupted'; reply.error = 'The application closed before this response finished.'; changed = true;
@@ -141,7 +186,7 @@ export function importThread(workspace: Workspace, value: unknown): Thread {
   if (workspace.threads.length >= LIMITS.threads) throw new InputError('Conversation limit reached.');
   validated.id = uid();
   validated.projectId = null; delete validated.branchOf; delete validated.connectionOwner; delete validated.cloud;
-  for (const turn of validated.turns) {
+  for (const turn of everyTurn(validated.turns)) {
     turn.id = uid();
     for (const reply of turn.replies) {
       const old = reply.id; reply.id = uid();
@@ -163,6 +208,8 @@ export function exportMarkdown(thread: Thread): string {
   if (thread.settings.systemPrompt) lines.push('## Custom system instructions (optional; not required)', '',
     ...(thread.settings.systemPromptName ? [`Name: ${thread.settings.systemPromptName}`, ''] : []), thread.settings.systemPrompt, '');
   for (const turn of thread.turns) {
+    if (turn.versions?.length) lines.push(`> This message has ${turn.versions.length + 1} versions. This file has the one shown; the JSON export keeps them all.`, '');
+    if (turn.role) { lines.push(`## ${turn.role === 'system' ? 'System' : 'Assistant'} (added by you)`, '', turn.prompt, ''); continue; }
     lines.push('## You', '', turn.prompt, '');
     for (const file of turn.attachments) lines.push(`### Attachment: ${file.name}`, '', file.content, '');
     for (const reply of turn.replies) {
@@ -176,7 +223,7 @@ export function exportMarkdown(thread: Thread): string {
         lines.push(tool.arguments, '', 'Output:', '', tool.stdout, '', tool.stderr, '', ...tool.artifacts.map(a => `Artifact: ${a.name} (${a.mime}; binary content is included in JSON export only)`), '');
         if (tool.delegate?.reasoning) lines.push('#### Child reasoning (provider-returned)', '', tool.delegate.reasoning, '');
       }
-      if (reply.edit) lines.push('> Manually revised in a new branch. Original text is preserved in JSON export. Reasoning edits are local annotations, not new model output.', '');
+      if (reply.edit) lines.push('> Manually revised. The original text is kept in its earlier version and in the JSON export. Reasoning edits are local annotations, not new model output.', '');
       if (reply.reasoning) lines.push(reply.edit?.reasoningEdited ? '### Thinking (manually edited, local only)' : '### Model reasoning', '', reply.reasoning, '');
     }
   }

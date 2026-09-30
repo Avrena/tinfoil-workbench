@@ -3,6 +3,8 @@ import { activityMarkup, ActivityDetailsRenderer } from './activity-view.js';
 import { toolActive } from '../core/activity.js';
 import { openModal, topModal } from './modal.js';
 import { MessageEditor } from './editor.js';
+import { InlineReplyEditor } from './inline-editor.js';
+import { versionPosition, versionStep } from '../core/versions.js';
 import { ResponsiveLayout } from './responsive.js';
 import type { Attachment, Command, DesktopBridge, GenerationSettings, InstructionPreset, Reply, Snapshot, Thread, Turn, ToolRun, Artifact } from '../core/types.js';
 import { ArtifactPanel, type ArtifactEntry } from './artifact-panel.js';
@@ -27,7 +29,7 @@ app.innerHTML = `<div class="shell no-inspector" id="shell">
   <main class="main"><header class="toolbar">${button('sidebar','Toggle conversation sidebar','panel','class="icon-button"')}<div class="thread-heading"><button class="project-breadcrumb" data-action="thread-project" id="project-breadcrumb" title="Move thread to project">Unfiled</button><h1><button class="toolbar-title" data-action="rename-thread" id="thread-title" title="Rename thread"></button></h1><button id="branch-origin" class="branch-origin hidden" data-action="original-thread">Original thread</button></div><span class="spacer"></span>${button('find','Find in conversation','search','class="icon-button"')}${button('view','Reading & visibility','eye','class="icon-button"')}<details class="export-menu"><summary aria-label="Conversation menu" title="Conversation menu">${icon('more')}</summary><div class="export-popover"><button data-action="account">Account & connection</button><button data-action="rename">Rename thread</button><button data-action="move-project">Move to project…</button><button data-action="cloud-upload" id="cloud-upload" hidden>Move to Tinfoil cloud</button><button class="mobile-menu-item" data-action="mobile-find">Find in thread</button><button class="mobile-menu-item" data-action="mobile-view">Reading & visibility</button><button data-action="pin">Pin / unpin</button><button data-action="compare" id="compare-toggle" aria-pressed="false">Compare models</button><button data-action="instructions-picker">System instructions…</button><button data-action="export-md">Export Markdown</button><button data-action="export-json">Export JSON</button><button data-action="import">Import conversation</button><button data-action="delete" class="danger">Delete conversation…</button></div></details>${button('artifacts','Artifact workspace','panel','class="icon-button"')}${button('inspector','Advanced conversation settings','settings','class="icon-button"')}</header>
     <div id="find-bar" class="find-bar hidden"><input id="find-input" type="search" placeholder="Find in this conversation" aria-label="Find in this conversation"><span id="find-count"></span>${button('find-prev','Previous match','up','class="icon-button"')}${button('find-next','Next match','down','class="icon-button"')}${button('find-close','Close find','close','class="icon-button"')}</div>
     <div id="notice" class="notice hidden" role="status"></div><div class="transcript" id="transcript" tabindex="0" aria-label="Conversation"><div id="transcript-inner" class="transcript-inner"></div></div><button class="jump hidden" id="jump" data-action="jump">${icon('down')}Latest</button>
-    <div class="composer-region"><div class="pending-settings hidden" id="pending-settings" role="status"><span>Unapplied settings</span><button type="button" data-action="apply-pending">Apply</button><button type="button" data-action="discard-pending">Discard</button></div><form id="composer-form" class="composer"><div class="attachments hidden" id="attachments"></div><textarea id="prompt" enterkeyhint="enter" placeholder="Message Tinfoil…" aria-label="Message" rows="1" maxlength="160000"></textarea><div class="composer-tools">${button('attach','Attach text or code files','attach','class="icon-button"')}${button('edit-draft','Expand message editor','expand','class="icon-button"')}<button type="button" data-action="model-picker" class="model-name" id="composer-model">Choose model</button><span id="quick-effort-wrap" class="quick-effort-wrap hidden"><button type="button" id="quick-effort" class="quick-effort" data-action="effort-toggle" aria-haspopup="dialog" aria-expanded="false" aria-controls="effort-panel" aria-label="Thinking effort"><span id="effort-gauge" class="effort-gauge" aria-hidden="true"></span></button><div id="effort-panel" class="effort-panel" role="dialog" aria-label="Thinking effort" hidden><div class="effort-panel-head"><span>Thinking effort</span><strong id="effort-value">Default</strong></div><input type="range" id="effort-slider" min="0" max="1" step="1" value="0" aria-label="Thinking effort"><div id="effort-stops" class="effort-stops"></div></div></span><button type="button" data-action="instructions-picker" class="instructions-chip" id="composer-instructions" aria-label="System instructions">${icon('instructions')}<span id="composer-instructions-name"></span></button><span id="tools-badge" class="tools-badge hidden">Python · ask first</span><span class="spacer"></span><button type="button" data-action="stop" class="stop hidden" id="stop">${icon('stop')}Stop</button><button type="submit" class="send" id="send" title="Send message">${icon('send')}<span class="sr-only">Send</span></button></div></form><div class="composer-meta"><span id="compose-hint">Enter to send · Shift + Enter for a new line</span><span id="context-size"></span></div></div>
+    <div class="composer-region"><div class="pending-settings hidden" id="pending-settings" role="status"><span>Unapplied settings</span><button type="button" data-action="apply-pending">Apply</button><button type="button" data-action="discard-pending">Discard</button></div><div class="message-edit hidden" id="message-edit" role="status"><span class="message-edit-label">${icon('write')}<span id="message-edit-label">Editing a message</span></span><span class="message-edit-note">Send makes a new version</span><button type="button" data-action="message-edit-cancel">Cancel</button></div><form id="composer-form" class="composer"><div class="attachments hidden" id="attachments"></div><textarea id="prompt" enterkeyhint="enter" placeholder="Message Tinfoil…" aria-label="Message" rows="1" maxlength="160000"></textarea><div class="composer-tools">${button('attach','Attach text or code files','attach','class="icon-button"')}${button('edit-draft','Expand message editor','expand','class="icon-button"')}<button type="button" data-action="model-picker" class="model-name" id="composer-model">Choose model</button><span id="quick-effort-wrap" class="quick-effort-wrap hidden"><button type="button" id="quick-effort" class="quick-effort" data-action="effort-toggle" aria-haspopup="dialog" aria-expanded="false" aria-controls="effort-panel" aria-label="Thinking effort"><span id="effort-gauge" class="effort-gauge" aria-hidden="true"></span></button><div id="effort-panel" class="effort-panel" role="dialog" aria-label="Thinking effort" hidden><div class="effort-panel-head"><span>Thinking effort</span><strong id="effort-value">Default</strong></div><input type="range" id="effort-slider" min="0" max="1" step="1" value="0" aria-label="Thinking effort"><div id="effort-stops" class="effort-stops"></div></div></span><button type="button" data-action="instructions-picker" class="instructions-chip" id="composer-instructions" aria-label="System instructions">${icon('instructions')}<span id="composer-instructions-name"></span></button><span id="tools-badge" class="tools-badge hidden">Python · ask first</span><select id="composer-role" class="composer-role" aria-label="Role of this message" hidden><option value="user">User</option><option value="assistant">Assistant</option><option value="system">System</option></select><span class="spacer"></span><button type="button" data-action="stop" class="stop hidden" id="stop">${icon('stop')}Stop</button><button type="submit" class="send" id="send" title="Send message">${icon('send')}<span class="sr-only">Send</span></button></div></form><div class="composer-meta"><span id="compose-hint">Enter to send · Shift + Enter for a new line</span><span id="context-size"></span></div></div>
   </main>
   <aside class="inspector" id="inspector"><header class="inspector-header"><span>Advanced</span>${button('inspector','Close advanced settings','close','class="icon-button"')}</header><div class="inspector-body"><form id="config-form"><section><div class="eyebrow">Conversation</div><datalist id="models"></datalist><div id="compare-field" class="hidden"><label for="compare-model">Compare with</label><input id="compare-model" list="models" placeholder="Second model ID" autocomplete="off"><p>Two independent requests. Select one reply to continue.</p></div><div class="field-heading"><label for="instructions">System instructions <span class="field-optional">Optional</span></label><button type="button" class="field-action" data-action="instructions-picker" aria-label="Choose saved or starter instructions" title="Choose saved or starter instructions">Choose…</button></div><textarea id="instructions" maxlength="40000" aria-describedby="instructions-applied"></textarea><p id="instructions-applied" class="instructions-applied" hidden></p></section><section><div class="eyebrow">Generation</div><div class="two-fields"><div><label for="temperature">Temperature</label><input id="temperature" type="number" min="0" max="2" step="0.1" placeholder="Default"></div><div><label for="max-tokens">Output limit</label><input id="max-tokens" type="number" min="1" max="131072" step="1" value="32768"></div></div><div id="reasoning-controls"><label for="reasoning">Thinking effort</label><select id="reasoning"></select></div><div id="thinking-controls"><label for="thinking-mode">Thinking mode</label><select id="thinking-mode"><option value="default">Provider default</option><option value="enabled">Enabled</option><option value="disabled">Disabled</option></select></div><p id="capability-note"></p><div id="compare-reasoning-controls" class="hidden"><label for="compare-reasoning">Comparison model effort</label><select id="compare-reasoning"></select><div id="compare-thinking-controls"><label for="compare-thinking-mode">Comparison thinking mode</label><select id="compare-thinking-mode"><option value="default">Provider default</option><option value="enabled">Enabled</option><option value="disabled">Disabled</option></select></div><p id="compare-capability-note"></p></div><label class="toggle-row"><span>Charts, documents & visual tools</span><input id="visual-tools" type="checkbox"></label><p>Creates in-app artifacts without running Python. Files are saved only when you choose Save.</p><label for="tools-mode">Model-requested Python</label><select id="tools-mode"><option value="off">Off</option><option value="ask">Ask before every run</option></select><p>Local execution, not a Tinfoil-hosted sandbox. Every run needs approval.</p><div class="eyebrow activity-settings-heading">Provider tools & delegation</div><label class="toggle-row"><span>Tinfoil web search</span><input id="web-search" type="checkbox"></label><p>Uses Tinfoil’s built-in MCP-backed search. Requires provider access; additional tool usage may apply.</p><label for="delegate-mode">Text-only sub-agents</label><select id="delegate-mode"><option value="off">Off</option><option value="ask">Ask before each request</option></select><p>Client-orchestrated, same model, task-only context. Up to two additional requests per send; no child tools or recursion.</p><details class="tool-support"><summary>API support & limits</summary><p>Batch: multiple tool calls in one completion round, executed sequentially here. This is not an offline billing Batch API.</p><p>MCP: displays Tinfoil-managed search and code-execution events. Arbitrary MCP server connections are not configured by this client.</p><p>Native hosted sub-agent events have not been verified. The optional delegate tool makes a separate approved Chat Completions request.</p></details><button class="primary apply" type="submit" id="apply-settings">Apply settings</button></section></form><details class="connection-details"><summary>Connection & verification</summary><div id="connection-card" class="connection-card"></div></details></div></aside>
   <button id="drawer-backdrop" data-action="close-drawers" aria-label="Close drawer" tabindex="-1" hidden></button>
@@ -35,7 +37,7 @@ app.innerHTML = `<div class="shell no-inspector" id="shell">
 </div>
 <dialog id="account-dialog" aria-labelledby="account-title"><div class="modal-head"><h2 id="account-title">Account & connection</h2>${button('dismiss','Close account','close','class="icon-button"')} </div><div class="modal-body" id="account-body"></div></dialog>
 <dialog id="settings-dialog"><div class="modal-head"><h2>Settings</h2>${button('dismiss','Close settings','close','class="icon-button"')}</div><div class="modal-body"><form id="key-form"><div class="settings-account-link"><div><strong>Tinfoil Chat account</strong><p>Sign in with your subscription, or use a separate API key below.</p></div><button type="button" data-action="account">Account…</button></div><div class="eyebrow">Developer API key</div><p>This key is separate from a Chat subscription. Saving a key does not switch an active Chat account to API billing.</p><div class="key-status" id="key-status"></div><label for="api-key">Tinfoil API key</label><input id="api-key" type="password" placeholder="Paste a new API key" autocomplete="off" spellcheck="false" maxlength="4096"><div class="modal-actions"><button type="button" data-action="docs">API key guide</button><button type="button" data-action="forget-key" class="danger" id="forget-key">Forget key</button><button type="submit" class="primary" id="save-key">Save & verify</button></div><p class="modal-foot" id="key-feedback" role="status"></p></form><details class="execution-settings"><summary>Execution</summary><p>Python runs locally with your account's permissions. It can access files and the network; this is not a sandbox. Only approve code you trust.</p><div id="python-status" class="key-status"></div><button data-action="python-pick">Choose Python interpreter…</button><p>No Python installation is needed for ordinary chat. Running Python requires an installed interpreter; packages are never installed automatically.</p></details><p class="muted small settings-notice">Tinfoil Workbench is an unofficial client for Tinfoil. It is not affiliated with or endorsed by Tinfoil, and its icon is its own.</p></div></dialog>
-<dialog id="view-dialog"><div class="modal-head"><h2>Reading & visibility</h2>${button('dismiss','Close reading settings','close','class="icon-button"')}</div><div class="modal-body"><label for="view-reasoning">Model reasoning</label><select id="view-reasoning"><option value="collapsed">Collapsed by default</option><option value="expanded">Expanded</option><option value="hidden">Hidden</option></select><p>Only reasoning actually returned by the provider is shown. Hiding it does not disable model reasoning.</p><label class="toggle-row"><span>Render Markdown</span><input id="view-markdown" type="checkbox"></label><label class="toggle-row"><span>Render LaTeX maths</span><input id="view-math" type="checkbox"></label><label class="toggle-row"><span>Show timing, tokens & context size</span><input id="view-metadata" type="checkbox"></label><label class="toggle-row"><span>Wrap long code lines</span><input id="view-wrapCode" type="checkbox"></label><label class="toggle-row"><span>Also open the workspace automatically</span><input id="view-autoArtifacts" type="checkbox"></label><label for="view-motion">Animations</label><select id="view-motion"><option value="system">Follow Windows motion preference</option><option value="reduced">Reduced motion</option></select><label class="toggle-row"><span>Focus mode <kbd>Ctrl Shift F</kbd></span><input id="view-focus" type="checkbox"></label><p>Tool approvals and errors remain visible in every mode.</p></div></dialog>
+<dialog id="view-dialog"><div class="modal-head"><h2>Reading & visibility</h2>${button('dismiss','Close reading settings','close','class="icon-button"')}</div><div class="modal-body"><label for="view-reasoning">Model reasoning</label><select id="view-reasoning"><option value="collapsed">Collapsed by default</option><option value="expanded">Expanded</option><option value="hidden">Hidden</option></select><p>Only reasoning actually returned by the provider is shown. Hiding it does not disable model reasoning.</p><label class="toggle-row"><span>Render Markdown</span><input id="view-markdown" type="checkbox"></label><label class="toggle-row"><span>Render LaTeX maths</span><input id="view-math" type="checkbox"></label><label class="toggle-row"><span>Show timing, tokens & context size</span><input id="view-metadata" type="checkbox"></label><label class="toggle-row"><span>Wrap long code lines</span><input id="view-wrapCode" type="checkbox"></label><label class="toggle-row"><span>Add messages in other roles</span><input id="view-roleMessages" type="checkbox"></label><p>Shows a role choice in the composer, to add an assistant or system message to a conversation without asking a model.</p><label class="toggle-row"><span>Also open the workspace automatically</span><input id="view-autoArtifacts" type="checkbox"></label><label for="view-motion">Animations</label><select id="view-motion"><option value="system">Follow Windows motion preference</option><option value="reduced">Reduced motion</option></select><label class="toggle-row"><span>Focus mode <kbd>Ctrl Shift F</kbd></span><input id="view-focus" type="checkbox"></label><p>Tool approvals and errors remain visible in every mode.</p></div></dialog>
 <dialog id="model-dialog"><div class="modal-head"><h2>Choose model</h2>${button('dismiss','Close model picker','close','class="icon-button"')}</div><form id="model-form" class="modal-body"><label for="quick-model" class="sr-only">Search models</label><input id="quick-model" type="search" placeholder="Search models or enter a model ID" autocomplete="off" spellcheck="false" enterkeyhint="go"><div id="model-options" class="model-options" role="group" aria-label="Models"></div><div class="modal-actions"><button type="button" data-action="show-inspector">Advanced…</button><button class="primary" type="submit">Use model</button></div></form></dialog>
 <dialog id="instructions-dialog" aria-labelledby="instructions-title"><div class="modal-head"><h2 id="instructions-title">System instructions</h2>${button('instructions-close','Close system instructions','close','class="icon-button"')}</div><div class="modal-body">
 <p id="instructions-locked" class="instructions-note instructions-locked" role="status" hidden>Stop the active response to change this conversation’s instructions. Saved instructions can still be managed.</p>
@@ -64,6 +66,8 @@ const artifactPanel = new ArtifactPanel($('shell'), {
 const inlineArtifacts = new InlineArtifacts(entry=>artifactPanel.open(entry));
 const responsive = new ResponsiveLayout($('shell'),()=>{if(state){applyView();updateComposerHint();sizeComposer();}},()=>artifactPanel.close());
 const editor = new MessageEditor(()=>transcriptScheduler.cancel(),()=>scheduleTranscript(true));
+const inlineEditor = new InlineReplyEditor(edit=>dispatch({type:'reply.edit',id:edit.threadId,turnId:edit.turnId,replyId:edit.replyId,content:edit.draftContent,reasoning:edit.draftReasoning,expectedContent:edit.content,expectedReasoning:edit.reasoning}),
+  edit=>{replyCache.delete(edit.replyId);scheduleTranscript(true);});
 let projectEditingId:string|null=null;
 const collapsedProjects=new Set<string>();
 let view = viewPreferences(undefined);
@@ -86,6 +90,11 @@ let findIndex = 0;
 let state:Snapshot, currentId='', renderId='', configDirty=false, sending=false, connecting=false;
 let draftTimer:ReturnType<typeof setTimeout> | undefined, toastTimer:ReturnType<typeof setTimeout> | undefined;
 const drafts = new Map<string,string>(), pendingFiles = new Map<string,Attachment[]>();
+/** Messages being edited in the composer, by conversation. Send makes a new version of the turn (core/versions.ts), and
+ * the draft from before the edit comes back; the edit itself is not stored, the draft is. */
+const messageEdits = new Map<string,{turnId:string;number:number;role:'user'|'assistant'|'system';draft:string;files:Attachment[]}>();
+/** Keeps a turn where it was on screen while another of its versions is shown. */
+let versionAnchor:{index:number;kind:string;step:string;offset:number}|null=null;
 // Advanced changes are per-thread session drafts; never sent or enabled until Apply.
 const configDrafts = new Map<string, Record<string,string|boolean>>();
 const configFields=['compare-model','instructions','temperature','max-tokens','tools-mode','reasoning','thinking-mode','compare-reasoning','compare-thinking-mode','visual-tools','web-search','delegate-mode'];
@@ -129,7 +138,10 @@ function accept(snapshot:Snapshot):void {
     if(motion)motion.textContent='Follow system motion preference';
   }
   const existingIds=new Set(state.workspace.threads.map(t=>t.id));
-  for(const map of [drafts,pendingFiles,configDrafts])for(const id of map.keys())if(!existingIds.has(id))map.delete(id);
+  for(const map of [drafts,pendingFiles,configDrafts,messageEdits])for(const id of map.keys())if(!existingIds.has(id))map.delete(id);
+  // An answer being edited can leave its conversation's path without a save, for example when a cloud chat is read again.
+  const answer=inlineEditor.session;
+  if(answer&&!inlineEditor.isSaving&&!state.workspace.threads.find(t=>t.id===answer.threadId)?.turns.some(t=>t.id===answer.turnId&&t.replies.some(r=>r.id===answer.replyId))){inlineEditor.close();toast('The answer being edited is no longer shown, so its edit was closed.',true);}
   view = viewPreferences(snapshot.workspace.view); applyView();
   const switched=currentId!==state.workspace.activeId;
   if (switched) { currentId=state.workspace.activeId; configDirty=!!configDrafts.get(currentId); }
@@ -151,7 +163,8 @@ function accept(snapshot:Snapshot):void {
   if($<HTMLDialogElement>('model-dialog').open)renderModels();
   renderInstructionsChip();renderInstructionsApplied();if($<HTMLDialogElement>('instructions-dialog').open)renderInstructionsLock();
   $('tools-badge').classList.toggle('hidden', thread.settings.toolsMode !== 'ask');
-  $('send').querySelector('span')!.textContent=thread.settings.compare?'Send to 2':'Send';
+  renderMessageEdit();
+  $('send').querySelector('span')!.textContent=composerRole()!=='user'?'Add':thread.settings.compare?'Send to 2':'Send';
   $<HTMLButtonElement>('send').disabled=!!state.busyThreadId || sending;
   $('stop').classList.toggle('hidden',state.busyThreadId!==thread.id);
   updateComposerHint();
@@ -215,8 +228,18 @@ function welcomeModel():PickerModel|null { const id=current().settings.model; re
 function welcome():string {
   return `<div class="empty"><div class="empty-mark">${makerMark(welcomeModel())}</div><h1>What are we working on?</h1><p>A conversation, with room to think.</p><div class="starter-chips"><button data-prompt="Help me refine this draft while preserving my voice:\n\n">Write</button><button data-prompt="Explain this idea with a worked example:\n\n">Explain</button><button data-prompt="Check this calculation and show the maths clearly.">Analyze</button><button data-prompt="Show an inline visualization demo.">Visualize</button><button data-prompt="Show a tool activity demo.">Tool activity</button></div></div>`;
 }
+/** ‹ 2/3 › between the versions of a point in the conversation: of a message (edited prompts) or of its reply (Retry,
+ * edited answers and thinking), as core/versions.ts orders them. Nothing when there is one. */
+function versionPager(turn:Turn,kind:'message'|'reply'):string {
+  const at=versionPosition(turn)[kind];if(at.count<2)return '';
+  const step=(delta:-1|1,label:string,glyph:string)=>`<button type="button" class="version-step" data-action="version" data-turn="${e(turn.id)}" data-kind="${kind}" data-step="${delta}" aria-label="${label}" ${versionStep(turn,kind,delta)===null?'disabled':''}>${icon(glyph)}</button>`;
+  return `<span class="version-pager" role="group" aria-label="${kind==='message'?'Versions of this message':'Versions of this reply'}">${step(-1,'Previous version','left')}<span class="version-count">${at.index+1}/${at.count}</span>${step(1,'Next version','right')}</span>`;
+}
 function turnMarkup(turn:Turn):string {
-  return `<article class="turn" data-key="turn-${e(turn.id)}" data-turn="${e(turn.id)}"><div class="user-row"><div class="message-label"><span class="user-dot">Y</span>You<span class="meta">${new Date(turn.createdAt).toLocaleTimeString(undefined,{hour:'2-digit',minute:'2-digit'})}</span></div><div class="user-prompt">${e(turn.prompt)}</div>${turn.attachments.length?`<div class="attached-summary">${turn.attachments.map(f=>`<span>${e(f.name)}</span>`).join('')}</div>`:''}<div class="turn-actions"><button data-action="edit" data-turn="${e(turn.id)}">${icon('write')}Edit</button></div></div><div class="replies ${turn.replies.length>1?'comparison':''}">${turn.replies.map(r=>`<section class="reply" data-reply-host data-key="${e(r.id)}" id="reply-${e(r.id)}" aria-label="Reply from ${e(r.model)}"></section>`).join('')}</div><div id="hint-${e(turn.id)}" class="compare-hint hidden">Choose an answer to continue, or branch from either reply.</div></article>`;
+  const id=e(turn.id),actions=`<div class="turn-actions">${versionPager(turn,'message')}<button data-action="edit" data-turn="${id}">${icon('write')}Edit</button></div>`;
+  if(turn.role){const name=turn.role==='system'?'System':'Assistant';
+    return `<article class="turn role-turn" data-key="turn-${id}" data-turn="${id}"><div class="role-row" data-role="${turn.role}"><div class="message-label"><span class="role-dot">${name[0]}</span>${name}<span class="meta">Added by you</span></div><div class="role-message">${e(turn.prompt)}</div>${actions}</div></article>`;}
+  return `<article class="turn" data-key="turn-${id}" data-turn="${id}"><div class="user-row"><div class="message-label"><span class="user-dot">Y</span>You<span class="meta">${new Date(turn.createdAt).toLocaleTimeString(undefined,{hour:'2-digit',minute:'2-digit'})}</span></div><div class="user-prompt">${e(turn.prompt)}</div>${turn.attachments.length?`<div class="attached-summary">${turn.attachments.map(f=>`<span>${e(f.name)}</span>`).join('')}</div>`:''}${actions}</div><div class="replies ${turn.replies.length>1?'comparison':''}">${turn.replies.map(r=>`<section class="reply" data-reply-host data-key="${e(r.id)}" id="reply-${e(r.id)}" aria-label="Reply from ${e(r.model)}"></section>`).join('')}</div><div id="hint-${id}" class="compare-hint hidden">Choose an answer to continue, or branch from either reply.</div></article>`;
 }
 function responseFlow(reply:Reply,raw:boolean):string {
   const host=(rootId:string)=>`<figure class="inline-artifact" data-key="artifact-${e(rootId)}" data-artifact-host="${e(rootId)}"></figure>`;
@@ -236,7 +259,7 @@ function syncRichText(node:HTMLElement,reply:Reply):void {
 }
 function replyMarkup(reply:Reply, turn:Turn):string {
   const streaming=['streaming','queued','awaiting_approval','executing'].includes(reply.status);
-  const selected=turn.selectedReplyId===reply.id, raw=rawReplies.has(reply.id);
+  const selected=turn.selectedReplyId===reply.id, raw=rawReplies.has(reply.id), pager=(turn.selectedReplyId??turn.replies[0]?.id)===reply.id;
   const tools=reply.tools??[], active=tools.filter(toolActive), finished=tools.filter(t=>!active.includes(t));
   const thinking=streaming&&(reply.phase==='thinking'||(!reply.phase&&!!reply.reasoning&&!reply.content));
   const writing=streaming&&!thinking&&!active.some(t=>t.provider)&&reply.status==='streaming'&&(reply.phase==='answering'||(!reply.phase&&!!reply.content));
@@ -250,7 +273,7 @@ function replyMarkup(reply:Reply, turn:Turn):string {
     <div class="reply-content response-flow ${writing?'streaming-answer':''}" data-key="answer" aria-busy="${streaming}">${responseFlow(reply,raw)}${!streaming&&!reply.content&&!hasArtifact&&!reply.error?'<div class="waiting">No answer text was returned.</div>':''}</div>
     ${streaming?`<div class="response-activity ${reply.status==='awaiting_approval'?'needs-approval':''} ${thinking&&reply.reasoning&&view.reasoning!=='hidden'?'sr-only':''}" data-key="activity" role="status" aria-live="polite"><span class="activity-orbit" aria-hidden="true"></span><span>${status}</span></div>`:''}
     ${reply.error?`<div class="reply-note" data-key="error" role="status">${e(reply.error)}</div>`:''}
-    <div class="reply-footer" data-key="footer"><div class="reply-actions" data-key="actions">${reply.status==='complete'?`<button data-action="edit-reply" data-turn="${e(turn.id)}" data-reply="${e(reply.id)}" title="Edit answer or thinking text">${icon('write')}<span>Edit</span></button>`:''}<button data-action="copy-reply" data-reply="${e(reply.id)}" title="Copy answer">${icon('copy')}<span>Copy</span></button><button data-action="source" data-reply="${e(reply.id)}" aria-pressed="${raw}">${icon('code')}<span>${raw?'Rendered':'Source'}</span></button>${reply.status==='complete'?`<button data-action="branch" data-turn="${e(turn.id)}" data-reply="${e(reply.id)}" title="Continue in a new branch">${icon('branch')}<span>Branch</span></button>`:!streaming?`<button data-action="retry" data-turn="${e(turn.id)}">Retry in new branch</button>`:''}${reply.status==='complete'&&turn.replies.length>1?(selected?'<span class="chosen-label">Selected</span>':`<button class="choose-reply" data-action="choose" data-turn="${e(turn.id)}" data-reply="${e(reply.id)}">Use reply</button>`):''}</div>${replySignature(reply)}</div>`;
+    <div class="reply-footer" data-key="footer"><div class="reply-actions" data-key="actions">${pager?versionPager(turn,'reply'):''}${reply.status==='complete'?`<button data-action="edit-reply" data-turn="${e(turn.id)}" data-reply="${e(reply.id)}" title="Edit the answer or thinking text">${icon('write')}<span>Edit</span></button>`:''}<button data-action="copy-reply" data-reply="${e(reply.id)}" title="Copy answer">${icon('copy')}<span>Copy</span></button><button data-action="source" data-reply="${e(reply.id)}" aria-pressed="${raw}">${icon('code')}<span>${raw?'Rendered':'Source'}</span></button>${!streaming?`<button data-action="retry" data-turn="${e(turn.id)}" title="Ask again. This reply stays as a version">${icon('sync')}<span>Retry</span></button>`:''}${reply.status==='complete'?`<button data-action="branch" data-turn="${e(turn.id)}" data-reply="${e(reply.id)}" title="Continue in a new conversation">${icon('branch')}<span>Branch</span></button>`:''}${reply.status==='complete'&&turn.replies.length>1?(selected?'<span class="chosen-label">Selected</span>':`<button class="choose-reply" data-action="choose" data-turn="${e(turn.id)}" data-reply="${e(reply.id)}">Use reply</button>`):''}</div>${replySignature(reply)}</div>`;
 }
 /** Quiet provenance after the answer: model, the instructions it was sent with, edits and opt-in metadata. */
 function replySignature(reply:Reply):string {
@@ -267,17 +290,21 @@ function renderTranscript():void {
   const thread=current(), viewport=$('transcript'), container=$('transcript-inner');
   const nearBottom=viewport.scrollHeight-viewport.scrollTop-viewport.clientHeight<110;
   // The welcome page shows the chosen model's maker, so it is redrawn when the model or its metadata changes.
-  const structure=thread.id+':'+thread.turns.map(t=>t.id).join(',')+(thread.turns.length?'':'|'+makerMark(welcomeModel())+'|'+(thread.cloud&&!thread.cloud.loaded));
+  const structure=thread.id+':'+thread.turns.map(t=>t.id+'/'+t.replies.map(r=>r.id).join('+')).join(',')+(thread.turns.length?'':'|'+makerMark(welcomeModel())+'|'+(thread.cloud&&!thread.cloud.loaded));
   const changed=structure!==renderId;
   if(changed) {
     const switched=!renderId.startsWith(thread.id+':');
     if(switched){inlineArtifacts.destroy();replyCache.clear();richText.clear();clearMarkdownCaches();container.replaceChildren();}
     renderId=structure;
+    // A reply that leaves the page when another version is shown gets a new, empty host when it comes back.
+    const onPage=new Set(thread.turns.flatMap(t=>t.replies.map(r=>r.id)));for(const id of replyCache.keys())if(!onPage.has(id))replyCache.delete(id);
     updateMarkup(container,thread.turns.length?thread.turns.map(turnMarkup).join(''):thread.cloud&&!thread.cloud.loaded?'<div class="empty cloud-loading" role="status"><h1>Loading from Tinfoil cloud…</h1><p>This chat’s messages are fetched when you open it.</p></div>':welcome());
   }
   for(const turn of thread.turns) {
+    if(turn.role)continue;
     for(const reply of turn.replies) {
-      const signature=[reply.content,reply.reasoning,reply.systemPromptName,turn.replies.length,reply.edit?.editedAt,reply.phase,reply.finalContentOffset,reply.status,reply.error,view.metadata?reply.elapsedMs:0,reply.usage?.input,reply.usage?.output,...(reply.tools??[]).flatMap(t=>[t.id,t.contentOffset,t.name,t.status,t.arguments,t.stdout,t.stderr,t.exitCode,t.truncated,t.origin,t.batchId,t.batchIndex,t.batchSize,t.provider?.family,t.provider?.sources.map(s=>s.url+'|'+s.title).join('\n'),t.delegate?.model,t.delegate?.task,t.delegate?.content,t.delegate?.reasoning,t.delegate?.phase,t.delegate?.usage?.input,t.delegate?.usage?.output,view.metadata?t.elapsedMs:0,...t.artifacts.flatMap(a=>[a.id,a.version])]),!!state.busyThreadId,turn.selectedReplyId,...Object.values(view),rawReplies.has(reply.id)];
+      if(inlineEditor.editing(thread.id,reply.id)){inlineEditor.mount($(`reply-${reply.id}`));replyCache.delete(reply.id);continue;}
+      const pager=versionPosition(turn).reply,signature=[pager.index,pager.count,turn.selectedReplyId,reply.content,reply.reasoning,reply.systemPromptName,turn.replies.length,reply.edit?.editedAt,reply.phase,reply.finalContentOffset,reply.status,reply.error,view.metadata?reply.elapsedMs:0,reply.usage?.input,reply.usage?.output,...(reply.tools??[]).flatMap(t=>[t.id,t.contentOffset,t.name,t.status,t.arguments,t.stdout,t.stderr,t.exitCode,t.truncated,t.origin,t.batchId,t.batchIndex,t.batchSize,t.provider?.family,t.provider?.sources.map(s=>s.url+'|'+s.title).join('\n'),t.delegate?.model,t.delegate?.task,t.delegate?.content,t.delegate?.reasoning,t.delegate?.phase,t.delegate?.usage?.input,t.delegate?.usage?.output,view.metadata?t.elapsedMs:0,...t.artifacts.flatMap(a=>[a.id,a.version])]),!!state.busyThreadId,turn.selectedReplyId,...Object.values(view),rawReplies.has(reply.id)];
       const previous=replyCache.get(reply.id),node=$(`reply-${reply.id}`);
       if(previous?.length===signature.length&&previous.every((value,i)=>value===signature[i])) {syncRichText(node,reply);continue;}
       const selection=window.getSelection();
@@ -293,7 +320,13 @@ function renderTranscript():void {
   }
   inlineArtifacts.prune();
   const reading=!!document.activeElement?.closest('.inline-artifact')||!window.getSelection()?.isCollapsed;
-  if(changed||(nearBottom&&!reading)) viewport.scrollTop=viewport.scrollHeight;
+  const anchor=changed?versionAnchor:null,shown=anchor?thread.turns[anchor.index]:undefined,turnNode=shown?container.querySelector<HTMLElement>(`[data-turn="${CSS.escape(shown.id)}"]`):null;
+  if(changed)versionAnchor=null;
+  if(anchor&&turnNode){
+    viewport.scrollTop+=turnNode.getBoundingClientRect().top-viewport.getBoundingClientRect().top-anchor.offset;
+    (turnNode.querySelector<HTMLButtonElement>(`[data-action=version][data-kind=${anchor.kind}][data-step="${anchor.step}"]:not(:disabled)`)??turnNode.querySelector<HTMLButtonElement>(`[data-action=version][data-kind=${anchor.kind}]:not(:disabled)`))?.focus({preventScroll:true});
+  }
+  else if(changed||(nearBottom&&!reading)) viewport.scrollTop=viewport.scrollHeight;
   $('jump').classList.toggle('hidden',viewport.scrollHeight-viewport.scrollTop-viewport.clientHeight<150);
 }
 let configurationSignature='';
@@ -479,7 +512,7 @@ function renderAttachments():void {
   setMarkup($('attachments'),files.map((f,i)=>`<button type="button" class="attachment-chip" data-remove-file="${i}" title="Remove ${e(f.name)}">${icon('attach')}${e(f.name)}${icon('close')}</button>`).join(''));
   $('attachments').classList.toggle('hidden',!files.length);
 }
-function updateComposerHint():void {if(state)$('compose-hint').textContent=current().settings.compare?'Two separate model requests.':responsive.touch?'Enter for a new line · tap ↑ to send':'Enter to send · Shift + Enter for a new line';}
+function updateComposerHint():void {if(!state)return;const role=composerRole();$('compose-hint').textContent=role!=='user'?`Adds ${role==='system'?'a system':'an assistant'} message; no model is asked.`:current().settings.compare?'Two separate model requests.':responsive.touch?'Enter for a new line · tap ↑ to send':'Enter to send · Shift + Enter for a new line';}
 function sizeComposer():void {
   const input=$<HTMLTextAreaElement>('prompt');
   input.style.height='auto';
@@ -494,6 +527,7 @@ function saveDraft():void {
   clearTimeout(draftTimer);
   const id=current().id, value=$<HTMLTextAreaElement>('prompt').value;
   drafts.set(id,value);
+  if(messageEdits.has(id))return; // The stored draft stays the one from before the edit.
   const files=structuredClone(pendingFiles.get(id)??[]);
   draftTimer=setTimeout(()=>{ void dispatch({type:'thread.draft',id,text:value,attachments:files}); },550);
 }
@@ -501,27 +535,79 @@ async function flushDraft():Promise<boolean> {
   clearTimeout(draftTimer);
   if(!state) return false;
   const id=current().id, value=$<HTMLTextAreaElement>('prompt').value; drafts.set(id,value);
+  if(messageEdits.has(id))return true;
   const files=pendingFiles.get(id)??current().draftAttachments??[];
   if(value!==current().draft || JSON.stringify(files)!==JSON.stringify(current().draftAttachments??[]))return dispatch({type:'thread.draft',id,text:value,attachments:files});
   return true;
+}
+/** Whether this conversation was used with another account or the API key, so its history is reviewed before it is sent. */
+function needsReview(t:Thread):boolean {
+  const mode=state.connectionMode??'api-key',owner=mode==='chat-account'&&state.account?.profile?'chat:'+state.account.profile.id:'api-key';
+  return state.storage!=='preview'&&t.turns.length>0&&t.connectionOwner!==owner&&(owner!=='api-key'||!!t.connectionOwner);
 }
 async function submit():Promise<void> {
   if(sending||state.busyThreadId) return;
   if(configDirty) { toast('Apply your configuration changes before sending.',true); return; }
   const id=current().id, value=$<HTMLTextAreaElement>('prompt').value;
   if(!value.trim()) return;
+  const edit=messageEdits.get(id),role=composerRole(),files=pendingFiles.get(id)??[];
+  if(role!=='user'&&files.length){toast('Files go with your own messages only. Remove them to add this message.',true);return;}
   clearTimeout(draftTimer); sending=true;
-  const files=pendingFiles.get(id)??[];
   drafts.set(id,''); $<HTMLTextAreaElement>('prompt').value=''; sizeComposer();
-  const t=current(),mode=state.connectionMode??'api-key',owner=mode==='chat-account'&&state.account?.profile?'chat:'+state.account.profile.id:'api-key';
-  if(state.storage!=='preview'&&t.turns.length>0&&t.connectionOwner!==owner&&(owner!=='api-key'||!!t.connectionOwner)){
+  const t=current();
+  if(role==='user'&&needsReview(t)){
     await dispatch({type:'thread.authorize-account',id});drafts.set(id,value);$<HTMLTextAreaElement>('prompt').value=value;sending=false;accept(state);sizeComposer();toast('Review the connection, then press Send when ready.');return;
   }
-  const success=await dispatch({type:'send',id,text:value,attachments:files});
+  const replace=edit?{replace:edit.turnId}:{};
+  const success=await dispatch(role==='user'?{type:'send',id,text:value,attachments:files,...replace}:{type:'turn.add',id,role,text:value,...replace});
   sending=false;
-  if(success) pendingFiles.delete(id);
+  if(success) { if(edit)endMessageEdit(id); else pendingFiles.delete(id); }
   else if(!drafts.get(id)) { drafts.set(id,value); if(current().id===id) $<HTMLTextAreaElement>('prompt').value=value; }
   accept(state); sizeComposer();
+}
+/** The role a message is added as: chosen in the composer when messages in other roles are on (Reading & visibility),
+ * otherwise the role of the message being edited, or the user. */
+function composerRole():'user'|'assistant'|'system' {
+  const select=$<HTMLSelectElement>('composer-role');
+  return select.hidden?messageEdits.get(current().id)?.role??'user':select.value as 'user'|'assistant'|'system';
+}
+function renderComposerRole():void {
+  const thread=current(),select=$<HTMLSelectElement>('composer-role'),edit=messageEdits.get(thread.id);
+  // Tinfoil cloud chats have no place for them (service.mjs refuses them as well).
+  const cloud=!!thread.cloud||!!thread.cloudPending||!!state.workspace.projects.find(p=>p.id===thread.projectId)?.cloud;
+  select.hidden=!view.roleMessages&&!(edit&&edit.role!=='user');
+  select.disabled=cloud&&!edit;
+  if(cloud&&!edit)select.value='user';
+  select.title=cloud&&!edit?'Tinfoil cloud chats have no place for messages in other roles':'Add this message as';
+}
+/** Edits a message in the composer; Send makes a new version of its turn. The draft that was there comes back after. */
+function startMessageEdit(thread:Thread,turn:Turn):void {
+  const input=$<HTMLTextAreaElement>('prompt'),before=messageEdits.get(thread.id);
+  messageEdits.set(thread.id,{turnId:turn.id,number:thread.turns.indexOf(turn)+1,role:turn.role??'user',draft:before?.draft??input.value,files:before?.files??structuredClone(pendingFiles.get(thread.id)??[])});
+  clearTimeout(draftTimer);input.value=turn.prompt;drafts.set(thread.id,turn.prompt);pendingFiles.set(thread.id,structuredClone(turn.attachments));
+  $<HTMLSelectElement>('composer-role').value=turn.role??'user';
+  renderAttachments();renderMessageEdit();sizeComposer();input.focus();input.setSelectionRange(input.value.length,input.value.length);
+}
+function endMessageEdit(threadId:string):void {
+  const edit=messageEdits.get(threadId);if(!edit)return;
+  messageEdits.delete(threadId);drafts.set(threadId,edit.draft);pendingFiles.set(threadId,edit.files);
+  if(current().id===threadId){$<HTMLTextAreaElement>('prompt').value=edit.draft;$<HTMLSelectElement>('composer-role').value='user';renderAttachments();sizeComposer();}
+  renderMessageEdit();
+}
+function renderMessageEdit():void {
+  const edit=messageEdits.get(current().id);
+  $('message-edit').classList.toggle('hidden',!edit);
+  if(edit)$('message-edit-label').textContent=`Editing message ${edit.number}`;
+  $('send').title=edit?'Send as a new version':'Send message';
+  renderComposerRole();updateComposerHint();
+}
+/** The transcript does not change under a reply being written or a message being edited in the composer; an answer being
+ * edited is closed first, or kept when it has changes. */
+function transcriptFree(thread:Thread):boolean {
+  if(state.busyThreadId===thread.id){toast('Stop the active response first.',true);return false;}
+  if(messageEdits.has(thread.id)){toast('Send or cancel the message you are editing first.',true);return false;}
+  if(inlineEditor.session?.threadId===thread.id){if(inlineEditor.dirty){toast('Save or cancel the answer you are editing first.',true);return false;}inlineEditor.close();}
+  return true;
 }
 let closeRequest:string|null=null, closingWindow=false;
 async function answerClose(allow:boolean):Promise<void> {
@@ -544,6 +630,8 @@ bridge?.onCloseRequested?.(id=>{void(async()=>{
   if(sending||editor.isSaving){await answerClose(false);toast('Finish the pending save or send before closing.',true);return;}
   const reasons:string[]=[];
   if(editor.hasUnsavedChanges)reasons.push('The open editor has unsaved changes.');
+  if(inlineEditor.dirty)reasons.push('An answer being edited has unsaved changes.');
+  if(messageEdits.size)reasons.push('A message being edited has not been sent.');
   if(instructionsDirty())reasons.push('The instructions editor has unsaved changes.');
   if(configDrafts.size)reasons.push('Unapplied Advanced settings will be discarded.');
   if(state.busyThreadId)reasons.push('The active response and tool work will be stopped; received text is retained.');
@@ -570,6 +658,8 @@ document.addEventListener('keydown',event=>{
 bridge?.onAppEvent?.(async event=>{
   if(event==='pause')return flushDraft();
   if(cancelTopDialog())return true;
+  if(inlineEditor.session){inlineEditor.requestClose();return true;}
+  if(state&&messageEdits.has(current().id)){endMessageEdit(current().id);return true;}
   const menu=document.querySelector<HTMLDetailsElement>('details.export-menu[open]');
   if(menu){menu.open=false;return true;}
   if(!$('find-bar').classList.contains('hidden')){void action('find-close');return true;}
@@ -621,8 +711,19 @@ async function action(name:string, target?:HTMLElement):Promise<void> {
     case 'project-confirm-remove':if(projectEditingId&&await dispatch({type:'project.delete',id:projectEditingId}))dismiss();break;
     case 'thread-project':case 'move-project':setMarkup($('move-project'),'<option value="">Unfiled</option>'+state.workspace.projects.map(p=>`<option value="${e(p.id)}">${e(p.name)}</option>`).join(''));$<HTMLSelectElement>('move-project').value=thread.projectId??'';showDialog('move-dialog');break;
     case 'original-thread':if(thread.branchOf){if(!await flushDraft())break;await dispatch({type:'thread.select',id:thread.branchOf});}break;
-    case 'edit-draft':if(!await flushDraft())break;editor.open({kind:'draft',title:'Edit message',content:$<HTMLTextAreaElement>('prompt').value,attachmentNames:(pendingFiles.get(thread.id)??[]).map(a=>a.name),save:async content=>{drafts.set(thread.id,content);const ok=await dispatch({type:'thread.draft',id:thread.id,text:content});if(ok&&current().id===thread.id){$<HTMLTextAreaElement>('prompt').value=content;sizeComposer();}return ok;}});break;
-    case 'edit-reply':case 'edit-thinking':{const turn=thread.turns.find(t=>t.id===target?.dataset.turn),reply=turn?.replies.find(r=>r.id===target?.dataset.reply);if(!turn||!reply)break;if(state.busyThreadId===thread.id){toast('Stop the active response before editing.',true);break;}if(!await flushDraft())break;editor.open({kind:'reply',title:'Edit response',field:name==='edit-thinking'?'reasoning':'content',content:reply.content,reasoning:reply.reasoning,originalContent:reply.edit?.originalContent,originalReasoning:reply.edit?.originalReasoning,save:async(content,reasoning)=>dispatch({type:'reply.edit',id:thread.id,turnId:turn.id,replyId:reply.id,content,reasoning,expectedContent:reply.content,expectedReasoning:reply.reasoning})});break;}
+    case 'edit-draft':if(!await flushDraft())break;editor.open({title:'Edit message',content:$<HTMLTextAreaElement>('prompt').value,attachmentNames:(pendingFiles.get(thread.id)??[]).map(a=>a.name),save:async content=>{drafts.set(thread.id,content);const ok=await dispatch({type:'thread.draft',id:thread.id,text:content});if(ok&&current().id===thread.id){$<HTMLTextAreaElement>('prompt').value=content;sizeComposer();}return ok;}});break;
+    case 'edit-reply':case 'edit-thinking':{
+      const turn=thread.turns.find(t=>t.id===target?.dataset.turn),reply=turn?.replies.find(r=>r.id===target?.dataset.reply);
+      if(!turn||!reply||inlineEditor.editing(thread.id,reply.id))break;
+      if(inlineEditor.session?.threadId!==thread.id&&inlineEditor.dirty){toast(`Save or cancel the answer you are editing in “${state.workspace.threads.find(t=>t.id===inlineEditor.session?.threadId)?.title??'another conversation'}” first.`,true);break;}
+      if(inlineEditor.session?.threadId!==thread.id)inlineEditor.close();
+      if(!transcriptFree(thread))break;
+      inlineEditor.open(thread.id,turn.id,reply,name==='edit-thinking'?'reasoning':'content');replyCache.delete(reply.id);scheduleTranscript(true);break;
+    }
+    case 'inline-save':void inlineEditor.commit();break;
+    case 'inline-cancel':inlineEditor.requestClose();break;
+    case 'inline-keep':inlineEditor.keep();break;
+    case 'inline-discard':inlineEditor.close();break;
     case 'palette': palette(); break;
     case 'conversations':if(responsive.compact){if(!responsive.navigation)responsive.showNavigation();}else await setView({sidebar:true,focus:false});$('search').focus();break;
     case 'artifacts': artifactPanel.toggle(); break;
@@ -720,14 +821,33 @@ async function action(name:string, target?:HTMLElement):Promise<void> {
       } catch(error) { toast(error instanceof Error?error.message:'Could not attach file.',true); }
       break;
     }
-    case 'edit':{if(!await flushDraft())break;const turn=thread.turns.find(t=>t.id===target?.dataset.turn);if(!turn)break;if(state.busyThreadId===thread.id){toast('Stop the active response before editing.',true);break;}editor.open({kind:'prompt',title:'Edit prompt',content:turn.prompt,attachmentNames:turn.attachments.map(a=>a.name),save:async content=>{const ok=await dispatch({type:'prompt.edit',id:thread.id,turnId:turn.id,content,expectedContent:turn.prompt});if(!ok)return false;const id=current().id;drafts.set(id,content);pendingFiles.set(id,structuredClone(turn.attachments));renderAttachments();return true;}});break;}
-    case 'retry': case 'branch': {
-      if(!await flushDraft())break; const turn=thread.turns.find(t=>t.id===target?.dataset.turn);
-      if(!turn) break;
-      const before=name!=='branch';
-      const ok=await dispatch({type:'thread.fork',id:thread.id,turnId:turn.id,before,replyId:target?.dataset.reply});
-      if(ok&&before) { pendingFiles.set(current().id,structuredClone(turn.attachments)); renderAttachments(); $('prompt').focus(); if(name==='retry') await submit(); }
-      break;
+    case 'edit':{
+      const turn=thread.turns.find(t=>t.id===target?.dataset.turn);if(!turn)break;
+      if(state.busyThreadId===thread.id){toast('Stop the active response before editing.',true);break;}
+      if(inlineEditor.session?.threadId===thread.id){if(inlineEditor.dirty){toast('Save or cancel the answer you are editing first.',true);break;}inlineEditor.close();}
+      if(!messageEdits.has(thread.id)&&!await flushDraft())break;
+      startMessageEdit(thread,turn);break;
+    }
+    case 'message-edit-cancel':endMessageEdit(thread.id);$('prompt').focus();break;
+    case 'retry':{
+      const turn=thread.turns.find(t=>t.id===target?.dataset.turn);
+      if(!turn||sending||!transcriptFree(thread))break;
+      if(configDirty){toast('Apply your configuration changes before sending.',true);break;}
+      if(needsReview(thread)){await dispatch({type:'thread.authorize-account',id:thread.id});toast('Review the connection, then press Retry again.');break;}
+      if(!await flushDraft())break;
+      await dispatch({type:'turn.retry',id:thread.id,turnId:turn.id});break;
+    }
+    case 'branch':{
+      if(!await flushDraft())break;const turn=thread.turns.find(t=>t.id===target?.dataset.turn);if(!turn)break;
+      await dispatch({type:'thread.fork',id:thread.id,turnId:turn.id,before:false,replyId:target?.dataset.reply});break;
+    }
+    case 'version':{
+      const turn=thread.turns.find(t=>t.id===target?.dataset.turn),kind=target?.dataset.kind==='reply'?'reply':'message',step=target?.dataset.step==='-1'?-1:1;
+      if(!turn||!transcriptFree(thread))break;
+      const version=versionStep(turn,kind,step);if(version===null)break;
+      const node=target!.closest<HTMLElement>('article.turn');
+      versionAnchor={index:thread.turns.indexOf(turn),kind,step:String(step),offset:node?node.getBoundingClientRect().top-$('transcript').getBoundingClientRect().top:0};
+      await dispatch({type:'turn.version',id:thread.id,turnId:turn.id,version});break;
     }
     case 'choose':
       if(target?.dataset.turn&&target.dataset.reply) await dispatch({type:'reply.select',id:thread.id,turnId:target.dataset.turn,replyId:target.dataset.reply}); break;
@@ -772,9 +892,9 @@ async function setView(partial:Partial<ViewPreferences>):Promise<void> {
 function renderViewControls():void {
   $<HTMLSelectElement>('view-reasoning').value=view.reasoning;
   $<HTMLSelectElement>('view-motion').value=view.motion;
-  for(const key of ['markdown','math','metadata','wrapCode','focus','autoArtifacts'] as const)$<HTMLInputElement>(`view-${key}`).checked=view[key];
+  for(const key of ['markdown','math','metadata','wrapCode','focus','autoArtifacts','roleMessages'] as const)$<HTMLInputElement>(`view-${key}`).checked=view[key];
 }
-for(const key of ['markdown','math','metadata','wrapCode','focus','autoArtifacts'] as const)$(`view-${key}`).addEventListener('change',()=>{void setView({[key]:$<HTMLInputElement>(`view-${key}`).checked});});
+for(const key of ['markdown','math','metadata','wrapCode','focus','autoArtifacts','roleMessages'] as const)$(`view-${key}`).addEventListener('change',()=>{void setView({[key]:$<HTMLInputElement>(`view-${key}`).checked});});
 $('view-motion').addEventListener('change',()=>{void setView({motion:$<HTMLSelectElement>('view-motion').value as ViewPreferences['motion']});});
 document.addEventListener('selectionchange',()=>{if(state&&window.getSelection()?.isCollapsed)scheduleTranscript();});
 $('view-reasoning').addEventListener('change',()=>{void setView({reasoning:$<HTMLSelectElement>('view-reasoning').value as ViewPreferences['reasoning']});});
@@ -865,7 +985,8 @@ const composerObserver=new ResizeObserver(entries=>{
 composerObserver.observe(document.querySelector<HTMLElement>('.composer-region')!);
 window.visualViewport?.addEventListener('resize',()=>sizeComposer());
 $('prompt').addEventListener('input',()=>{sizeComposer(); if(state)saveDraft();});
-$('prompt').addEventListener('keydown',event=>{if(event.key==='Enter'&&!event.shiftKey&&!event.isComposing&&event.keyCode!==229&&(!responsive.touch||event.ctrlKey||event.metaKey)){event.preventDefault(); void submit();}});
+$('composer-role').addEventListener('change',()=>{if(!state)return;const edit=messageEdits.get(current().id);if(edit)edit.role=composerRole();accept(state);});
+$('prompt').addEventListener('keydown',event=>{if(event.key==='Escape'&&!event.isComposing&&state&&messageEdits.has(current().id)&&!topModal()){event.preventDefault();endMessageEdit(current().id);return;}if(event.key==='Enter'&&!event.shiftKey&&!event.isComposing&&event.keyCode!==229&&(!responsive.touch||event.ctrlKey||event.metaKey)){event.preventDefault(); void submit();}});
 $('composer-form').addEventListener('submit',event=>{event.preventDefault(); void submit();});
 $('transcript').addEventListener('scroll',()=>{$('jump').classList.toggle('hidden',$('transcript').scrollHeight-$('transcript').scrollTop-$('transcript').clientHeight<150);});
 $('config-form').addEventListener('input',rememberConfiguration);

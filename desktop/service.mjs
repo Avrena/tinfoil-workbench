@@ -1,8 +1,9 @@
-import { editReply,editPrompt } from '../dist/core/editing.js';
+import { editReply } from '../dist/core/editing.js';
 import { createProject,renameProject,removeProject,moveThread,newProjectThread } from '../dist/core/projects.js';
 import { saveInstructionPreset, deleteInstructionPreset } from '../dist/core/instructions.js';
 import { InputError, record, text, identifier, settings, attachments, validateWorkspace, LIMITS, validateTool } from '../dist/core/validation.js';
-import { newWorkspace, findThread, addThread, beginTurn, chooseReply, forkThread, recoverInterrupted, importThread, outputLimitNotice } from '../dist/core/workspace.js';
+import { newWorkspace, findThread, addThread, beginTurn, retryTurn, addMessage, chooseReply, forkThread, recoverInterrupted, importThread, outputLimitNotice } from '../dist/core/workspace.js';
+import { showVersion } from '../dist/core/versions.js';
 import { viewPreferences } from '../dist/core/preferences.js';
 import { extractCodeBlocks } from '../dist/core/markdown.js';
 import { ToolCallAccumulator, PYTHON_TOOL, pythonArguments, findTextToolCalls } from '../dist/core/tools.js';
@@ -18,7 +19,8 @@ import { publicError, networkFailure, moduleFailure } from '../dist/core/securit
 import { projectContext } from '../dist/core/cloud.js';
 const idleVerification = () => ({ state: 'idle', checkedAt: null, steps: [] });
 /** A reply cut off because the Android app left the screen (see the `backgroundedSince` host option). */
-export const BACKGROUND_INTERRUPTION = 'The reply stopped because Workbench left the screen: Android pauses apps in the background, which ends their connections. Partial output was preserved. Retry in a new branch to ask again.';
+export const ROLE_MESSAGES_CLOUD = 'Tinfoil cloud chats have no place for messages added in another role. Keep this conversation on this device to add them.';
+export const BACKGROUND_INTERRUPTION = 'The reply stopped because Workbench left the screen: Android pauses apps in the background, which ends their connections. Partial output was preserved. Retry asks again in a new version.';
 const bounded = (v, max = 100) => typeof v === 'string' ? v.slice(0, max) : '';
 const stepList = steps => Object.entries(steps ?? {}).slice(0, 20).map(([name, step]) => ({ name: bounded(name), status: bounded(step?.status) }));
 // The SDK records every verification step, including the one that failed, even when ready() rejects.
@@ -299,6 +301,7 @@ export class WorkbenchService {
       case 'project.delete': this.localProject(c.id, 'Delete'); removeProject(this.workspace,identifier(c.id)); break;
       case 'thread.move': {
         const id = identifier(c.id), projectId = c.projectId === null ? null : identifier(c.projectId);
+        if (this.workspace.projects.find(p => p.id === projectId)?.cloud && findThread(this.workspace, id).turns.some(t => t.role)) throw new InputError(ROLE_MESSAGES_CLOUD);
         if (this.cloud?.move(id, projectId)) cloudChanged = id; else moveThread(this.workspace, id, projectId);
         if (projectId != null) delete findThread(this.workspace, id).cloudPending;
         break;
@@ -306,7 +309,17 @@ export class WorkbenchService {
       // Library changes never alter a thread's copied instructions or any request in flight.
       case 'instructions.save': saveInstructionPreset(this.workspace,c.id==null?undefined:identifier(c.id),c.name,c.text); break;
       case 'instructions.delete': deleteInstructionPreset(this.workspace,identifier(c.id)); break;
-      case 'prompt.edit': {this.editable(c.id);cloudChanged=c.id;editPrompt(this.workspace,c.id,identifier(c.turnId),c.content,c.expectedContent);break;}
+      case 'turn.version': {
+        const t = this.editable(c.id);
+        if (!Number.isSafeInteger(c.version) || c.version < 1) throw new InputError('Invalid version.');
+        showVersion(t, identifier(c.turnId), c.version); cloudChanged = c.id; break;
+      }
+      // Tinfoil cloud chats have no place for them, so a conversation that is or will be one takes none.
+      case 'turn.add': {
+        const t = this.editable(c.id);
+        if (t.cloud || t.cloudPending || this.workspace.projects.find(p => p.id === t.projectId)?.cloud) throw new InputError(ROLE_MESSAGES_CLOUD);
+        addMessage(t, c.role, text(c.text, 'Message', LIMITS.prompt, true), c.replace === undefined ? undefined : identifier(c.replace)); break;
+      }
       case 'reply.edit': {this.editable(c.id);cloudChanged=c.id;editReply(this.workspace,c.id,{turnId:identifier(c.turnId),replyId:identifier(c.replyId),content:c.content,reasoning:c.reasoning,expectedContent:c.expectedContent,expectedReasoning:c.expectedReasoning});break;}
       case 'thread.select': {
         const t = findThread(this.workspace, identifier(c.id)); this.workspace.activeId = c.id;
@@ -353,7 +366,8 @@ export class WorkbenchService {
       }
       case 'connect': await this.refreshModels(); return this.snapshot();
       case 'models.catalog': await this.loadCatalog(); return this.snapshot();
-      case 'send': return this.send(identifier(c.id), text(c.text, 'Prompt', LIMITS.prompt, true), attachments(c.attachments));
+      case 'send': return this.send(identifier(c.id), text(c.text, 'Prompt', LIMITS.prompt, true), attachments(c.attachments), c.replace === undefined ? undefined : identifier(c.replace));
+      case 'turn.retry': { const id = identifier(c.id), turnId = identifier(c.turnId); return this.start(id, (thread, context) => retryTurn(thread, turnId, context)); }
       case 'stop': {
         if (identifier(c.id) === this.busyThreadId) for (const ctrl of this.controllers.values()) ctrl.abort();
         return this.snapshot();
@@ -369,7 +383,10 @@ export class WorkbenchService {
   localProject(id, action) {
     if (this.workspace.projects.find(p => p.id === id)?.cloud) throw new InputError(`${action} Tinfoil cloud projects in Tinfoil Chat.`);
   }
-  async send(threadId, prompt, files) {
+  /** Sends a message: a new turn, or with `replace` a new version of that turn (an edited message). */
+  send(threadId, prompt, files, replace) { return this.start(threadId, (thread, context) => beginTurn(thread, prompt, files, context, replace)); }
+  /** Starts the replies that `begin` sets up in the conversation (core/workspace.ts), and writes a cloud chat back after them. */
+  async start(threadId, begin) {
     if (this.storageFailed) throw new InputError(this.notice);
     if (this.busyThreadId) throw new InputError('A response is already running. Stop it before starting another.');
     if(this.workspace.connectionMode!=='chat-account'&&!this.workspace.apiKey)throw new InputError('Add a Tinfoil API key or sign in to Tinfoil Chat in Account.');
@@ -379,7 +396,7 @@ export class WorkbenchService {
     if (thread.cloud && !thread.cloud.loaded) throw new InputError('This chat is still loading from Tinfoil cloud. Wait a moment, then send.');
     if (thread.settings.toolsMode === 'ask' && (!this.toolExecutor || !this.workspace.pythonPath)) throw new InputError('Choose an installed Python interpreter in Settings → Execution before enabling model-requested Python.');
     const project = thread.projectId ? this.workspace.projects.find(p => p.id === thread.projectId) : null;
-    const jobs = beginTurn(thread, prompt, files, project ? projectContext(project) : '');
+    const jobs = begin(thread, project ? projectContext(project) : '');
     thread.connectionOwner=owner;for(const job of jobs)job.owner=owner;
     this.busyThreadId = threadId; this.delegationCount = 0;
     // Install controllers before the first await, so even a stop during disk IO is effective.

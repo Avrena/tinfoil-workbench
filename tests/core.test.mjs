@@ -26,7 +26,7 @@ test('comparison requests receive independent identical histories',()=>{
 });
 test('comparison requires explicit selection and never concatenates variants',()=>{
   const {t}=fixture(true);beginTurn(t,'First',[]);complete(t);
-  assert.throws(()=>beginTurn(t,'Second',[]),/Select a completed reply/);
+  assert.throws(()=>beginTurn(t,'Second',[]),/Choose one of the earlier answers/);
   const turn=t.turns[0];chooseReply(t,turn.id,turn.replies[1].id);
   const history=buildHistory(t);assert.equal(history[1].content,'Answer model-b');assert.equal(history.length,2);
   assert.ok(!JSON.stringify(history).includes('Not conversation context'));

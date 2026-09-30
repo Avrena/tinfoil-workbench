@@ -1,6 +1,6 @@
 /** Fixed inline glyphs for trusted renderer templates; labels are escaped by callers. */
 const paths: Record<string,string> = {
-  folder:'M3 6h7l2 2h9v12H3zM3 6V4h7l2 2', expand:'M8 3H3v5M16 3h5v5M3 16v5h5M21 16v5h-5', eye:'M2 12s3-7 10-7 10 7 10 7-3 7-10 7S2 12 2 12M12 9a3 3 0 1 0 0 6 3 3 0 0 0 0-6', up:'m6 15 6-6 6 6',
+  folder:'M3 6h7l2 2h9v12H3zM3 6V4h7l2 2', expand:'M8 3H3v5M16 3h5v5M3 16v5h5M21 16v5h-5', eye:'M2 12s3-7 10-7 10 7 10 7-3 7-10 7S2 12 2 12M12 9a3 3 0 1 0 0 6 3 3 0 0 0 0-6', up:'m6 15 6-6 6 6', left:'m15 6-6 6 6 6', right:'m9 6 6 6-6 6',
   logo:'M4 4h16v4h-6v12h-4V8H4z', sync:'M20 12a8 8 0 0 1-14 5.3M4 12a8 8 0 0 1 14-5.3M18 3v4h-4M6 21v-4h4', trash:'M4 7h16M10 11v6M14 11v6M6 7l1 13h10l1-13M9 7V4h6v3', chat:'M4 4h16v12H9l-5 4z', plus:'M12 5v14M5 12h14',
   search:'M10 3a7 7 0 1 0 0 14 7 7 0 0 0 0-14m5 12 6 6',
   settings:'M12 8a4 4 0 1 0 0 8 4 4 0 0 0 0-8M10 3h4l1 3 3-1 2 4-2 3 2 3-2 4-3-1-1 3h-4l-1-3-3 1-2-4 2-3-2-3 2-4 3 1z',

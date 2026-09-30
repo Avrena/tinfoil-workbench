@@ -1,9 +1,11 @@
 import { viewPreferences } from './preferences.js';
-import type { ReplyEdit, ApiMessage, Artifact, Attachment, CloudConfig, GenerationSettings, InstructionPreset, Reply, Thread, ToolRun, Workspace } from './types.js';
+import type { ReplyEdit, ApiMessage, Artifact, Attachment, CloudConfig, GenerationSettings, InstructionPreset, Reply, Thread, ToolRun, Turn, TurnVersion, Workspace } from './types.js';
 import type { CloudChatLink, CloudProjectLink } from './cloud.js';
 export const LIMITS = Object.freeze({
   prompt: 160_000, attachment: 200_000, attachments: 8,
   context: 800_000, response: 2_000_000, threads: 800, cloudChats: 300, turns: 400,
+  /** Versions of one point in a conversation, and turns a conversation stores with all its versions (core/versions.ts). */
+  versions: 50, storedTurns: 2000,
   instructions: 40_000, instructionName: 80, instructionPresets: 50,
   importBytes: 24 * 1024 * 1024, workspaceBytes: 64 * 1024 * 1024,
 });
@@ -99,7 +101,8 @@ export function cloudChatLink(value: unknown): CloudChatLink {
   const v = record(value);
   if (typeof v.loaded !== 'boolean' || typeof v.dirty !== 'boolean' || !Number.isInteger(v.turns)) throw new InputError('Invalid cloud chat link.');
   return { id: cloudId(v.id), etag: cloudVersion(v.etag), project: v.project === null ? null : cloudId(v.project), turns: numeric(v.turns, 0, LIMITS.turns),
-    loaded: v.loaded, dirty: v.dirty, syncedAt: stamp(v.syncedAt), ...(v.format === undefined ? {} : { format: integer(v.format, 1, 1000) }) };
+    loaded: v.loaded, dirty: v.dirty, syncedAt: stamp(v.syncedAt), ...(v.format === undefined ? {} : { format: integer(v.format, 1, 1000) }),
+    ...(v.rewritten === true ? { rewritten: true as const } : {}) };
 }
 export function cloudProjectLink(value: unknown): CloudProjectLink {
   const v = record(value);
@@ -145,20 +148,41 @@ function reply(value: unknown): Reply {
     error: v.error === null ? null : text(v.error, 'Error', 1000), usage, elapsedMs: numeric(v.elapsedMs, 0, 1e12),
   };
 }
+/** A turn and, on the path, the versions of its point; `setAside` is a version's first turn, which holds none. */
+function turn(value: unknown, budget: { left: number }, setAside: boolean): Turn {
+  if (--budget.left < 0) throw new InputError('This conversation stores too many versions.');
+  const t = record(value);
+  if (t.role !== undefined && t.role !== 'assistant' && t.role !== 'system') throw new InputError('Invalid message role.');
+  const role = t.role as Turn['role'];
+  const replies = list(t.replies, 2).map(reply);
+  if (role ? replies.length : !replies.length) throw new InputError(role ? 'An added message has no reply.' : 'A turn needs at least one reply.');
+  const selectedReplyId = t.selectedReplyId === null ? null : identifier(t.selectedReplyId);
+  if (selectedReplyId && !replies.some(r => r.id === selectedReplyId)) throw new InputError('Selected reply does not exist.');
+  const files = attachments(t.attachments);
+  if (role && files.length) throw new InputError('An added message has no files.');
+  let versions: TurnVersion[] = [];
+  if (t.versions !== undefined) {
+    if (setAside) throw new InputError('A version set aside cannot hold versions of its own.');
+    versions = list(t.versions, LIMITS.versions - 1).map(item => {
+      const turns = list(record(item).turns, LIMITS.turns).map((x, i) => turn(x, budget, i === 0));
+      if (!turns.length) throw new InputError('Empty conversation version.');
+      return { turns };
+    });
+  }
+  const version = t.version === undefined ? undefined : integer(t.version, 1, 1_000_000);
+  const numbers = [version ?? 1, ...versions.map(v => v.turns[0]!.version ?? 1)];
+  if (new Set(numbers).size !== numbers.length) throw new InputError('Duplicate conversation versions.');
+  return {
+    id: identifier(t.id), prompt: text(t.prompt, 'Prompt', LIMITS.prompt, !!role),
+    attachments: files, createdAt: stamp(t.createdAt), replies, selectedReplyId,
+    ...(role ? { role } : {}), ...(version === undefined ? {} : { version }), ...(versions.length ? { versions } : {}),
+  };
+}
 export function validateThread(value: unknown): Thread {
   const v = record(value);
   if (typeof v.pinned !== 'boolean') throw new InputError('Invalid pin state.');
-  const turns = list(v.turns, LIMITS.turns).map(item => {
-    const t = record(item);
-    const replies = list(t.replies, 2).map(reply);
-    if (!replies.length) throw new InputError('A turn needs at least one reply.');
-    const selectedReplyId = t.selectedReplyId === null ? null : identifier(t.selectedReplyId);
-    if (selectedReplyId && !replies.some(r => r.id === selectedReplyId)) throw new InputError('Selected reply does not exist.');
-    return {
-      id: identifier(t.id), prompt: text(t.prompt, 'Prompt', LIMITS.prompt),
-      attachments: attachments(t.attachments), createdAt: stamp(t.createdAt), replies, selectedReplyId,
-    };
-  });
+  const budget = { left: LIMITS.storedTurns };
+  const turns = list(v.turns, LIMITS.turns).map(item => turn(item, budget, false));
   const ids = turns.flatMap(t => [t.id, ...t.replies.flatMap(r => [r.id, ...(r.tools ?? []).flatMap(tool => [tool.id, ...tool.artifacts.map(a => a.id)])])]);
   if (new Set(ids).size !== ids.length) throw new InputError('Duplicate identifiers in conversation.');
   return {

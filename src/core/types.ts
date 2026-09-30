@@ -68,7 +68,16 @@ export interface Reply {
 export interface Turn {
   id: string; prompt: string; attachments: Attachment[]; createdAt: number;
   replies: Reply[]; selectedReplyId: string | null;
+  /** A message added in another role (the transcript editor): `prompt` is sent as that role, and there is no reply. */
+  role?: 'assistant' | 'system';
+  /** This turn's number among the versions of its point in the conversation, in the order they were made; absent is 1. */
+  version?: number;
+  /** The other versions of this point, each with the turns that followed it (core/versions.ts). Only a turn on the
+   * conversation's path holds them; a turn set aside with a version never does, though the turns after it keep theirs. */
+  versions?: TurnVersion[];
 }
+/** A version set aside: the turn at its point first, then the turns that followed it. */
+export interface TurnVersion { turns: Turn[] }
 export interface Thread {
   /** Local authorization binding, not model context or a cloud-sync identifier. */
   connectionOwner?: string;
@@ -134,7 +143,6 @@ export type Command =
   | { type: 'thread.move'; id: string; projectId: string | null }
   | { type: 'instructions.save'; id?: string; name: string; text: string }
   | { type: 'instructions.delete'; id: string }
-  | { type: 'prompt.edit'; id: string; turnId: string; content: string; expectedContent: string }
   | { type: 'reply.edit'; id: string; turnId: string; replyId: string; content: string; reasoning: string; expectedContent: string; expectedReasoning: string }
   | { type: 'view.set'; view: ViewPreferences }
   | { type: 'python.pick' }
@@ -157,7 +165,11 @@ export type Command =
   | { type: 'credentials.clear' }
   | { type: 'connect' }
   | { type: 'models.catalog' }
-  | { type: 'send'; id: string; text: string; attachments: Attachment[] }
+  /** `replace`: the turn this message replaces with a new version (an edited message). */
+  | { type: 'send'; id: string; text: string; attachments: Attachment[]; replace?: string }
+  | { type: 'turn.retry'; id: string; turnId: string }
+  | { type: 'turn.version'; id: string; turnId: string; version: number }
+  | { type: 'turn.add'; id: string; role: 'assistant' | 'system'; text: string; replace?: string }
   | { type: 'stop'; id: string }
   | { type: 'attachments.pick' }
   | { type: 'export'; id: string; format: 'markdown' | 'json' }

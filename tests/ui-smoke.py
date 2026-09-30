@@ -146,7 +146,7 @@ with sync_playwright() as p:
  expect(second.locator('#stop')).to_be_hidden()
  checks.append('comparison is an explicit advanced action and retains two separate response lanes')
  second.locator('#prompt').fill('Continue.');second.locator('#send').click()
- expect(second.locator('#toast')).to_contain_text('Select a completed reply')
+ expect(second.locator('#toast')).to_contain_text('Choose one of the earlier answers')
  second.locator('[data-action="choose"]').last.click();expect(second.locator('.chosen-label')).to_have_text('Selected')
  checks.append('comparison still requires a selected answer before continuation')
  second.locator('[data-action="branch"]').last.click()

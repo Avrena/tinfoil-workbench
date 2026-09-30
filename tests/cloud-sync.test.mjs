@@ -5,6 +5,8 @@ import { readFileSync } from 'node:fs';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { CloudSync } from '../desktop/cloud-sync.mjs';
+import { editReply } from '../dist/core/editing.js';
+import { showVersion } from '../dist/core/versions.js';
 import { CloudClient, CloudError, cloudKeyId, cloudChatId, SYNC_URL } from '../desktop/cloud-client.mjs';
 import { parseCloudKey } from '../dist/core/cloud.js';
 import { newWorkspace, addThread } from '../dist/core/workspace.js';
@@ -138,6 +140,22 @@ test('continuing or renaming a cloud chat writes it back against the version it 
   assert.deepEqual(server.rows.chat.get('c2').plain.messages, chat('Other', 1).messages);
 });
 
+test('another version of a turn in a cloud chat replaces the messages after it there, and showing the first writes that back', async () => {
+  const server = enclave(); server.seed('chat', 'c1', chat('Trip', 3));
+  const { sync, ws } = setup({ server });
+  await sync.connect(KEY);
+  const trip = byCloud(ws, 'c1'); await sync.load(trip.id);
+  const turn = trip.turns[1], reply = turn.replies[0];
+  editReply(ws, trip.id, { turnId: turn.id, replyId: reply.id, content: 'Edited answer', reasoning: reply.reasoning, expectedContent: reply.content, expectedReasoning: reply.reasoning });
+  await sync.changed(trip.id);
+  const messages = () => server.rows.chat.get('c1').plain.messages;
+  assert.deepEqual(messages().map(m => m.content), ['Trip question 0', 'Trip answer 0', 'Trip question 1', 'Edited answer']);
+  assert.deepEqual(messages().slice(0, 2), chat('Trip', 3).messages.slice(0, 2), 'messages before the change are kept as they were');
+  assert.deepEqual([trip.cloud.turns, trip.cloud.rewritten, trip.cloud.dirty], [2, undefined, false]);
+  showVersion(trip, trip.turns[1].id, 1); await sync.changed(trip.id);
+  assert.deepEqual(messages().map(m => m.content), chat('Trip', 3).messages.map(m => m.content));
+  assert.deepEqual([trip.cloud.turns, trip.cloud.rewritten], [3, undefined]);
+});
 test('a chat that changed in Tinfoil first keeps the cloud version in place and Workbench\'s as a copy', async () => {
   const server = enclave(); server.seed('chat', 'c1', chat('Trip', 1));
   const { sync, ws, notices } = setup({ server });

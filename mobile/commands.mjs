@@ -100,7 +100,7 @@ export function createCommandHandler({ service, native, account = null, uuid = (
       case 'thread.settings':
         if (record(c.settings).toolsMode === 'ask') throw new InputError(PYTHON_SETTING);
         await service.execute(c); break;
-      case 'send': {
+      case 'send': case 'turn.retry': {
         // The shared service would ask for a desktop interpreter; give the Android reason instead.
         if (findThread(service.workspace, identifier(c.id)).settings.toolsMode === 'ask') throw new InputError(PYTHON_SETTING);
         await service.execute(c); break;

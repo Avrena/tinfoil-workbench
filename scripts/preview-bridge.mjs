@@ -1,11 +1,12 @@
 import { signedOutAccount } from '/core/account.js';
-import { editReply,editPrompt } from '/core/editing.js';
+import { editReply } from '/core/editing.js';
+import { showVersion } from '/core/versions.js';
 import { createProject,renameProject,removeProject,moveThread,newProjectThread } from '/core/projects.js';
 import { saveInstructionPreset,deleteInstructionPreset } from '/core/instructions.js';
 import { chartSpec,chartSVG,tableSpec,tableHTML,diagramSpec,diagramSVG } from '/core/visual-tools.js';
 import { viewPreferences } from '/core/preferences.js';
 // Development preview only. This file is outside dist/desktop and is NOT packaged in the Windows application.
-import {newWorkspace,findThread,addThread,beginTurn,chooseReply,forkThread} from '/core/workspace.js';
+import {newWorkspace,findThread,addThread,beginTurn,retryTurn,addMessage,chooseReply,forkThread} from '/core/workspace.js';
 import {settings,attachments,InputError} from '/core/validation.js';
 let previewAccount=signedOutAccount(),previewMode='api-key',previewRemember=true;
 // Cloud sync is shown with synthetic state only; the preview never connects to Tinfoil cloud.
@@ -120,7 +121,8 @@ window.tinfoil=Object.freeze({
       case 'thread.move':moveThread(workspace,c.id,c.projectId);break;
       case 'instructions.save':saveInstructionPreset(workspace,c.id??undefined,c.name,c.text);break;
       case 'instructions.delete':deleteInstructionPreset(workspace,c.id);break;
-      case 'prompt.edit':if(c.id===busy)throw new InputError('Stop the response first.');editPrompt(workspace,c.id,c.turnId,c.content,c.expectedContent);break;
+      case 'turn.version':if(c.id===busy)throw new InputError('Stop the response first.');showVersion(findThread(workspace,c.id),c.turnId,c.version);break;
+      case 'turn.add':if(c.id===busy)throw new InputError('Stop the response first.');if(findThread(workspace,c.id).cloudPending)throw new InputError('Tinfoil cloud chats have no place for messages added in another role. Keep this conversation on this device to add them.');addMessage(findThread(workspace,c.id),c.role,c.text,c.replace);break;
       case 'reply.edit':if(c.id===busy)throw new InputError('Stop the response first.');editReply(workspace,c.id,c);break;
       case 'thread.select':findThread(workspace,c.id);workspace.activeId=c.id;break;
       case 'thread.draft':{const t=findThread(workspace,c.id);t.draft=c.text;if(c.attachments!==undefined)t.draftAttachments=attachments(c.attachments);break;}
@@ -130,7 +132,7 @@ window.tinfoil=Object.freeze({
       case 'thread.delete':if(c.id===busy)throw new InputError('Stop the response first.');workspace.threads=workspace.threads.filter(t=>t.id!==c.id);if(!workspace.threads.length)addThread(workspace);workspace.activeId=workspace.threads[0].id;break;
       case 'thread.fork':forkThread(workspace,c.id,c.turnId,c.before,c.replyId);break;
       case 'reply.select':chooseReply(findThread(workspace,c.id),c.turnId,c.replyId);break;
-      case 'send':if(busy)throw new InputError('A response is already running.');{const t=findThread(workspace,c.id),jobs=beginTurn(t,c.text,attachments(c.attachments));busy=t.id;stopped=false;void simulate(t,jobs);break;}
+      case 'send':case 'turn.retry':if(busy)throw new InputError('A response is already running.');{const t=findThread(workspace,c.id),jobs=c.type==='send'?beginTurn(t,c.text,attachments(c.attachments),'',c.replace):retryTurn(t,c.turnId);busy=t.id;stopped=false;void simulate(t,jobs);break;}
       case 'stop':stopped=true;break;
       case 'attachments.pick':extra=[{name:'outline.md',content:'A fictional scene outline. Preview-only attachment.'}];break;
       case 'clipboard':await navigator.clipboard.writeText(c.text);break;

@@ -197,8 +197,6 @@
 .message-editor { --editor-gutter: 24px; }
 .message-editor .modal-head { padding: 20px var(--editor-gutter) 12px; gap: 12px; }
 .message-editor h2 { margin: 4px 0 0; line-height: 1.4; }
-.editor-fields { padding: 0 var(--editor-gutter); gap: 20px; }
-.editor-fields button { padding: 10px 0; min-height: 40px; }
 .editor-toolbar { padding: 12px var(--editor-gutter) 8px; gap: 8px; }
 .editor-format { gap: 4px; }
 .editor-note { padding: 4px var(--editor-gutter) 12px; }
@@ -308,8 +306,6 @@ dialog:not(.message-editor) .modal-body { padding: 8px 20px 20px; }
   .find-bar button { min-width: 32px; padding: 6px; }
   .message-editor { --editor-gutter: 16px; }
   .message-editor .modal-head { padding: 12px var(--editor-gutter) 8px; }
-  .editor-fields { padding: 0 var(--editor-gutter); gap: 20px; }
-  .editor-fields button { min-height: 40px; padding-block: 8px; }
   .editor-toolbar { padding: 8px var(--editor-gutter); gap: 8px; flex-wrap: wrap; }
   .editor-modes { gap: 0; padding: 2px; }
   .editor-modes button { min-height: 40px; padding-inline: 8px; }
@@ -341,7 +337,6 @@ dialog:not(.message-editor) .modal-body { padding: 8px 20px 20px; }
   .composer-region { padding-block: 4px; }
   .composer textarea, #prompt { padding-top: 8px; min-height: 40px; }
   .message-editor .modal-head { padding-block: 6px; }
-  .editor-fields button { min-height: 32px; padding-block: 4px; }
   .editor-toolbar { padding-block: 4px; }
   .editor-modes button { min-height: 32px; }
   .editor-note { padding-block: 2px; max-height: 42px; }
@@ -566,3 +561,48 @@ dialog:not(.message-editor) .modal-body { padding: 8px 20px 20px; }
    A 6px chevron centred in a 9px box points right when closed and down when open. */
 .reasoning summary:before, .tool-activity summary:before { content: ''; flex: none; box-sizing: border-box; width: 6px; height: 6px; margin: 0 2px 0 1px; border-right: 1.5px solid currentColor; border-bottom: 1.5px solid currentColor; font-size: 0; line-height: 0; transform: rotate(-45deg); }
 .reasoning[open] > summary:before, .tool-activity[open] > summary:before { transform: rotate(45deg); }
+
+/* Versions of a message or a reply: ‹ 2/3 ›. A turn with versions keeps its actions visible, so the arrows can be seen
+   without hovering. */
+.version-pager { display: inline-flex; align-items: center; margin-right: 4px; font-size: 11px; color: #a9afb9; font-variant-numeric: tabular-nums; }
+.version-pager .version-step { display: inline-flex; align-items: center; justify-content: center; min-width: 24px; min-height: 24px; padding: 3px; border-radius: 6px; background: transparent; color: #a9afb9; }
+.version-pager .version-step:hover:not(:disabled) { background: #ffffff12; color: #e6e6e6; }
+.version-pager .version-step:disabled { opacity: .35; cursor: default; }
+.version-pager svg { width: 14px; height: 14px; }
+.version-count { min-width: 28px; text-align: center; }
+.turn-actions:has(.version-pager) { opacity: 1; }
+.turn-actions { align-items: center; }
+@media (pointer: coarse), (hover: none) { .version-pager .version-step { min-width: 40px; min-height: 40px; } }
+
+/* Messages added in another role: the role is named, and the border is dashed because no model wrote them. */
+.role-row { margin: 10px 0 23px; }
+.role-row > .message-label { margin-bottom: 8px; font-size: 11px; color: #b9bdc6; }
+.role-row .meta { font-weight: 400; color: #8c9098; }
+.role-dot { display: inline-flex; align-items: center; justify-content: center; width: 18px; height: 18px; border-radius: 5px; background: #34363b; font-size: 10px; font-weight: 600; color: #d6d8dd; }
+.role-message { padding: 12px 16px; border: 1px dashed #4a4d54; border-radius: 12px; white-space: pre-wrap; overflow-wrap: anywhere; font-size: var(--reading-size); line-height: 1.65; color: #dcdde0; }
+.role-row[data-role="system"] .role-message { background: #22252a; border-color: #3d4655; color: #c7cedb; }
+.role-row .turn-actions { justify-content: flex-start; }
+.role-row:hover .turn-actions, .role-row:focus-within .turn-actions { opacity: 1; }
+
+/* A message edited in the composer: Send makes a new version. */
+.message-edit { display: flex; align-items: center; gap: 10px; margin: 0 0 6px; padding: 5px 6px 5px 12px; border: 1px solid #35546e; border-radius: 10px; background: #1f2a35; font-size: 12px; color: #cfe3f5; }
+.message-edit-label { display: inline-flex; align-items: center; gap: 6px; font-weight: 600; white-space: nowrap; }
+.message-edit-label svg { width: 13px; height: 13px; }
+.message-edit-note { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: #9fb6cc; }
+.message-edit button { padding: 4px 10px; font-size: 11px; }
+.composer-role { height: 30px; min-height: 0; max-width: 104px; padding: 0 6px; border: 1px solid #3a3c41; border-radius: 6px; background: #2a2c30; font-size: 11px; color: #d8dade; }
+.composer-role[hidden] { display: none; }
+
+/* An answer and its thinking text edited where the reply is shown. */
+.inline-editor { display: flex; flex-direction: column; gap: 6px; margin: 4px 0 8px; }
+.inline-editor-note { margin: 0 0 4px; font-size: 11px; color: #9ea3ab; }
+.inline-editor-label { font-size: 11px; font-weight: 600; color: #c9ccd2; }
+.inline-editor-label small { margin-left: 6px; font-weight: 400; color: #8f949c; }
+.inline-editor-text { box-sizing: border-box; width: 100%; min-height: 72px; padding: 10px 12px; resize: vertical; border: 1px solid #3a3d43; border-radius: 10px; background: #1d1e21; font: inherit; font-size: var(--reading-size); line-height: var(--reading-leading); color: #e4e5e8; }
+.inline-editor-text:focus { outline: 2px solid var(--accent); outline-offset: -1px; }
+#inline-reasoning { background: #1a1b1e; font-size: 13px; color: #b8bcc4; }
+.inline-editor-discard { display: flex; align-items: center; gap: 8px; font-size: 12px; color: #e6c07a; }
+.inline-editor-discard[hidden] { display: none; }
+.inline-editor-discard span { margin-right: auto; }
+.inline-editor-actions { display: flex; align-items: center; justify-content: flex-end; gap: 8px; margin-top: 2px; }
+.inline-editor-status { margin-right: auto; font-size: 11px; color: #8f949c; }

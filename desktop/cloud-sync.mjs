@@ -217,7 +217,7 @@ export class CloudSync {
     try { etag = await this.client.push('chat', t.cloud.id, key, body, t.cloud.etag, { messageCount: body.messages.length, ...(moved ? { projectId: t.cloud.project } : {}) }); }
     catch (error) { if (!conflict(error)) throw error; const [again] = await this.client.pull('chat', [t.cloud.id], key); const fresh = again?.ok ? decode(again) : null; if (plainObject(fresh)) return this.resolve(t, fresh, String(again.etag)); throw error; }
     const current = this.ws.threads.find(x => x.id === id);
-    if (current?.cloud) current.cloud = { ...current.cloud, etag, turns: current.turns.length, dirty: false, syncedAt: this.now() };
+    if (current?.cloud) { const { rewritten: _written, ...link } = current.cloud; current.cloud = { ...link, etag, turns: current.turns.length, dirty: false, syncedAt: this.now() }; }
     await this.host.save(); this.host.emit();
   }
   /** The chat changed in Tinfoil since Workbench last synced it: keep Workbench's version as a copy and load the cloud one. */
@@ -238,6 +238,7 @@ export class CloudSync {
   async upload(id) {
     const t = findThread(this.ws, id); if (t.cloud) return;
     if (!t.turns.length) throw new InputError('Send a message in this conversation before moving it to Tinfoil cloud.');
+    if (t.turns.some(turn => turn.role)) throw new InputError('Tinfoil cloud chats have no place for messages added in another role. This conversation stays on this device.');
     if (t.projectId && !this.ws.projects.find(p => p.id === t.projectId)?.cloud)
       throw new InputError('This conversation is in a local project. Move it out of the project, or into a cloud project, before moving it to Tinfoil cloud.');
     if (this.ws.threads.filter(x => x.cloud).length >= LIMITS.cloudChats) throw new InputError('Too many cloud chats on this device. Delete some first.');

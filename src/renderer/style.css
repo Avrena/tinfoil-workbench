@@ -649,10 +649,7 @@ html,body,#app{height:var(--app-height,100dvh);min-height:0;overflow:hidden}
 .message-editor .modal-head{flex-shrink:0;padding:18px 22px 12px;align-items:flex-start;border-bottom:0}
 .message-editor h2{margin:3px 0 0;font-size:18px;font-weight:500}
 .editor-eyebrow{font-size:9px;letter-spacing:.14em;color:#8c8c8c;margin:0}
-.editor-fields,.editor-toolbar{display:flex;gap:6px;align-items:center;padding:4px 18px;flex-shrink:0}
-.editor-fields{border-bottom:1px solid #393939;gap:16px}
-.editor-fields button{font-size:12px;padding:10px 4px;border-radius:0;border-bottom:2px solid transparent}
-.editor-fields [aria-selected=true]{color:#ddd;border-bottom-color:#75b9ff}
+.editor-toolbar{display:flex;gap:6px;align-items:center;padding:4px 18px;flex-shrink:0}
 .editor-toolbar{padding-top:10px;padding-bottom:6px}
 .editor-modes{display:flex;gap:3px;background:#282828;padding:3px;border-radius:6px}
 .editor-modes button{font-size:11px;padding:6px 10px}
@@ -711,7 +708,7 @@ html,body,#app{height:var(--app-height,100dvh);min-height:0;overflow:hidden}
   .reply-actions button span{opacity:1;max-width:none}
   .thread{min-height:46px}
   .project-breadcrumb{min-height:20px} /* Paired with a 44px thread-heading target group. */
-  .editor-fields button,.editor-modes button{min-height:44px}
+  .editor-modes button{min-height:44px}
   .editor-format button{min-height:40px;min-width:40px}
   .chart-legend button{font-size:11px;min-height:44px}
   .inline-artifact-toolbar .inline-tabs button{min-height:44px}
@@ -807,7 +804,6 @@ html,body,#app{height:var(--app-height,100dvh);min-height:0;overflow:hidden}
   .message-editor h2{font-size:17px}
   .editor-eyebrow{font-size:8px}
   .editor-toolbar{padding:6px 12px;gap:3px}
-  .editor-fields{padding:0 14px}
   .editor-format{gap:0}
   .editor-format button{min-width:30px;min-height:40px;width:30px;font-size:12px}
   .editor-modes button{font-size:11px;padding:7px 8px;min-height:40px;min-width:0}
@@ -831,7 +827,7 @@ html,body,#app{height:var(--app-height,100dvh);min-height:0;overflow:hidden}
   .toolbar{min-height:47px}.branch-origin{display:none}.composer-meta{display:none}
   .composer-region{padding-top:2px;padding-bottom:4px}#prompt{max-height:90px}
   .editor-eyebrow{display:none}.message-editor .modal-head{padding:7px 14px}.editor-note{max-height:42px;padding-block:2px}
-  .editor-fields button{padding-block:4px;min-height:32px}.editor-toolbar{padding-block:3px}.editor-modes button{min-height:32px}
+  .editor-toolbar{padding-block:3px}.editor-modes button{min-height:32px}
   .editor-footer{padding-block:6px}.editor-body{min-height:50px}.editor-footer-actions button{min-height:36px}
 }
 @media(max-width:600px){
