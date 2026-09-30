@@ -711,3 +711,7 @@ dialog:not(.message-editor) .modal-body { padding: 8px 20px 20px; }
   .reply-footer .version-pager { margin-right: 0; }
   .reply-footer .version-pager .version-step { min-width: 36px; }
 }
+
+/* The time the current stretch of thinking has taken, beside Thinking and in the status line; digits keep their width. */
+.reasoning summary .thinking-time { margin-left: 0; font-size: 11px; color: #9aa3ad; font-variant-numeric: tabular-nums; }
+.response-activity .thinking-time { font-variant-numeric: tabular-nums; }

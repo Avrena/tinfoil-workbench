@@ -70,6 +70,9 @@ export interface Reply {
   tools?: ToolRun[]; toolMessages?: ApiMessage[];
   status: ReplyStatus; finishReason: string | null;
   error: string | null; usage: Usage | null; elapsedMs: number;
+  /** Time spent thinking, in ms, over the finished stretches of the reply's rounds; and while a stretch runs, when it
+   * began (the host's clock; validation drops it when a workspace is opened again). */
+  thinkingMs?: number; thinkingSince?: number;
 }
 export interface Turn {
   id: string; prompt: string; attachments: Attachment[]; createdAt: number;

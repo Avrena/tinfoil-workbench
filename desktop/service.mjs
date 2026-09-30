@@ -49,6 +49,10 @@ function agentResult(tool) {
   return { status: tool.status, ...(tool.stdout ? { result: tool.stdout } : {}), ...(tool.stderr ? { error: tool.stderr } : {}) };
 }
 /** A conversation that has used the workspace agent, whose commands, reads and changes exist only on this computer. */
+/** Thinking time of a reply: `thinkingSince` while a stretch of thinking runs (the host's clock), added to `thinkingMs`
+ * when content, a tool call or the end of the round follows. The page shows both on its Thinking and Reasoning labels. */
+const thinkingStarts = reply => { reply.thinkingSince ??= Date.now(); };
+const thinkingEnds = reply => { if (reply.thinkingSince !== undefined) { reply.thinkingMs = (reply.thinkingMs ?? 0) + Math.max(0, Date.now() - reply.thinkingSince); delete reply.thinkingSince; } };
 export const agentConversation = t => !!t.agentFolder || t.turns.some(turn => turn.replies.some(r => (r.tools ?? []).some(tool => tool.agent)));
 
 export class WorkbenchService {
@@ -528,12 +532,13 @@ export class WorkbenchService {
             resetIdle();
             const choice = chunk.choices?.[0], delta = choice?.delta;
             if (typeof delta?.content === 'string') for(const part of events.consume(delta.content)) {
-              if(part.type==='text'){reply.content+=part.text;roundContent+=part.text;if(part.text)reply.phase='answering';}
+              if(part.type==='text'){reply.content+=part.text;roundContent+=part.text;if(part.text){thinkingEnds(reply);reply.phase='answering';}}
               else this.recordRouterEvent(reply,part.event,round);
             }
-            if (typeof delta?.refusal === 'string') { reply.content += delta.refusal; roundContent += delta.refusal; if (delta.refusal) reply.phase = 'answering'; }
+            if (typeof delta?.refusal === 'string') { reply.content += delta.refusal; roundContent += delta.refusal; if (delta.refusal) { thinkingEnds(reply); reply.phase = 'answering'; } }
             const reasoning = delta?.reasoning_content ?? delta?.reasoning;
-            if (typeof reasoning === 'string') { reply.reasoning += reasoning; roundReasoning += reasoning; if (reasoning && !delta?.content) reply.phase = 'thinking'; }
+            if (typeof reasoning === 'string') { reply.reasoning += reasoning; roundReasoning += reasoning; if (reasoning && !delta?.content) { thinkingStarts(reply); reply.phase = 'thinking'; } }
+            if (delta?.tool_calls !== undefined) thinkingEnds(reply);
             accumulator.add(delta?.tool_calls);
             if (reply.content.length + reply.reasoning.length > LIMITS.response) {
               reply.content = reply.content.slice(0, LIMITS.response);
@@ -546,6 +551,7 @@ export class WorkbenchService {
             if (Date.now() - lastSaved > 1500) { lastSaved = Date.now(); await this.save(); }
           }
         } finally {
+          thinkingEnds(reply);
           const tail=events.flush();reply.content+=tail;roundContent+=tail;
           this.finishRouterActivity(reply, round, ctrl.signal.aborted);
           // Do not wait indefinitely for a third-party iterator's cleanup on abort.

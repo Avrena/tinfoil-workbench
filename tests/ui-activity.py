@@ -21,6 +21,12 @@ window.__activitySeed=(mode='approval')=>{
  window.__activityView=patch=>{workspace.view=require('/core/preferences.js').viewPreferences({...workspace.view,...patch});emit();};
 };
 window.__activityWorkspace=()=>structuredClone(workspace);
+window.__thinkingSeed=(since,total)=>{
+ const t=workspace.threads.find(t=>t.id===workspace.activeId),live=since!==null;
+ const r={id:'think-reply',model:'demo/writer',content:live?'':'Answer.',reasoning:'Weighing the options.',status:live?'streaming':'complete',phase:live?'thinking':'answering',error:null,elapsedMs:1000,usage:null,tools:[],...(live?{thinkingSince:Date.now()-since}:{}),...(total?{thinkingMs:total}:{})};
+ t.turns=[{id:'think-turn',prompt:'Think it over.',createdAt:1,attachments:[],selectedReplyId:r.id,replies:[r]}];busy=live?t.id:null;emit();
+ window.__activityView=patch=>{workspace.view=require('/core/preferences.js').viewPreferences({...workspace.view,...patch});emit();};
+};
 '''
 assert marker in html;html=html.replace(marker,marker+fixture,1)
 with sync_playwright() as p:
@@ -78,6 +84,12 @@ with sync_playwright() as p:
   page.evaluate("window.__activitySeed('complete');window.__activityView({reasoning:'collapsed'})");page.locator('.activity-strip > summary').click();page.locator('[data-tool-id=delegate] .activity-item-details > summary').click();page.locator('#transcript').evaluate('e=>e.scrollTop=0');page.wait_for_timeout(120)
   if width in [390,820,1280]:page.screenshot(path=str(root/'docs'/f'activity-{width}.png'))
   context.close()
+ page=browser.new_page(viewport={'width':1280,'height':900});page.on('pageerror',lambda e:errors.append(str(e)));page.set_content(html);page.wait_for_selector('#prompt')
+ page.evaluate('window.__thinkingSeed(65000,0)');timer=page.locator('.reasoning .thinking-time');expect(timer).to_have_text(re.compile(r'^1m 0[5-7]s$'));first=timer.inner_text();page.wait_for_timeout(1300);assert timer.inner_text()!=first,first
+ page.evaluate("window.__activityView({reasoning:'hidden'})");expect(page.locator('.response-activity')).to_contain_text(re.compile(r'Thinking · 1m 0\ds'))
+ page.evaluate("window.__activityView({reasoning:'collapsed'});window.__thinkingSeed(null,65000)");expect(page.locator('.reasoning small')).to_contain_text('Thought for 1m 05s');expect(page.locator('.thinking-time')).to_have_count(0)
+ checks.append('the Thinking label shows how long the current stretch of thinking has run and moves on each second, in the status line too when reasoning is hidden; afterwards the Reasoning label says how long the reply thought')
+ page.close()
  # The workspace agent (docs/WORKSPACE-AGENT.md): off by default, turned on in Advanced, its folder chosen natively (a
  # synthetic path in the preview), its calls drawn by kind; the offline preview never applies or runs anything.
  context=browser.new_context(viewport={'width':1280,'height':900});page=context.new_page();page.on('pageerror',lambda e:errors.append(str(e)));page.on('request',lambda r:requests.append(r.url));page.set_content(html)

@@ -2,6 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { WorkbenchService, BACKGROUND_INTERRUPTION } from '../desktop/service.mjs';
 import { newWorkspace } from '../dist/core/workspace.js';
+import { validateWorkspace } from '../dist/core/validation.js';
 const wait=ms=>new Promise(r=>setTimeout(r,ms));
 function vault(){let value=null;return {fail:false,read:async()=>value,write:async function(v){if(this.fail)throw Error('disk');value=structuredClone(v);},flush:async()=>{}};}
 async function setup(t,{verified=true,generator}={}){
@@ -40,6 +41,15 @@ test('tool-call termination is not silently accepted or executed',async t=>{
 });
 test('initial disk failure prevents any API call',async t=>{
   const {s,store,calls}=await setup(t);store.fail=true;await assert.rejects(send(s),/save failed/);assert.equal(calls.length,0);assert.equal(s.storageFailed,true);assert.equal(s.busyThreadId,null);
+});
+test('thinking time runs from the first reasoning to the answer, and only the total is stored',async t=>{
+  let during=null;
+  const {s}=await setup(t,{generator:async function*(){yield {choices:[{delta:{reasoning_content:'Weighing it'},finish_reason:null}]};await wait(60);during=structuredClone(s.workspace.threads[0].turns[0].replies[0]);yield {choices:[{delta:{reasoning_content:' further'},finish_reason:null}]};yield {choices:[{delta:{content:'Done.'},finish_reason:null}]};yield {choices:[{delta:{},finish_reason:'stop'}]};}});
+  await send(s);await finished(s);
+  assert.equal(during.phase,'thinking');assert.equal(typeof during.thinkingSince,'number');assert.equal(during.thinkingMs,undefined);
+  const r=s.workspace.threads[0].turns[0].replies[0];assert.equal(r.content,'Done.');assert.equal(r.thinkingSince,undefined);assert.ok(r.thinkingMs>=50&&r.thinkingMs<5000,String(r.thinkingMs));
+  const copy=structuredClone(s.workspace);copy.threads[0].turns[0].replies[0].thinkingSince=Date.now();
+  const stored=validateWorkspace(copy).threads[0].turns[0].replies[0];assert.equal(stored.thinkingMs,r.thinkingMs);assert.ok(!('thinkingSince' in stored),'a running stretch is not kept');
 });
 test('an answer that ends in reasoning at the output limit says so',async t=>{
   const {s}=await setup(t,{generator:async function*(){yield {choices:[{delta:{reasoning_content:'Recalling figures'},finish_reason:null}]};yield {choices:[{delta:{},finish_reason:'length'}]};}});await send(s);await finished(s);

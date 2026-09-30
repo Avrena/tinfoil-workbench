@@ -150,6 +150,7 @@ function reply(value: unknown): Reply {
     ...(v.systemPromptName === undefined ? {} : {systemPromptName: instructionName(v.systemPromptName)}),
     status: v.status as Reply['status'], finishReason: v.finishReason === null ? null : text(v.finishReason, 'Finish reason', 100),
     error: v.error === null ? null : text(v.error, 'Error', 1000), usage, elapsedMs: numeric(v.elapsedMs, 0, 1e12),
+    ...(v.thinkingMs === undefined ? {} : {thinkingMs: numeric(v.thinkingMs, 0, 1e12)}),
   };
 }
 /** A turn and, on the path, the versions of its point; `setAside` is a version's first turn, which holds none. */

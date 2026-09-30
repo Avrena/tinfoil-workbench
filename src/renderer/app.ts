@@ -261,6 +261,21 @@ function syncRichText(node:HTMLElement,reply:Reply):void {
   const reasoning=node.querySelector<HTMLElement>('.reasoning-content');
   if(reasoning?.closest('details')?.open)richText.render(reasoning,reply.reasoning,{markdown:view.markdown,math:view.math,codeTools:false});
 }
+/** Thinking time as a clock: 42s, 1m 05s, 1h 02m. */
+function thinkingClock(ms:number):string {
+  const s=Math.max(0,Math.floor(ms/1000));
+  return s<60?`${s}s`:s<3600?`${Math.floor(s/60)}m ${String(s%60).padStart(2,'0')}s`:`${Math.floor(s/3600)}h ${String(Math.floor(s/60)%60).padStart(2,'0')}m`;
+}
+/** The time the current stretch of thinking has taken; tickThinking() moves it on once a second. */
+const thinkingTimer=(reply:Reply,where:string):string=>reply.thinkingSince===undefined?'':`<span class="thinking-time" data-key="thinking-time-${where}" data-since="${reply.thinkingSince}">${thinkingClock(Date.now()-reply.thinkingSince)}</span>`;
+let thinkingTicker:number|null=null;
+/** Moves the live thinking timers on, once a second while any is on the page; there is no timer without one. */
+function tickThinking():void {
+  const timers=document.querySelectorAll<HTMLElement>('.thinking-time[data-since]');
+  if(!timers.length){if(thinkingTicker!==null){clearInterval(thinkingTicker);thinkingTicker=null;}return;}
+  for(const timer of timers)timer.textContent=thinkingClock(Date.now()-Number(timer.dataset.since));
+  thinkingTicker??=window.setInterval(tickThinking,1000);
+}
 function replyMarkup(reply:Reply, turn:Turn):string {
   const streaming=['streaming','queued','awaiting_approval','executing'].includes(reply.status);
   const selected=turn.selectedReplyId===reply.id, raw=rawReplies.has(reply.id), pager=(turn.selectedReplyId??turn.replies[0]?.id)===reply.id;
@@ -274,10 +289,10 @@ function replyMarkup(reply:Reply, turn:Turn):string {
   const hasArtifact=tools.some(t=>t.artifacts.length);
   // A single answer starts with its content. Side-by-side lanes still name their model up front.
   return `${turn.replies.length>1?`<div class="message-label lane-label" data-key="identity"><span class="assistant-dot">${icon('logo')}</span><span>${e(reply.model)}</span></div>`:''}
-    <div class="reply-context ${(!reply.reasoning||view.reasoning==='hidden')&&!tools.length?'hidden':''}" data-key="context">${reply.reasoning&&view.reasoning!=='hidden'?`<details class="reasoning ${thinking?'is-thinking':''}" data-key="reasoning" data-disclosure="reason-${e(reply.id)}" ${reasonOpen?'open':''}><summary><span class="reasoning-label">${thinking?'Thinking':'Reasoning'}</span><span class="thinking-wave" aria-hidden="true"><i></i><i></i><i></i></span><small>${reply.edit?.reasoningEdited?'Manually edited · local only':'Provided by the model'}</small></summary><div class="reasoning-content" data-key="reason-text" data-rich-host></div>${!streaming?`<div class="reasoning-actions"><button data-action="edit-thinking" data-turn="${e(turn.id)}" data-reply="${e(reply.id)}">${icon('write')}Edit thinking text</button></div>`:''}</details>`:''}
+    <div class="reply-context ${(!reply.reasoning||view.reasoning==='hidden')&&!tools.length?'hidden':''}" data-key="context">${reply.reasoning&&view.reasoning!=='hidden'?`<details class="reasoning ${thinking?'is-thinking':''}" data-key="reasoning" data-disclosure="reason-${e(reply.id)}" ${reasonOpen?'open':''}><summary><span class="reasoning-label">${thinking?'Thinking':'Reasoning'}</span>${thinking?thinkingTimer(reply,'reason'):''}<span class="thinking-wave" aria-hidden="true"><i></i><i></i><i></i></span><small>${!thinking&&reply.thinkingMs?`Thought for ${thinkingClock(reply.thinkingMs)} · `:''}${reply.edit?.reasoningEdited?'Manually edited · local only':'Provided by the model'}</small></summary><div class="reasoning-content" data-key="reason-text" data-rich-host></div>${!streaming?`<div class="reasoning-actions"><button data-action="edit-thinking" data-turn="${e(turn.id)}" data-reply="${e(reply.id)}">${icon('write')}Edit thinking text</button></div>`:''}</details>`:''}
     <div class="reply-tool-activity" data-key="tools">${activityMarkup(reply)}</div></div>
     <div class="reply-content response-flow ${writing?'streaming-answer':''}" data-key="answer" aria-busy="${streaming}">${responseFlow(reply,raw)}${!streaming&&!reply.content&&!hasArtifact&&!reply.error?'<div class="waiting">No answer text was returned.</div>':''}</div>
-    ${streaming?`<div class="response-activity ${reply.status==='awaiting_approval'?'needs-approval':''} ${thinking&&reply.reasoning&&view.reasoning!=='hidden'?'sr-only':''}" data-key="activity" role="status" aria-live="polite"><span class="activity-orbit" aria-hidden="true"></span><span>${status}${steps?` · step ${steps} of ${AGENT_LIMITS.rounds}`:''}</span></div>`:''}
+    ${streaming?`<div class="response-activity ${reply.status==='awaiting_approval'?'needs-approval':''} ${thinking&&reply.reasoning&&view.reasoning!=='hidden'?'sr-only':''}" data-key="activity" role="status" aria-live="polite"><span class="activity-orbit" aria-hidden="true"></span><span>${status}${thinking&&reply.thinkingSince!==undefined?` · ${thinkingTimer(reply,'status')}`:''}${steps?` · step ${steps} of ${AGENT_LIMITS.rounds}`:''}</span></div>`:''}
     ${reply.error?`<div class="reply-note" data-key="error" role="status">${e(reply.error)}</div>`:''}
     <div class="reply-footer" data-key="footer"><div class="reply-actions" data-key="actions">${pager?versionPager(turn,'reply'):''}${reply.status==='complete'?`<button data-action="edit-reply" data-turn="${e(turn.id)}" data-reply="${e(reply.id)}" title="Edit the answer">${icon('write')}<span class="sr-only">Edit</span></button>`:''}<button data-action="copy-reply" data-reply="${e(reply.id)}" title="Copy answer">${icon('copy')}<span class="sr-only">Copy</span></button><button data-action="source" data-reply="${e(reply.id)}" aria-pressed="${raw}" title="${raw?'Show the rendered answer':'Show the source'}">${icon('code')}<span class="sr-only">Source</span></button>${!streaming?`<button data-action="retry" data-turn="${e(turn.id)}" title="Retry: ask again. This reply stays as a version">${icon('sync')}<span class="sr-only">Retry</span></button>`:''}${reply.status==='complete'?`<button data-action="branch" data-turn="${e(turn.id)}" data-reply="${e(reply.id)}" title="Branch: continue in a new conversation">${icon('branch')}<span class="sr-only">Branch</span></button>`:''}${reply.status==='complete'&&turn.replies.length>1?(selected?'<span class="chosen-label">Selected</span>':`<button class="choose-reply" data-action="choose" data-turn="${e(turn.id)}" data-reply="${e(reply.id)}">Use reply</button>`):''}</div>${replySignature(reply)}</div>`;
 }
@@ -312,7 +327,7 @@ function renderTranscript():void {
     if(turn.role)continue;
     for(const reply of turn.replies) {
       if(inlineEditor.editing(thread.id,reply.id)){const node=$(`reply-${reply.id}`);if(!inlineEditor.mounted(node)){updateMarkup(node,replyMarkup(reply,turn));inlineArtifacts.sync(node,inlineGroups(reply),thread.id);syncRichText(node,reply);inlineEditor.mount(node);}replyCache.delete(reply.id);continue;}
-      const pager=versionPosition(turn).reply,signature=[pager.index,pager.count,turn.selectedReplyId,reply.content,reply.reasoning,reply.systemPromptName,turn.replies.length,reply.edit?.editedAt,reply.phase,reply.finalContentOffset,reply.status,reply.error,view.metadata?reply.elapsedMs:0,reply.usage?.input,reply.usage?.output,...(reply.tools??[]).flatMap(t=>[t.id,t.contentOffset,t.name,t.status,t.arguments,t.stdout,t.stderr,t.exitCode,t.truncated,t.origin,t.batchId,t.batchIndex,t.batchSize,t.provider?.family,t.provider?.sources.map(s=>s.url+'|'+s.title).join('\n'),t.delegate?.model,t.delegate?.task,t.delegate?.content,t.delegate?.reasoning,t.delegate?.phase,t.delegate?.usage?.input,t.delegate?.usage?.output,view.metadata?t.elapsedMs:0,...t.artifacts.flatMap(a=>[a.id,a.version])]),!!state.busyThreadId,turn.selectedReplyId,...Object.values(view),rawReplies.has(reply.id)];
+      const pager=versionPosition(turn).reply,signature=[pager.index,pager.count,turn.selectedReplyId,reply.content,reply.reasoning,reply.systemPromptName,turn.replies.length,reply.edit?.editedAt,reply.phase,reply.thinkingSince,reply.thinkingMs,reply.finalContentOffset,reply.status,reply.error,view.metadata?reply.elapsedMs:0,reply.usage?.input,reply.usage?.output,...(reply.tools??[]).flatMap(t=>[t.id,t.contentOffset,t.name,t.status,t.arguments,t.stdout,t.stderr,t.exitCode,t.truncated,t.origin,t.batchId,t.batchIndex,t.batchSize,t.provider?.family,t.provider?.sources.map(s=>s.url+'|'+s.title).join('\n'),t.delegate?.model,t.delegate?.task,t.delegate?.content,t.delegate?.reasoning,t.delegate?.phase,t.delegate?.usage?.input,t.delegate?.usage?.output,view.metadata?t.elapsedMs:0,...t.artifacts.flatMap(a=>[a.id,a.version])]),!!state.busyThreadId,turn.selectedReplyId,...Object.values(view),rawReplies.has(reply.id)];
       const previous=replyCache.get(reply.id),node=$(`reply-${reply.id}`);
       if(previous?.length===signature.length&&previous.every((value,i)=>value===signature[i])) {syncRichText(node,reply);continue;}
       const selection=window.getSelection();
@@ -336,6 +351,7 @@ function renderTranscript():void {
   }
   else if(changed||(nearBottom&&!reading)) viewport.scrollTop=viewport.scrollHeight;
   $('jump').classList.toggle('hidden',viewport.scrollHeight-viewport.scrollTop-viewport.clientHeight<150);
+  tickThinking();
 }
 let configurationSignature='';
 function renderConfiguration(force = false):void {
