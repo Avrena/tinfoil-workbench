@@ -83,11 +83,16 @@ async function agentShowcase(thread,jobs){
     const call=(name,args,patch={})=>({id:crypto.randomUUID(),callId:crypto.randomUUID(),name,arguments:JSON.stringify(args),origin:'model',status:'complete',stdout:'',stderr:'',exitCode:null,elapsedMs:40,artifacts:[],truncated:false,agent:{folder},...patch});
     reply.content='This is a **synthetic workspace agent demonstration**. Nothing was read, changed or run.\n\n';reply.status='streaming';emit();await pause(200);
     const diff='--- a/src/sum.js\n+++ b/src/sum.js\n@@ -1,3 +1,3 @@\n export function sum(values) {\n-  return values.reduce((a, b) => a + b);\n+  return values.reduce((a, b) => a + b, 0);\n }\n';
-    reply.tools.push(
+    // One call at a time, so the activity row can be seen rolling from each call to the next.
+    for (const tool of [
       call('update_plan',{steps:[{text:'Find the failing test',status:'completed'},{text:'Fix the sum of an empty list',status:'in_progress'},{text:'Run the tests',status:'pending'}]},{stdout:'[x] Find the failing test\n[>] Fix the sum of an empty list\n[ ] Run the tests'}),
       call('list_files',{path:'.',depth:2},{stdout:'src/\nsrc/sum.js\ntest/\ntest/sum.test.js\npackage.json'}),
       call('read_file',{path:'src/sum.js'},{stdout:'src/sum.js · lines 1–3 of 3\n1\texport function sum(values) {\n2\t  return values.reduce((a, b) => a + b);\n3\t}\n'}),
-      call('run_command',{command:'npm test',timeout_seconds:120},{agent:{folder,shell:'powershell'},stdout:'✖ sum of an empty list is 0\n  TypeError: Reduce of empty array with no initial value',exitCode:1,elapsedMs:1800}),
+      call('run_command',{command:'npm test',timeout_seconds:120},{agent:{folder,shell:'powershell'},stdout:'✖ sum of an empty list is 0\n  TypeError: Reduce of empty array with no initial value',exitCode:1,elapsedMs:1800})]) {
+      reply.tools.push({...tool,status:'running'});reply.status='executing';emit();await pause(tool.name==='run_command'?900:450);
+      Object.assign(reply.tools.at(-1),{status:'complete'});reply.status='streaming';emit();await pause(250);
+    }
+    reply.tools.push(
       call('edit_file',{path:'src/sum.js',old_text:'a + b);',new_text:'a + b, 0);'},{status:'awaiting_approval',agent:{folder,diff}}),
       call('run_command',{command:"Get-Content -LiteralPath 'C:\\Users\\Preview\\Downloads\\notes.md'",workdir:'.',timeout_seconds:120},{status:'awaiting_approval',agent:{folder,shell:'powershell'}}));
     reply.toolMessages.push({role:'assistant',content:'',tool_calls:[]},{role:'assistant',content:'',tool_calls:[]});

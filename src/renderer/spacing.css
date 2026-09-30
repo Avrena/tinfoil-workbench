@@ -369,8 +369,9 @@ dialog:not(.message-editor) .modal-body { padding: 8px 20px 20px; }
 
 /* 0.8: activity is an inline disclosure, not another dashboard or navy card. */
 .reply-tool-activity:empty { display:none; }
-.reply-tool-activity { min-width:0; max-width:100%; margin:0; flex:1 1 auto; }
-.reply-tool-activity:has(.batch-active), .reply-tool-activity:has(.tool-activity[open]), .reply-tool-activity:has(.approval-required) { flex-basis:100%; }
+/* The row takes the rest of the line beside Reasoning, or a line of its own, so a longer call name never reflows it. */
+.reply-tool-activity { min-width:min(260px,100%); max-width:100%; margin:0; flex:1 1 0; }
+.reply-tool-activity:has(.tool-activity[open]), .reply-tool-activity:has(.approval-required) { flex-basis:100%; }
 .reply-tool-activity > .tool-activity { margin:0; }
 .reply-tool-activity > .tool-activity > summary { min-height:28px; padding:4px 0; }
 .reply-tool-activity .tool-run { border:0; border-left:1px solid #424242; border-radius:0; background:transparent; margin:10px 0 10px 4px; padding:6px 0 6px 14px; min-width:0; }
@@ -383,12 +384,36 @@ dialog:not(.message-editor) .modal-body { padding: 8px 20px 20px; }
 .activity-state.error,.activity-state.denied { background:#d5a176; }
 .activity-state.running { background:#9bbddd; animation:activityPulse 1.8s ease-in-out infinite; }
 .activity-state.queued { background:transparent; border:1px solid #8a8a8a; }
+.activity-state.awaiting_approval { background:#ceab7a; }
+/* One row for a reply's calls. The current call rolls up into the slot over the one before it; after the reply, the row
+   rolls once more into what was done. The outgoing tick is hidden when it is not animating, so reduced motion simply swaps. */
+.activity-strip > summary { max-width:100%; min-width:0; }
+.activity-strip > summary .activity-ticker { position:relative; display:inline-flex; min-width:0; overflow:hidden; margin:0; padding-block:2px; font-size:12px; color:#c4c4c4; }
+.activity-strip > summary .tick { display:inline-flex; align-items:center; gap:7px; min-width:0; max-width:100%; margin:0; font-size:12px; color:inherit; white-space:nowrap; animation:tick-in .28s cubic-bezier(.2,.7,.2,1) both; }
+.activity-strip > summary .tick-text { min-width:0; margin:0; overflow:hidden; text-overflow:ellipsis; font-size:12px; color:inherit; }
+.activity-strip > summary .tick code { font-size:11px; color:#a9bccf; background:none; padding:0; }
+.activity-strip > summary .tick.tick-out { position:absolute; left:0; top:2px; visibility:hidden; animation:tick-out .28s cubic-bezier(.5,0,.75,0); }
+.activity-strip > summary .tick.tick-settled { animation:none; }
+.activity-strip > summary .activity-count { flex:none; margin-left:2px; }
+@keyframes tick-in { from { transform:translateY(110%); opacity:0; } }
+@keyframes tick-out { from { visibility:visible; } to { visibility:visible; transform:translateY(-110%); opacity:0; } }
+.reduce-motion .activity-strip > summary .tick { animation:none; }
+@media(prefers-reduced-motion:reduce) { .activity-strip > summary .tick { animation:none; } }
+.activity-timeline { min-width:0; padding-bottom:4px; }
+/* A call in the opened row is one line; the line itself opens its details. */
+.reply-tool-activity .tool-run.compact { margin:0 0 0 4px; padding:1px 0 1px 12px; }
+.reply-tool-activity .tool-run.compact > details > summary.tool-run-header { width:auto; max-width:100%; min-height:26px; margin:0; padding:3px 0; flex-wrap:nowrap; font-size:12px; color:#c8c8c8; }
+.reply-tool-activity .tool-run.compact > details > summary.tool-run-header > span { flex:none; }
+.reply-tool-activity .tool-run.compact > details[open] > summary:before { transform:rotate(45deg); }
+.reply-tool-activity .tool-run.compact > details[open] > .activity-detail-body { padding:4px 0 10px 16px; }
+.activity-timeline > .tool-run.compact + .batch-activity, .activity-timeline > .batch-activity + .tool-run.compact { margin-top:8px; }
+.activity-timeline > .batch-activity { margin:8px 0; }
+.activity-timeline > .batch-activity > .batch-heading { margin:0 0 2px 4px; }
 .batch-heading { display:flex; align-items:center; flex-wrap:wrap; gap:8px 12px; font-size:12px; }
-.batch-heading strong,.batch-activity>summary strong { font-weight:500; color:#c7c7c7; font-size:12px; }
+.batch-heading strong { font-weight:500; color:#c7c7c7; font-size:12px; }
 .batch-heading>span { color:#a2a2a2; font-size:11px; }
-.batch-activity { margin:8px 0 16px; min-width:0; }
-.batch-active { padding-block:8px; }
-.batch-execution,.activity-origin { font-size:11px; line-height:1.65; color:#929292; margin:6px 0 10px; }
+.batch-activity { margin:10px 0 14px; min-width:0; }
+.activity-origin { font-size:11px; line-height:1.65; color:#929292; margin:6px 0 10px; }
 .activity-item-details>summary,.delegate-thinking>summary { padding:6px 0; color:#a9a9a9; cursor:pointer; font-size:11px; }
 .activity-detail-body { min-width:0; }
 .activity-detail-body>.tool-source>summary { padding:4px 0; cursor:pointer; }
@@ -414,11 +439,9 @@ dialog:not(.message-editor) .modal-body { padding: 8px 20px 20px; }
   .reply-tool-activity .tool-run { padding-left:10px; }
   .reply-tool-activity .tool-run-header { align-items:baseline; gap:6px; }
   .reply-tool-activity .tool-run-header span { flex-basis:100%; margin-left:14px; }
-  .batch-activity>summary { flex-wrap:wrap; width:100%; line-height:1.7; }
   .reply-tool-activity .approval-actions { flex-wrap:wrap; gap:8px; }
   .reply-tool-activity .approval-actions button,.delegate-stop,.activity-sources button { min-height:44px; }
   .activity-item-details>summary,.delegate-thinking>summary,.activity-detail-body>.tool-source>summary { min-height:40px; display:flex; align-items:center; }
-  .batch-execution { font-size:10px; }
 }
 
 /* Account progressive disclosure: profile + connection first, session details on demand. */
