@@ -93,6 +93,10 @@ test('protocol only serves explicitly allowlisted resources',()=>{
   assert.equal(resourcePath('app://workbench/core/workspace.js'),'core/workspace.js');
   for(const u of ['app://workbench/desktop/main.mjs','app://workbench/%2e%2e%2fsecret','app://workbench/core/x%5cy.js','app://workbench/.env','app://workbench/renderer/evil.js?q=1']) assert.equal(resourcePath(u),null,u);
 });
+test('the approval window has an origin of its own that serves only its own three files',()=>{
+  assert.equal(resourcePath('app://approval/approval.html'),'approval.html');assert.equal(resourcePath('app://approval/approval.css'),'approval.css');assert.equal(resourcePath('app://approval/approval.js'),'renderer/approval.js');
+  for(const u of ['app://approval/index.html','app://approval/core/workspace.js','app://approval/renderer/app.js','app://approval/approval.html?x=1','app://approval/%2e%2e%2fapproval.html','app://workbench/approval.html','app://other/approval.html'])assert.equal(resourcePath(u),null,u);
+});
 test('provider errors and forged InputError names cannot leak secrets',()=>{
   const e=new Error('api-key=super-secret');e.name='InputError';assert.ok(!publicError(e).includes('super-secret'));
   assert.match(publicError({status:429,message:'secret'}),/not retried/);

@@ -1,0 +1,34 @@
+/* The approval window (desktop/approval-window.mjs): what will run first, in a fixed-width font, then where and how,
+   then the warnings; Decline is focused and Approve arms after a moment. Colours follow the conversation window. */
+:root { color-scheme: dark; --bg: #1e1e1e; --raised: #252526; --line: #343434; --text: #d4d4d4; --muted: #999b9f; --blue: #0078d4; --amber: #e6c07a;
+  --font-ui: "Segoe UI Variable Text", "Segoe UI", system-ui, sans-serif; --font-mono: Consolas, "Cascadia Mono", monospace;
+  font-family: var(--font-ui); font-size: 14px; }
+* { box-sizing: border-box; }
+html, body { margin: 0; background: var(--bg); color: var(--text); }
+main { display: flex; flex-direction: column; gap: 12px; padding: 20px 22px 18px; }
+h1 { margin: 0; font-size: 17px; font-weight: 600; line-height: 1.35; color: #ececec; overflow-wrap: anywhere; }
+pre { margin: 0; max-height: 55vh; overflow: auto; padding: 10px 12px; border: 1px solid var(--line); border-radius: 6px; background: #181818;
+  font-family: var(--font-mono); font-size: 12.5px; line-height: 1.55; font-variant-ligatures: none; tab-size: 4; }
+pre.code { white-space: pre-wrap; overflow-wrap: anywhere; color: #e6e6e6; }
+pre.diff { padding: 6px 0; white-space: pre; }
+pre.diff span { display: block; padding: 0 12px; }
+pre.diff .add { background: #1f3325; color: #b8e0c0; }
+pre.diff .del { background: #3a2222; color: #f0b4ab; }
+pre.diff .hunk { color: #7aa2c7; }
+mark.outside-path { background: #4a3b1e; color: #ffd98f; border-radius: 2px; padding: 0 1px; }
+#facts { display: grid; gap: 2px; }
+.fact { margin: 0; font-size: 13px; color: var(--muted); overflow-wrap: anywhere; }
+.outside { padding: 8px 12px; border: 1px solid #5a4a28; border-radius: 6px; background: #2a2418; }
+.outside h2 { margin: 0 0 4px; font-size: 13px; font-weight: 600; color: var(--amber); }
+.outside ul { margin: 0; padding-left: 18px; font-family: var(--font-mono); font-size: 12.5px; color: #f0d9a8; }
+.outside li { overflow-wrap: anywhere; }
+.warning { margin: 0; font-size: 12.5px; line-height: 1.5; color: #b8b8b8; }
+body[data-kind="command"] .warning, body[data-kind="python"] .warning { color: #d9b98a; }
+footer { display: flex; justify-content: flex-end; gap: 8px; padding-top: 4px; }
+button { min-width: 112px; padding: 7px 14px; border: 1px solid #454545; border-radius: 6px; background: #2d2d2d; color: var(--text); font: inherit; cursor: pointer; }
+button:hover { background: #363636; }
+button:focus-visible { outline: 2px solid #75bfff; outline-offset: 2px; }
+button.primary { border-color: var(--blue); background: var(--blue); color: #fff; }
+button.primary:hover { background: #1a86dc; }
+button:disabled { opacity: .45; cursor: default; }
+@media (forced-colors: active) { mark.outside-path { forced-color-adjust: none; background: Highlight; color: HighlightText; } }

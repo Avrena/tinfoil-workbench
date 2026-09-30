@@ -1,4 +1,4 @@
-import { app, BrowserWindow, Menu, protocol, session, ipcMain, safeStorage, dialog, clipboard, shell, nativeTheme, powerMonitor } from 'electron';
+import { app, BrowserWindow, Menu, protocol, session, ipcMain, safeStorage, dialog, clipboard, shell, nativeTheme, powerMonitor, screen } from 'electron';
 import { join, dirname, basename, extname, isAbsolute } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { mkdtempSync, rmSync } from 'node:fs';
@@ -13,7 +13,9 @@ import { EncryptedVault } from './vault.mjs';
 import { WorkbenchService } from './service.mjs';
 import { runPython } from './python-runner.mjs';
 import { createAgentTools, unsafeFolder } from './agent-tools.mjs';
-import { agentArguments, AGENT_SHELLS, diffCounts, outsidePaths } from '../dist/core/agent.js';
+import { agentArguments } from '../dist/core/agent.js';
+import { commandApproval, changeApproval, pythonApproval } from '../dist/core/approval.js';
+import { createApprovals } from './approval-window.mjs';
 import { safeExternalURL } from '../dist/core/markdown.js';
 import { pythonArguments } from '../dist/core/tools.js';
 import { createProvider } from './provider.mjs';
@@ -33,7 +35,7 @@ const origin = 'app://workbench/index.html';
 protocol.registerSchemesAsPrivileged([{ scheme: 'app', privileges: { standard: true, secure: true, supportFetchAPI: true } }]);
 app.enableSandbox();
 app.setAppUserModelId('org.avrena.tinfoil.workbench');
-let window, service, account, accountFlow, closeCoordinator, quitting = false;
+let window, service, account, accountFlow, closeCoordinator, approvals, quitting = false;
 if (!app.requestSingleInstanceLock()) app.quit();
 else {
   app.on('second-instance', () => { if (window) { if (window.isMinimized()) window.restore(); window.focus(); } });
@@ -90,8 +92,9 @@ async function launch() {
   // outside this Electron session. Opaque srcdoc frames have no preload bridge.
   ses.webRequest.onBeforeRequest((details, callback) => {
     const u = new URL(details.url);
-    callback({ cancel: !(u.protocol === 'app:' && u.hostname === 'workbench') && !['about:', 'data:'].includes(u.protocol) });
+    callback({ cancel: !(u.protocol === 'app:' && (u.hostname === 'workbench' || u.hostname === 'approval')) && !['about:', 'data:'].includes(u.protocol) });
   });
+  approvals = createApprovals({ BrowserWindow, ipcMain, screen, root, devTools: !app.isPackaged });
   window = new BrowserWindow({ width: 1440, height: 920, minWidth: 360, minHeight: 420,
     title: 'Tinfoil Workbench', backgroundColor: '#1e1e1e', frame: false, show: false,
     icon: join(root, 'assets', 'icon.ico'),
@@ -161,7 +164,16 @@ async function launch() {
         if (ran.exitCode !== 3 || !ran.stdout.includes('agent \u2713')) throw new Error('Workspace agent smoke test failed');
       } finally { rmSync(folder, { recursive: true, force: true }); }
     }
-    console.log(`DESKTOP_SMOKE_OK: encrypted storage, bridge, attested SDK import, native PDF print and PDF.js canvas${agentTools ? ', workspace agent runner' : ''}`);
+    // The approval window loads from its own origin through its own preload, shows the request with the path outside
+    // the folder marked and Decline focused, and closing it declines.
+    const sample = commandApproval("Get-ChildItem -LiteralPath 'C:\\Users\\Public'", 'C:\\Workbench\\smoke', '.', 'powershell', 60);
+    let shown = null;
+    const answered = await approvals.ask(window, sample, { onShow: async win => {
+      shown = await win.webContents.executeJavaScript(`[document.querySelector('pre.code')?.textContent, document.querySelectorAll('mark.outside-path').length, document.activeElement?.id].join('|')`);
+      win.close();
+    } });
+    if (answered !== false || shown !== `${sample.text}|1|decline`) throw new Error('Approval window smoke test failed');
+    console.log(`DESKTOP_SMOKE_OK: encrypted storage, bridge, attested SDK import, native PDF print and PDF.js canvas${agentTools ? ', workspace agent runner' : ''}, approval window`);
     await service.shutdown(); quitting = true; app.quit();
   }
 }
@@ -276,22 +288,13 @@ async function command(input) {
       if (!pending || pending.threadId !== identifier(c.id) || typeof c.approve !== 'boolean') throw new InputError('This execution request is no longer awaiting approval.');
       let approve = false;
       if (c.approve && ['run_command', 'edit_file', 'write_file'].includes(pending.tool.name)) {
-        // The workspace agent: the exact command, or the change, is shown natively; approval covers this call once.
+        // The workspace agent: the exact command, or the change, is shown in the approval window; approval covers this
+        // call once.
         const tool = pending.tool, args = agentArguments(tool.name, tool.arguments), folder = tool.agent?.folder;
         if (!folder) throw new InputError('This action is not ready for approval.');
-        if (args.name === 'run_command') {
-          const result = await dialog.showMessageBox(window, { type: 'warning', buttons: ['Do not run', 'Run this command once'], defaultId: 0, cancelId: 0, noLink: true,
-            message: 'Run this command on your computer?',
-            // What runs comes first, then where and how, then the warnings; paths outside the folder one to a line.
-            detail: `${args.command}\n\nRuns in ${args.workdir === '.' ? folder : join(folder, args.workdir)}\nwith ${AGENT_SHELLS[tool.agent.shell ?? 'powershell']}, stopped after ${args.timeout_seconds} seconds.${(outside => outside.length ? `\n\nOutside the folder, it names:\n${outside.map(path => `    ${path}`).join('\n')}` : '')(outsidePaths(args.command, folder, args.workdir))}\n\nNot a sandbox: it runs with your Windows account's permissions and can change or send anything your account can. Approving runs this exact command once.` });
-          approve = result.response === 1;
-        } else {
-          const diff = tool.agent?.diff ?? '', rows = diff.split('\n').slice(2), { added, removed } = diffCounts(diff);
-          const result = await dialog.showMessageBox(window, { type: 'question', buttons: ['Do not change', args.name === 'write_file' ? 'Write this file' : 'Apply this change'], defaultId: 0, cancelId: 0, noLink: true,
-            message: `${args.name === 'write_file' ? 'Write' : 'Change'} ${args.path}?`,
-            detail: `${rows.slice(0, 80).join('\n')}${rows.length > 80 ? `\n… ${rows.length - 80} more lines, shown in the conversation` : ''}\n\n${added} ${added === 1 ? 'line' : 'lines'} added, ${removed} removed, in ${folder}.\nThe file is written only if it has not changed since this was proposed.` });
-          approve = result.response === 1;
-        }
+        approve = await approvals.ask(window, args.name === 'run_command'
+          ? commandApproval(args.command, folder, args.workdir, tool.agent.shell ?? 'powershell', args.timeout_seconds)
+          : changeApproval(args.name, args.path, folder, tool.agent?.diff ?? ''));
       } else if (c.approve && pending.tool.name === 'delegate_task') {
         const child=pending.tool.delegate;
         if(!child)throw new InputError('The delegated task is not ready for approval.');
@@ -301,13 +304,9 @@ async function command(input) {
       } else if (c.approve) {
         if(pending.tool.name!=='python')throw new InputError('This tool has no approval handler.');
         if (!service.workspace.pythonPath) throw new InputError('Choose Python in Settings → Execution first. Decline this run and stop the response to change the interpreter.');
-        const code = pythonArguments(pending.tool.arguments).code;
-        const result = await dialog.showMessageBox(window, { type: 'warning', buttons: ['Do not run', 'Run this code once'], defaultId: 0, cancelId: 0, noLink: true,
-          message: 'Run model-provided Python on this computer?',
-          detail: 'NOT A SANDBOX: this code can access files and the network with your Windows account permissions. Review all code. This approval applies to this exact run only.\n\nInterpreter: ' + service.workspace.pythonPath + '\n\n' + code });
-        approve = result.response === 1;
+        approve = await approvals.ask(window, pythonApproval(pythonArguments(pending.tool.arguments).code, service.workspace.pythonPath));
       }
-      // Recheck after the native dialog: cancellation and stale requests cannot execute.
+      // Recheck after the approval window or dialog: cancellation and stale requests cannot execute.
       if (service.approvals.get(c.toolId) !== pending) throw new InputError('This execution request is no longer awaiting approval.');
       await service.execute({ type: 'tool.approve', id: c.id, toolId: c.toolId, approve });
       break;

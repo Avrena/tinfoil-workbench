@@ -7,9 +7,11 @@ export function trustedFrame(url: string): boolean {
 export function resourcePath(url: string): string | null {
   try {
     const u = new URL(url);
-    if (u.protocol !== 'app:' || u.hostname !== 'workbench' || u.port || u.username || u.password || u.search) return null;
+    if (u.protocol !== 'app:' || (u.hostname !== 'workbench' && u.hostname !== 'approval') || u.port || u.username || u.password || u.search) return null;
     const decoded = decodeURIComponent(u.pathname);
     if (decoded.includes('\\') || decoded.includes('\0') || decoded.split('/').some(p => p === '..' || p === '.')) return null;
+    // The approval window (desktop/approval-window.mjs) is another origin and gets its own three files, nothing else.
+    if (u.hostname === 'approval') return ({ '/approval.html': 'approval.html', '/approval.css': 'approval.css', '/approval.js': 'renderer/approval.js' } as Record<string, string>)[decoded] ?? null;
     if (!/^\/(index\.html|style\.css|(?:core|renderer)\/[A-Za-z0-9_-]+\.js|vendor\/(?:marked|katex|prism)\.js|vendor\/pdfjs\/(?:pdf|pdf\.worker)\.mjs)$/.test(decoded)) return null;
     return decoded.slice(1);
   } catch { return null; }

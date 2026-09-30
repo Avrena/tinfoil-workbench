@@ -133,6 +133,27 @@ with sync_playwright() as p:
  page.locator('.toolbar [data-action=inspector]').click();expect(current).to_have_text(made);expect(page.locator('#agent-folder-new')).to_be_visible();page.locator('#inspector [data-action=inspector]').click()
  checks.append('sending without a folder gives the conversation a new one, named after the date and its first message, under the chosen place')
  page.screenshot(path=str(root/'docs'/'agent-1280.png'));context.close()
+ # The approval window's page (desktop/approval-window.mjs), with a stand-in for its bridge: the request, one decision
+ # and the content height. The window itself, its origin and its preload are checked by the desktop smoke test.
+ approval_html=(root/'dist/approval.html').read_text(encoding='utf-8').replace('<link rel="stylesheet" href="/approval.css">','<style>'+(root/'dist/approval.css').read_text(encoding='utf-8')+'</style>').replace('<script type="module" src="/approval.js"></script>','')
+ approval_js=(root/'dist/renderer/approval.js').read_text(encoding='utf-8')
+ def approval_page(request):
+  p=browser.new_page(viewport={'width':680,'height':520});p.on('pageerror',lambda e:errors.append(str(e)));p.on('request',lambda r:requests.append(r.url))
+  p.set_content(approval_html);p.evaluate('request=>{window.__decided=null;window.__fit=0;window.approval={request:async()=>request,decide:v=>{window.__decided=v},fit:h=>{window.__fit=h}};}',request)
+  p.add_script_tag(content=approval_js,type='module');p.wait_for_function('window.__fit>0');return p
+ command_request={'kind':'command','title':'Run this command on your computer?','approve':'Run this command once','decline':'Do not run','text':"$root = 'C:\\Users\\Ada\\Downloads\\Miku'\nGet-ChildItem -LiteralPath 'C:\\Users\\Ada\\Downloads' | Where-Object { $_.Name -match 'Miku' }",'facts':['Runs in D:\\Work','Windows PowerShell 5.1 · stopped after 120 seconds'],'outside':['C:\\Users\\Ada\\Downloads\\Miku','C:\\Users\\Ada\\Downloads'],'warning':'Not a sandbox: it runs with your Windows account’s permissions.'}
+ p=approval_page(command_request)
+ expect(p.locator('h1')).to_have_text('Run this command on your computer?');expect(p.locator('pre.code')).to_have_text(command_request['text'])
+ assert p.locator('pre.code').evaluate('e=>getComputedStyle(e).fontFamily').lower().startswith('consolas')
+ expect(p.locator('mark.outside-path')).to_have_count(2);expect(p.locator('mark.outside-path').first).to_have_text('C:\\Users\\Ada\\Downloads\\Miku');expect(p.locator('#outside li')).to_have_count(2)
+ assert p.evaluate('document.activeElement.id')=='decline';assert p.locator('#approve').is_disabled();p.evaluate("document.getElementById('approve').click()");assert p.evaluate('window.__decided') is None
+ p.keyboard.press('Escape');assert p.evaluate('window.__decided') is False;p.close()
+ checks.append('the approval window shows the command in a fixed-width block with the paths outside the folder marked and listed; Decline has the focus, Approve cannot be pressed at once, and Esc declines')
+ p=approval_page(command_request);expect(p.locator('#approve')).to_be_enabled(timeout=2000);p.locator('#approve').click();assert p.evaluate('window.__decided') is True;p.close()
+ change_request={'kind':'change','title':'Change src/sum.js?','approve':'Apply this change','decline':'Do not change','diff':['@@ -1,3 +1,3 @@',' export function sum(values) {','-  return values.reduce((a, b) => a + b);','+  return values.reduce((a, b) => a + b, 0);',' }'],'facts':['1 line added, 1 removed','In D:\\Work'],'outside':[],'warning':'The file is written only if it has not changed since this change was proposed.'}
+ p=approval_page(change_request);expect(p.locator('pre.diff .add')).to_have_count(1);expect(p.locator('pre.diff .del')).to_have_count(1);expect(p.locator('pre.diff .hunk')).to_have_count(1);expect(p.locator('#outside')).to_be_hidden();expect(p.locator('#approve')).to_have_text('Apply this change')
+ assert 0<p.evaluate('window.__fit')<=520;p.close()
+ checks.append('after a moment Approve answers yes; a change shows its diff in colour with no outside-paths box, and the page reports its own height so the window fits it')
  assert not errors,errors;assert not [u for u in requests if u.startswith(('http:','https:'))],requests;checks.append('activity checks produced no unhandled JavaScript errors or external requests')
  browser.close()
 report={'checks':len(checks),'passed':checks,'javascript_errors':errors,'scope':'Linux Chromium with synthetic snapshots; emulated touch; no live MCP, sub-agent, API billing or native approval execution.'}

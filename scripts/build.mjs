@@ -12,6 +12,9 @@ if (result.status !== 0) { console.error('TypeScript build failed. Install depen
 await cp('src/vendor', 'dist/vendor', { recursive: true });
 await mkdir('dist', { recursive: true });
 await copyFile('src/renderer/index.html', 'dist/index.html');
+// The approval window's page and styles (desktop/approval-window.mjs); its script is compiled with the rest.
+await copyFile('src/renderer/approval.html', 'dist/approval.html');
+await copyFile('src/renderer/approval.css', 'dist/approval.css');
 // Keep a dedicated spacing layer, bundled into the same local stylesheet.
 await writeFile('dist/style.css', (await readFile('src/renderer/style.css', 'utf8')) + '\n' + (await readFile('src/renderer/spacing.css', 'utf8')));
 console.log('Built TypeScript core and renderer.');

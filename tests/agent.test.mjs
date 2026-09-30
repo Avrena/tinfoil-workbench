@@ -5,6 +5,7 @@ import { tmpdir } from 'node:os';
 import { basename, join } from 'node:path';
 import { AGENT_LIMITS, AGENT_TOOLS, agentArguments, agentFolderName, agentGuide, compactAgentHistory, diffCounts, globMatcher, outsidePaths, searchPattern, shortenOutput, unifiedDiff, workspacePath } from '../dist/core/agent.js';
 import { agentEnvironment, toolGuide, withToolGuide } from '../dist/core/prompt.js';
+import { changeApproval, commandApproval, pythonApproval } from '../dist/core/approval.js';
 import { validateWorkspace } from '../dist/core/validation.js';
 import { exportMarkdown, forkThread, newThread } from '../dist/core/workspace.js';
 import { createAgentTools, readableStderr, unsafeFolder } from '../desktop/agent-tools.mjs';
@@ -14,6 +15,20 @@ const windows = { skip: process.platform !== 'win32' && 'the workspace agent run
 const scratch = (t, prefix = 'workbench-agent-') => { const dir = mkdtempSync(join(tmpdir(), prefix)); t.after(() => rmSync(dir, { recursive: true, force: true })); return dir; };
 
 // ---- What the model is offered, and the checks on what it asks for (core/agent.ts) ----------------------------------
+
+test('what the approval window shows is built from the call: the command, where and how it runs, and the paths outside', () => {
+  const command = commandApproval("Get-Content -LiteralPath 'C:\\Users\\Ada\\notes.md'", 'D:\\Work\\demo', 'src/app', 'powershell', 90);
+  assert.equal(command.text, "Get-Content -LiteralPath 'C:\\Users\\Ada\\notes.md'"); assert.equal(command.kind, 'command');
+  assert.deepEqual(command.facts, ['Runs in D:\\Work\\demo\\src\\app', 'Windows PowerShell 5.1 · stopped after 90 seconds']);
+  assert.deepEqual(command.outside, ['C:\\Users\\Ada\\notes.md']); assert.deepEqual([command.decline, command.approve], ['Do not run', 'Run this command once']);
+  const change = changeApproval('write_file', 'a.txt', 'D:\\Work\\demo', '--- a/a.txt\n+++ b/a.txt\n@@ -0,0 +1 @@\n+hello\n');
+  assert.deepEqual(change.diff, ['@@ -0,0 +1 @@', '+hello']); assert.deepEqual([change.title, change.approve], ['Write a.txt?', 'Write this file']);
+  assert.deepEqual(change.facts, ['1 line added, 0 removed', 'In D:\\Work\\demo']); assert.deepEqual(change.outside, []);
+  const long = changeApproval('edit_file', 'b.txt', 'D:\\W', '--- a/b.txt\n+++ b/b.txt\n' + Array.from({ length: 2100 }, (_, i) => '+' + i).join('\n') + '\n');
+  assert.equal(long.diff.length, 2001); assert.match(long.diff.at(-1), /^… 100 more lines, shown in the conversation$/);
+  const python = pythonApproval('print(1)', 'C:\\Python\\python.exe');
+  assert.equal(python.text, 'print(1)'); assert.deepEqual(python.facts, ['Interpreter: C:\\Python\\python.exe']); assert.match(python.warning, /^Not a sandbox/);
+});
 
 test('paths from the model stay relative to the folder by their words alone', () => {
   assert.equal(workspacePath(undefined), '.'); assert.equal(workspacePath('./src\\app.ts'), 'src/app.ts'); assert.equal(workspacePath('src//x/./y'), 'src/x/y'); assert.equal(workspacePath(' name '), 'name');
