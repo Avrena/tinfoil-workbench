@@ -15,7 +15,7 @@ Google OAuth requires a supported native/browser integration and cannot use an e
 | Second factor | Handled entirely by Tinfoil's page. The instance offers TOTP and backup codes as second factors. The page's second step, which handles both `needs_second_factor` and `needs_client_trust`, also has an emailed-code path. | `signIn.mfa.verifyTOTP`, `verifyBackupCode`, `sendEmailCode` / `verifyEmailCode`. |
 | Passkeys, phone | Not enabled on Tinfoil's instance. | Instance configuration. |
 | Key renewal | Implemented: `AccountSession` runs unchanged in the host worker. | Windows implementation; `tests/android-account.test.mjs`. |
-| Session storage | Implemented as proposed below: a fresh profile per sign-in, deleted at the next launch (checked on the emulator). Weaker than Windows. | AndroidX WebKit sources; `tests/android-device.py`. |
+| Session storage | Implemented as proposed below: a fresh profile per sign-in, deleted at the next launch (checked on the emulator). Since 1.2.0, staying signed in keeps a sealed copy of the session between launches ([Staying signed in](#staying-signed-in-120)). | AndroidX WebKit sources; `tests/android-device.py`. |
 | Credential delivery | Implemented as proposed below; the port handover works on WebView 133 (Android 16 emulator). | `mobile/bridge.mjs`, `mobile/account.mjs`, `WorkbenchAccount.java`. |
 
 The instance facts come from Tinfoil's public Clerk configuration (`https://clerk.tinfoil.sh/v1/environment`, which every browser loads for the sign-in page), retrieved 28 September 2026: password and `email_code` first factors, `totp` and `backup_code` second factors, Google and Apple enabled, passkeys and phone numbers disabled, no second factor required by the instance, and no CAPTCHA configured.
@@ -64,7 +64,18 @@ Needs a device experiment, on WebView 133 (emulator) and 153 (phone): that a por
 
 ### Lifecycle
 
-On resume without process death, the worker would call `AccountSession.resume()` from the app's resume event, which drops an expiring key. After process death the in-memory key is gone and, under the storage policy above, the next launch deletes the profile, so the user signs in again.
+On resume without process death, the worker would call `AccountSession.resume()` from the app's resume event, which drops an expiring key. After process death the in-memory key is gone and, under the storage policy above, the next launch deletes the profile, so the user signs in again, unless the sign-in was saved (next section).
+
+### Staying signed in (1.2.0)
+
+Signing in again after every update or restart was the main cost of the policy above. Keeping a sealed copy of the website session between launches was accepted by the maintainer on 30 September 2026, since Tinfoil's website keeps a browser signed in the same way. *Stay signed in on this phone* (Account → Session & local workspace) is on by default, as on Windows.
+
+- **What is saved.** `AccountSession` runs unchanged with a store (`nativeAccountStore` in `mobile/account.mjs`). After sign-in, after each session read (WebView reports no cookie changes, and Clerk may rotate its client cookie while issuing a token) and when the app is paused, it saves the persistent cookies of `chat.tinfoil.sh`, `clerk.tinfoil.sh` and `accounts.tinfoil.sh`, with their attributes as `CookieManagerCompat.getCookieInfo` reports them, and the user and Clerk session IDs they belong to. Session cookies, account tokens and inference keys are never saved. The worker validates the record in both directions (`savedSignIn`); anything unexpected discards all of it.
+- **How it is sealed.** The record crosses the private port only. Native code seals it with AES-GCM under a 256-bit key that Android Keystore generates and never releases (`tinfoil-workbench-account-v1`, randomized encryption required), and writes it to `no_backup/account-session.bin` through a temporary file; plaintext never reaches storage, and backup and device transfer stay off. A file that fails to decrypt or validate is deleted.
+- **Restore.** At launch, earlier sign-in profiles are still deleted before any is loaded. The worker then asks for the sealed record, and native code opens Tinfoil's page hidden, in a fresh profile holding the saved cookies (only for the three hosts above, and only printable cookie strings). The session is used only if it belongs to the saved user and Clerk session; an ended or changed one deletes the saved sign-in and closes the page without ending that Clerk session. If Tinfoil cannot be reached, the record is kept and the restore is tried again, as on Windows.
+- **Ending it.** Signing out ends the Clerk session and deletes the record; turning the option off deletes it. While a sign-in is saved, a page reload closes the page without ending its Clerk session, as a force-stop or an update always did, so the next launch can restore it.
+- **Exposure.** While the app runs, the session is in the profile's private storage as before. Between launches, only the sealed record remains: it can be read by this app on this phone while its Keystore key exists, not from a copy of the file alone. Uninstalling the app deletes both.
+- **Needs WebView support** for `GET_COOKIE_INFO`; without it nothing is saved and the app signs in again after a restart.
 
 ## Implementation
 

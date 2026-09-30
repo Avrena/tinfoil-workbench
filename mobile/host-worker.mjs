@@ -7,7 +7,7 @@ import { MobileVault } from './vault.mjs';
 import { createCommandHandler, withPlatform } from './commands.mjs';
 import { NATIVE_OPERATIONS } from './native-ops.mjs';
 import { AccountSession } from '../desktop/account-session.mjs';
-import { createAccountChannel, NativeAccountWindow, nativeFetcher } from './account.mjs';
+import { createAccountChannel, NativeAccountWindow, nativeAccountStore, nativeFetcher } from './account.mjs';
 
 /** Dedicated worker that plays the role of the Electron main process on Android. The shared
  * service, the verified Tinfoil SDK (attestation + EHBP), the vault data key and the API key live
@@ -34,14 +34,20 @@ const ready = (async () => {
   const port = await accountPort;
   if (port) {
     const channel = createAccountChannel(port);
-    const page = new NativeAccountWindow(channel, message => account?.invalidate(message), host => account?.blocked(host));
-    account = new AccountSession(page, () => service?.accountChanged(), { fetcher: nativeFetcher(channel) });
+    const page = new NativeAccountWindow(channel, message => account?.invalidate(message), host => account?.blocked(host), { onCookies: () => account?.cookiesChanged() });
+    // Staying signed in keeps Tinfoil's website session between launches, sealed with an Android Keystore key.
+    account = new AccountSession(page, () => service?.accountChanged(), { fetcher: nativeFetcher(channel), store: nativeAccountStore(channel) });
   }
   const chat = !!account;
   service = new WorkbenchService(new MobileVault(native), createProvider,
     snapshot => self.postMessage({ kind: 'changed', snapshot: withPlatform(snapshot, chat) }),
     null, { capabilityLoader: loadModelCapabilities, account, autoConnect: true, backgroundedSince: time => lastPause >= time });
   await service.initialize();
+  if (account) {
+    await account.setRemember(service.workspace.rememberAccount !== false);
+    // Restores in the background; Account shows "Restoring" until it finishes, as on Windows.
+    void account.restore();
+  }
   void service.autoConnect();
   command = createCommandHandler({ service, native, account });
 })();
@@ -60,7 +66,8 @@ self.addEventListener('message', async ({ data }) => {
   }
   if (data.kind === 'account') { settleAccount(data.port instanceof MessagePort ? data.port : null); return; }
   if (data.kind === 'resume') { account?.resume(); return; }
-  if (data.kind === 'pause') { lastPause = Number.isFinite(data.at) ? data.at : Date.now(); return; }
+  // Android may end a paused app without warning, so a saved sign-in is refreshed now rather than after a delay.
+  if (data.kind === 'pause') { lastPause = Number.isFinite(data.at) ? data.at : Date.now(); void account?.persist().catch(() => {}); return; }
   if (data.kind !== 'snapshot' && data.kind !== 'command') return;
   try {
     await ready;

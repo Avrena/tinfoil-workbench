@@ -200,6 +200,16 @@ if args.debug:
         adb('shell', 'am', 'force-stop', PKG)
         page, worker = devtools(start())
         record('the sign-in profile is deleted at the next launch', profiles() == ['Default'] and snap(page)['account']['status'] == 'signed-out', json.dumps(profiles()))
+        # Staying signed in, on by default: offered in Account, and turned off and on through the native store (turning it
+        # off deletes a saved sign-in there). Nothing is saved before a sign-in completes.
+        command(page, {'type': 'account.remember', 'enabled': False}); off = snap(page).get('rememberAccount')
+        command(page, {'type': 'account.remember', 'enabled': True}); on = snap(page).get('rememberAccount')
+        page.eval("() => { const b = document.createElement('button'); b.dataset.action = 'account'; document.body.append(b); b.click(); b.remove(); }"); time.sleep(1)
+        switch = page.eval("() => { const b = document.querySelector('#account-dialog [data-action=account-remember]'); return b ? [b.textContent, b.getAttribute('aria-checked')] : null; }")
+        page.eval("() => document.querySelector('#account-dialog').close()")
+        files = adb('shell', 'run-as ' + PKG + ' ls no_backup', check=False)
+        record('staying signed in is offered on the phone and turns off and on through the native store, with nothing saved before a sign-in',
+               off is False and on is True and switch == ['Stay signed in on this phone', 'true'] and 'account-session.bin' not in files, json.dumps([off, on, switch, files]))
         command(page, {'type': 'connection.mode', 'mode': 'api-key'})  # sign-in selected Chat mode; the checks below use a key
     else:
         refusals = page.eval("""async () => { const out = [];

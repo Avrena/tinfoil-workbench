@@ -6,7 +6,7 @@ import { AccountSession } from '../desktop/account-session.mjs';
 import { sessionScript, identityScript } from '../desktop/account-window.mjs';
 import { CHAT_ORIGIN, CHAT_TOKEN_URL } from '../dist/core/account.js';
 import { InputError } from '../dist/core/validation.js';
-import { createAccountChannel, NativeAccountWindow, nativeFetcher, ACCOUNT_OPERATIONS } from '../mobile/account.mjs';
+import { createAccountChannel, NativeAccountWindow, nativeFetcher, nativeAccountStore, savedSignIn, savedCookie, ACCOUNT_OPERATIONS, COOKIE_URLS } from '../mobile/account.mjs';
 import { createCommandHandler, withPlatform, CHAT_UNAVAILABLE } from '../mobile/commands.mjs';
 import { WorkbenchService } from '../desktop/service.mjs';
 
@@ -30,7 +30,7 @@ test('the account channel offers only fixed operations and matches replies to re
   const native = nativeEnd({ hide: () => true, identity: args => ({ sessionUserId: args.user, sessionId: args.session }), clear: () => { throw new Error('x'.repeat(400)); } });
   t.after(native.close);
   const channel = createAccountChannel(native.port, { timeout: 2000 });
-  assert.deepEqual([...ACCOUNT_OPERATIONS], ['show', 'hide', 'session', 'identity', 'manage', 'clear', 'exchange']);
+  assert.deepEqual([...ACCOUNT_OPERATIONS], ['show', 'hide', 'session', 'identity', 'manage', 'clear', 'exchange', 'cookies', 'restore', 'load', 'save', 'forget']);
   await assert.rejects(channel.call('evaluate', { script: 'document.cookie' }), TypeError);
   await assert.rejects(channel.call('fetch', { url: 'https://attacker.invalid' }), TypeError);
   assert.equal(native.requests.length, 0);
@@ -175,6 +175,137 @@ test('AccountSession signs in and renews over the channel, measuring key lifetim
   assert.ok(native.requests.some(r => r.op === 'clear'));
 });
 
+// ---- Staying signed in --------------------------------------------------------------------------
+
+const CLIENT = { url: 'https://clerk.tinfoil.sh/', cookie: '__client=client-secret; domain=clerk.tinfoil.sh; path=/; expires=Wed, 30 Sep 2027 12:00:00 GMT; secure; httponly; samesite=lax' };
+const UAT = { url: 'https://chat.tinfoil.sh/', cookie: '__client_uat=1790000000; domain=.tinfoil.sh; path=/; max-age=31536000; secure; samesite=lax' };
+const record = (patch = {}) => ({ version: 1, binding: { user: 'user_test', session: 'sess_test' }, profile: { id: 'user_test', name: 'Example User' }, cookies: [CLIENT, UAT], savedAt: 1, ...patch });
+
+test('a saved sign-in keeps only persistent cookies of Tinfoil\'s sign-in hosts, and anything unexpected discards all of it', () => {
+  assert.deepEqual([...COOKIE_URLS], ['https://chat.tinfoil.sh/', 'https://clerk.tinfoil.sh/', 'https://accounts.tinfoil.sh/']);
+  assert.deepEqual(savedCookie(CLIENT), CLIENT);
+  for (const bad of [{ ...CLIENT, url: 'https://attacker.invalid/' }, { ...CLIENT, url: 'http://clerk.tinfoil.sh/' }, { ...CLIENT, cookie: '__session=jwt; path=/; secure' },
+    { ...CLIENT, cookie: 'a=b; expires=x\nSet-Cookie: c=d' }, { ...CLIENT, cookie: '=value; max-age=1' }, { ...CLIENT, cookie: 'x'.repeat(8193) + '=1; max-age=1' }])
+    assert.equal(savedCookie(bad), null, JSON.stringify(bad).slice(0, 80));
+  assert.deepEqual(savedSignIn(record()), record());
+  assert.equal(savedSignIn(record({ cookies: [CLIENT, { ...UAT, url: 'https://tinfoil.sh.attacker.invalid/' }] })), null);
+  assert.equal(savedSignIn(record({ binding: { user: 'user_test', session: 'not-a-session' } })), null);
+  assert.equal(savedSignIn(record({ cookies: [] })), null);
+  assert.equal(savedSignIn(record({ version: 2 })), null);
+});
+
+test('the store writes a validated record through the channel, and a record that fails validation is forgotten when read', async t => {
+  let sealed = null;
+  const native = nativeEnd({ save: args => { sealed = args.data; return true; }, load: () => sealed, forget: () => { sealed = null; return true; } });
+  t.after(native.close);
+  const store = nativeAccountStore(createAccountChannel(native.port, { timeout: 2000 }));
+  assert.equal(await store.read(), null);
+  await store.write({ ...record(), extra: 'dropped' });
+  assert.deepEqual(JSON.parse(sealed), record());
+  assert.deepEqual(await store.read(), record());
+  await assert.rejects(store.write(record({ cookies: [] })), /Nothing to save/);
+  sealed = JSON.stringify(record({ binding: { user: 'user_test', session: 'x' } }));
+  assert.equal(await store.read(), null); assert.equal(sealed, null, 'an invalid record is deleted');
+  sealed = '{not json'; assert.equal(await store.read(), null); assert.equal(sealed, null);
+  await store.write(record()); await store.clear(); assert.equal(sealed, null);
+});
+
+test('cookies are read from the page, and a restore opens it hidden with the saved cookies and reads the bound session', async t => {
+  const reads = [];
+  const native = nativeEnd({ cookies: () => [CLIENT, UAT, { url: 'https://attacker.invalid/', cookie: 'x=1; max-age=1' }, { ...CLIENT, cookie: '__session=jwt; path=/' }],
+    restore: () => true, session: args => { reads.push(args); return reads.length < 3 ? null : value('sess_test'); }, clear: () => true });
+  t.after(native.close);
+  const page = new NativeAccountWindow(createAccountChannel(native.port, { timeout: 2000 }), () => {}, () => {}, { interval: 1 });
+  assert.deepEqual(await page.cookies(), [CLIENT, UAT]);
+  assert.deepEqual(await page.restore(record()), value('sess_test'));
+  assert.deepEqual(native.requests.find(r => r.op === 'restore').args, { cookies: [CLIENT, UAT] });
+  assert.ok(!native.requests.some(r => r.op === 'show'), 'Tinfoil\'s page is never shown for a restore');
+  assert.deepEqual(reads.at(-1), { force: false, user: 'user_test', session: 'sess_test' });
+  await page.clear({ end: false });
+  assert.deepEqual(native.requests.at(-1), { id: native.requests.at(-1).id, op: 'clear', args: { end: false } });
+});
+
+test('a restore that cannot reach Tinfoil returns nothing, so the saved sign-in is kept and tried again', async t => {
+  const native = nativeEnd({ restore: () => true, session: () => null });
+  t.after(native.close);
+  const page = new NativeAccountWindow(createAccountChannel(native.port, { timeout: 2000 }), () => {}, () => {}, { interval: 1 });
+  assert.equal(await page.restore(record(), { timeout: 30 }), null);
+  const refused = nativeEnd({ restore: () => { throw new Error('The saved sign-in was refused.'); } });
+  t.after(refused.close);
+  assert.equal(await new NativeAccountWindow(createAccountChannel(refused.port, { timeout: 2000 }), () => {}, () => {}).restore(record()), null);
+});
+
+test('staying signed in: a sign-in is saved, a relaunch restores it without Tinfoil\'s page, and one bound elsewhere is discarded', async t => {
+  let sealed = null, session = 'sess_test';
+  const serverNow = Date.parse('2026-09-30T12:00:00Z');
+  const handlers = {
+    show: () => true, hide: () => true, clear: () => true, restore: () => true, cookies: () => [CLIENT, UAT],
+    session: () => value(session), identity: () => ({ sessionUserId: 'user_test', sessionId: session }),
+    exchange: () => ({ status: 200, date: new Date(serverNow).toUTCString(), body: JSON.stringify({ key: 'key', expires_at: new Date(serverNow + 15 * 60_000).toISOString() }) }),
+    save: args => { sealed = args.data; return true; }, load: () => sealed, forget: () => { sealed = null; return true; },
+  };
+  const launch = () => {
+    const native = nativeEnd(handlers); t.after(native.close);
+    const channel = createAccountChannel(native.port, { timeout: 2000 });
+    let account;
+    const page = new NativeAccountWindow(channel, () => {}, () => {}, { interval: 1, onCookies: () => account?.cookiesChanged() });
+    account = new AccountSession(page, () => {}, { fetcher: nativeFetcher(channel), store: nativeAccountStore(channel), now: () => serverNow });
+    return { native, account };
+  };
+  const first = launch();
+  await first.account.setRemember(true); await first.account.login();
+  assert.deepEqual(JSON.parse(sealed).cookies, [CLIENT, UAT]); assert.deepEqual(JSON.parse(sealed).binding, { user: 'user_test', session: 'sess_test' });
+  const second = launch();
+  await second.account.setRemember(true);
+  assert.equal(await second.account.restore(), true);
+  assert.equal(second.account.snapshot().status, 'signed-in');
+  assert.ok(!second.native.requests.some(r => r.op === 'show'), 'no sign-in page after a relaunch');
+  assert.equal((await second.account.getCredential()).key, 'key');
+  session = 'sess_other';
+  const third = launch();
+  await third.account.setRemember(true);
+  assert.equal(await third.account.restore(), false);
+  assert.equal(third.account.snapshot().status, 'signed-out'); assert.equal(sealed, null, 'a sign-in bound to another session is deleted');
+  assert.deepEqual(third.native.requests.find(r => r.op === 'clear').args, { end: false });
+});
+
+test('turning staying signed in off deletes the saved sign-in, and signing out ends the session and deletes it', async t => {
+  let sealed = null;
+  const serverNow = Date.parse('2026-09-30T12:00:00Z');
+  const native = nativeEnd({ show: () => true, hide: () => true, clear: () => true, cookies: () => [CLIENT], session: () => value('sess_test'),
+    identity: () => ({ sessionUserId: 'user_test', sessionId: 'sess_test' }), save: args => { sealed = args.data; return true; }, load: () => sealed, forget: () => { sealed = null; return true; },
+    exchange: () => ({ status: 200, date: new Date(serverNow).toUTCString(), body: JSON.stringify({ key: 'key', expires_at: new Date(serverNow + 15 * 60_000).toISOString() }) }) });
+  t.after(native.close);
+  const channel = createAccountChannel(native.port, { timeout: 2000 });
+  const account = new AccountSession(new NativeAccountWindow(channel, () => {}, () => {}, { interval: 1 }), () => {}, { fetcher: nativeFetcher(channel), store: nativeAccountStore(channel), now: () => serverNow });
+  await account.setRemember(true); await account.login(); assert.ok(sealed);
+  await account.setRemember(false); assert.equal(sealed, null);
+  await account.setRemember(true); assert.ok(sealed, 'turning it on again saves the current sign-in');
+  await account.signOut(); assert.equal(sealed, null);
+  assert.deepEqual(native.requests.filter(r => r.op === 'clear').at(-1).args, { end: true });
+});
+
+test('the saved sign-in is sealed natively with a Keystore key in no-backup storage, and a reload keeps its Clerk session', () => {
+  assert.match(java, /SAVED_KEY = "tinfoil-workbench-account-v1"/);
+  assert.match(java, /getNoBackupFilesDir\(\), SAVED_FILE/);
+  assert.match(java, /KeyGenerator\.getInstance\(KeyProperties\.KEY_ALGORITHM_AES, "AndroidKeyStore"\)/);
+  assert.match(java, /Cipher\.getInstance\("AES\/GCM\/NoPadding"\)/);
+  assert.match(java, /setRandomizedEncryptionRequired\(true\)/);
+  assert.match(java, /COOKIE_URLS = List\.of\("https:\/\/chat\.tinfoil\.sh\/", "https:\/\/clerk\.tinfoil\.sh\/", "https:\/\/accounts\.tinfoil\.sh\/"\)/);
+  assert.match(java, /if \(savedFile\(\)\.isFile\(\)\) drop\(\);\s+else clear\(null\);/);
+  // Each saved sign-in is restored into a fresh profile; earlier profiles are still deleted at every launch.
+  assert.match(java, /static void deleteStoredSessions\(\)/);
+});
+
+test('Android turns staying signed in on and off through the account session', async t => {
+  const account = { ...fakeAccount(), remembered: [], setRemember: async enabled => { account.remembered.push(enabled); } };
+  const { s, command } = await commandSetup(t, account);
+  await command({ type: 'account.remember', enabled: false });
+  assert.equal(s.workspace.rememberAccount, false); assert.deepEqual(account.remembered, [false]);
+  await command({ type: 'account.remember', enabled: true });
+  assert.equal(s.workspace.rememberAccount, undefined); assert.deepEqual(account.remembered, [false, true]);
+});
+
 // ---- The fixed page scripts in WorkbenchAccount.java --------------------------------------------
 
 const java = readFileSync(new URL('../android/app/src/main/java/org/avrena/tinfoil/workbench/WorkbenchAccount.java', import.meta.url), 'utf8').replace(/\r\n/g, '\n');
@@ -294,7 +425,7 @@ test('with Tinfoil sign-in available, Android runs the desktop account commands 
 
 test('without it, Android refuses the account commands and Chat mode, and says why', async t => {
   const { command } = await commandSetup(t, null);
-  for (const type of ['account.login', 'account.cancel', 'account.refresh', 'account.manage', 'account.signout'])
+  for (const type of ['account.login', 'account.cancel', 'account.refresh', 'account.manage', 'account.signout', 'account.remember'])
     await assert.rejects(command({ type }), { message: CHAT_UNAVAILABLE });
   await assert.rejects(command({ type: 'connection.mode', mode: 'chat-account' }), { message: CHAT_UNAVAILABLE });
   assert.equal(withPlatform({ a: 1 }).chatAvailable, false);

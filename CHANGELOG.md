@@ -10,6 +10,7 @@
 - Retry is offered on every finished reply, not only on failed ones.
 - Messages in other roles: Advanced → Editing → Add messages in other roles (off by default) shows a role choice in the composer, to add an assistant or system message without asking a model. Tinfoil cloud chats have no place for them.
 - Android: a phone no longer shows the window title bar; the conversation starts under the status bar.
+- Android: Stay signed in on this phone, on by default. The Tinfoil website session is saved sealed with an Android Keystore key and restored at launch, so updates and restarts keep you signed in; signing out or turning it off deletes it.
 - Earlier versions cannot open a workspace that holds messages in other roles, and they drop set-aside versions when they save.
 - Android: versionCode 1002000.
 

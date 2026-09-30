@@ -7,11 +7,14 @@ import android.net.Uri;
 import android.os.Handler;
 import android.os.Looper;
 import android.os.SystemClock;
+import android.security.keystore.KeyGenParameterSpec;
+import android.security.keystore.KeyProperties;
 import android.util.TypedValue;
 import android.view.Gravity;
 import android.view.View;
 import android.view.ViewGroup;
 import android.view.inputmethod.InputMethodManager;
+import android.webkit.CookieManager;
 import android.webkit.GeolocationPermissions;
 import android.webkit.PermissionRequest;
 import android.webkit.RenderProcessGoneDetail;
@@ -32,6 +35,7 @@ import androidx.annotation.Nullable;
 import androidx.core.graphics.Insets;
 import androidx.core.view.ViewCompat;
 import androidx.core.view.WindowInsetsCompat;
+import androidx.webkit.CookieManagerCompat;
 import androidx.webkit.Profile;
 import androidx.webkit.ProfileStore;
 import androidx.webkit.WebMessageCompat;
@@ -41,18 +45,33 @@ import androidx.webkit.WebViewFeature;
 import com.getcapacitor.PluginCall;
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
+import java.io.File;
+import java.io.FileInputStream;
+import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.net.URI;
 import java.nio.charset.StandardCharsets;
+import java.security.GeneralSecurityException;
+import java.security.Key;
+import java.security.KeyStore;
+import java.util.ArrayList;
 import java.util.Collections;
+import java.util.HashSet;
+import java.util.List;
 import java.util.Locale;
 import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.regex.Pattern;
+import javax.crypto.Cipher;
+import javax.crypto.KeyGenerator;
+import javax.crypto.SecretKey;
+import javax.crypto.spec.GCMParameterSpec;
 import javax.net.ssl.HttpsURLConnection;
+import org.json.JSONArray;
 import org.json.JSONException;
 import org.json.JSONObject;
 import org.json.JSONTokener;
@@ -62,8 +81,9 @@ import org.json.JSONTokener;
  * with no bridge and a WebView profile of its own. It is shown over the app while the user signs in and kept
  * hidden afterwards, so the page's Clerk session can issue identity tokens. The host worker reaches it only
  * through a private message port, and only with fixed operations: show and hide the page, fixed page
- * scripts, sign-out and the Chat key exchange. Nothing here reads form fields or evaluates caller-supplied
- * script, and no credential passes through the Workbench page.
+ * scripts, sign-out and the Chat key exchange, and for staying signed in, the page's cookies, a hidden restore
+ * and the sealed saved sign-in. Nothing here reads form fields or evaluates caller-supplied script, and no
+ * credential passes through the Workbench page.
  */
 final class WorkbenchAccount {
 
@@ -84,6 +104,15 @@ final class WorkbenchAccount {
     private static final long SIGN_OUT_WAIT_MS = 3_000;
     private static final long POLL_MS = 100;
     private static final String NOT_RESPONDING = "Tinfoil sign-in did not respond. Reopen it and try again.";
+    /** A saved sign-in: the host worker's record, sealed with an AES-GCM key that Android Keystore holds (docs/ANDROID-ACCOUNT.md). */
+    static final String SAVED_FILE = "account-session.bin";
+    private static final String SAVED_KEY = "tinfoil-workbench-account-v1";
+    private static final byte SAVED_FORMAT = 1;
+    private static final int MAX_SAVED = 262_144;
+    /** The sign-in hosts whose cookies a saved sign-in keeps, as in mobile/account.mjs. */
+    static final List<String> COOKIE_URLS = List.of("https://chat.tinfoil.sh/", "https://clerk.tinfoil.sh/", "https://accounts.tinfoil.sh/");
+    private static final Pattern COOKIE = Pattern.compile("[\\x21-\\x7e][\\x20-\\x7e]{0,8191}");
+    private static final int MAX_COOKIES = 100;
 
     // Fixed page scripts, mirroring desktop/account-window.mjs; tests/android-account.test.mjs runs them against a
     // stand-in Clerk page. evaluateJavascript does not await promises, so the asynchronous scripts leave their
@@ -217,7 +246,9 @@ final class WorkbenchAccount {
         }
         issued = false;
         channels++;
-        clear(null);
+        // With a saved sign-in, the page is closed without ending its Clerk session, so the new worker can restore it.
+        if (savedFile().isFile()) drop();
+        else clear(null);
     }
 
     /** The activity is going away: no page script can be awaited, so the page is cleared and destroyed at once. */
@@ -254,8 +285,19 @@ final class WorkbenchAccount {
                 case "session" -> session(id, args.optBoolean("force", false), optionalId(args, "user", USER_ID), optionalId(args, "session", SESSION_ID));
                 case "identity" -> identity(id, requiredId(args, "user", USER_ID), requiredId(args, "session", SESSION_ID));
                 case "manage" -> manage(id, requiredId(args, "user", USER_ID), requiredId(args, "session", SESSION_ID));
-                case "clear" -> clear(id);
+                case "clear" -> {
+                    if (args.optBoolean("end", true)) clear(id);
+                    else {
+                        drop();
+                        reply(id, true);
+                    }
+                }
                 case "exchange" -> exchange(id, args.optString("bearer", ""));
+                case "cookies" -> cookies(id);
+                case "restore" -> restore(id, args.optJSONArray("cookies"));
+                case "load" -> load(id);
+                case "save" -> save(id, args.optString("data", ""));
+                case "forget" -> forget(id);
                 default -> fail(id, "Unsupported account operation.");
             }
         } catch (JSONException | IllegalArgumentException invalid) {
@@ -401,7 +443,10 @@ final class WorkbenchAccount {
     }
 
     private void show(int id) {
-        if (view == null) create();
+        if (view == null) {
+            create();
+            view.loadUrl(SIGN_IN_URL);
+        }
         present(true);
         reply(id, true);
     }
@@ -437,6 +482,7 @@ final class WorkbenchAccount {
         event("closed", null);
     }
 
+    /** Builds the page in a fresh profile, hidden and not yet loaded. */
     @SuppressLint("SetJavaScriptEnabled")
     private void create() {
         WebView web = new WebView(activity);
@@ -488,11 +534,12 @@ final class WorkbenchAccount {
             v.setPadding(bars.left, bars.top, bars.right, bars.bottom);
             return WindowInsetsCompat.CONSUMED;
         });
+        // Hidden until present() shows it; a restored sign-in's page stays hidden.
+        root.setVisibility(View.GONE);
         activity.addContentView(root, new ViewGroup.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT));
         ViewCompat.requestApplyInsets(root);
         overlay = root;
         view = web;
-        web.loadUrl(SIGN_IN_URL);
     }
 
     private TextView text(int sp, int color) {
@@ -504,6 +551,167 @@ final class WorkbenchAccount {
 
     private int dp(int value) {
         return Math.round(value * activity.getResources().getDisplayMetrics().density);
+    }
+
+    // ---- Staying signed in ------------------------------------------------------------------------
+
+    /** The cookies of Tinfoil's sign-in hosts in the page's profile, with their attributes, for a saved sign-in. */
+    private void cookies(int id) {
+        JSONArray list = new JSONArray();
+        if (view == null || !WebViewFeature.isFeatureSupported(WebViewFeature.GET_COOKIE_INFO)) {
+            reply(id, list);
+            return;
+        }
+        try {
+            CookieManager manager = WebViewCompat.getProfile(view).getCookieManager();
+            Set<String> seen = new HashSet<>();
+            for (String url : COOKIE_URLS) {
+                for (String cookie : CookieManagerCompat.getCookieInfo(manager, url)) {
+                    // A cookie of the parent domain is reported for each host; a host-only one only for its own.
+                    String key = cookie.toLowerCase(Locale.ROOT).contains("domain=") ? cookie : url + " " + cookie;
+                    if (list.length() < MAX_COOKIES && COOKIE.matcher(cookie).matches() && seen.add(key)) list.put(new JSONObject().put("url", url).put("cookie", cookie));
+                }
+            }
+        } catch (IllegalStateException | UnsupportedOperationException | JSONException gone) {
+            list = new JSONArray();
+        }
+        reply(id, list);
+    }
+
+    /**
+     * Opens Tinfoil's page hidden, in a fresh profile holding a saved sign-in's cookies, so the host worker can read the
+     * session bound to it. The worker discards the saved sign-in if that session ended or belongs to someone else.
+     */
+    private void restore(int id, @Nullable JSONArray saved) {
+        List<String[]> cookies = new ArrayList<>();
+        if (saved == null || saved.length() == 0 || saved.length() > MAX_COOKIES || !WebViewFeature.isFeatureSupported(WebViewFeature.GET_COOKIE_INFO)) {
+            fail(id, "The saved sign-in was refused.");
+            return;
+        }
+        for (int i = 0; i < saved.length(); i++) {
+            JSONObject c = saved.optJSONObject(i);
+            String url = c == null ? "" : c.optString("url", ""), cookie = c == null ? "" : c.optString("cookie", "");
+            if (!COOKIE_URLS.contains(url) || !COOKIE.matcher(cookie).matches()) {
+                fail(id, "The saved sign-in was refused.");
+                return;
+            }
+            cookies.add(new String[] { url, cookie });
+        }
+        drop();
+        create();
+        WebView web = view;
+        int gen = generation;
+        CookieManager manager = WebViewCompat.getProfile(web).getCookieManager();
+        AtomicInteger left = new AtomicInteger(cookies.size());
+        for (String[] c : cookies) {
+            manager.setCookie(c[0], c[1], set -> {
+                if (left.decrementAndGet() == 0) main.post(() -> {
+                    if (web != view || gen != generation) return;
+                    manager.flush();
+                    web.loadUrl(ORIGIN + "/");
+                });
+            });
+        }
+        reply(id, true);
+    }
+
+    /** Closes the page without ending its Clerk session: a saved sign-in stays valid for the next restore. */
+    private void drop() {
+        generation++;
+        hide();
+        if (view != null) finishClear(view, overlay, null);
+        view = null;
+        overlay = null;
+    }
+
+    private File savedFile() {
+        return new File(activity.getNoBackupFilesDir(), SAVED_FILE);
+    }
+
+    /** The saved record as the host worker wrote it, or null. A record that cannot be read is deleted. */
+    private void load(int id) {
+        network.execute(() -> {
+            File file = savedFile();
+            String value = null;
+            if (file.isFile()) {
+                try {
+                    byte[] sealed = readAtMost(new FileInputStream(file), MAX_SAVED + 64);
+                    if (sealed.length < 1 + 12 + 16 || sealed[0] != SAVED_FORMAT) throw new GeneralSecurityException("Unknown format.");
+                    Cipher cipher = Cipher.getInstance("AES/GCM/NoPadding");
+                    cipher.init(Cipher.DECRYPT_MODE, savedKey(false), new GCMParameterSpec(128, sealed, 1, 12));
+                    value = new String(cipher.doFinal(sealed, 13, sealed.length - 13), StandardCharsets.UTF_8);
+                } catch (IOException | GeneralSecurityException | RuntimeException unreadable) {
+                    if (!file.delete()) file.deleteOnExit();
+                }
+            }
+            String result = value;
+            main.post(() -> reply(id, result));
+        });
+    }
+
+    /** Seals the host worker's record and replaces the saved one; plaintext never reaches storage. */
+    private void save(int id, String data) {
+        if (data.isEmpty() || data.length() > MAX_SAVED) {
+            fail(id, "The saved sign-in was refused.");
+            return;
+        }
+        network.execute(() -> {
+            boolean done = false;
+            File file = savedFile(), temporary = new File(file.getPath() + ".tmp");
+            try {
+                Cipher cipher = Cipher.getInstance("AES/GCM/NoPadding");
+                cipher.init(Cipher.ENCRYPT_MODE, savedKey(true));
+                byte[] iv = cipher.getIV(), body = cipher.doFinal(data.getBytes(StandardCharsets.UTF_8));
+                if (iv.length != 12) throw new GeneralSecurityException("Unexpected nonce.");
+                try (FileOutputStream out = new FileOutputStream(temporary)) {
+                    out.write(SAVED_FORMAT);
+                    out.write(iv);
+                    out.write(body);
+                    out.getFD().sync();
+                }
+                done = temporary.renameTo(file);
+            } catch (IOException | GeneralSecurityException | RuntimeException failed) {
+                done = false;
+            } finally {
+                if (!done) temporary.delete();
+            }
+            boolean saved = done;
+            main.post(() -> {
+                if (saved) reply(id, true);
+                else fail(id, "Your sign-in could not be saved on this phone.");
+            });
+        });
+    }
+
+    /** Deletes the saved sign-in, at sign-out or when staying signed in is turned off. */
+    private void forget(int id) {
+        network.execute(() -> {
+            File file = savedFile();
+            new File(file.getPath() + ".tmp").delete();
+            boolean gone = !file.exists() || file.delete();
+            main.post(() -> {
+                if (gone) reply(id, true);
+                else fail(id, "The saved sign-in could not be deleted.");
+            });
+        });
+    }
+
+    private static SecretKey savedKey(boolean create) throws GeneralSecurityException, IOException {
+        KeyStore keyStore = KeyStore.getInstance("AndroidKeyStore");
+        keyStore.load(null);
+        Key existing = keyStore.getKey(SAVED_KEY, null);
+        if (existing instanceof SecretKey key) return key;
+        if (!create) throw new GeneralSecurityException("No saved sign-in key.");
+        KeyGenerator generator = KeyGenerator.getInstance(KeyProperties.KEY_ALGORITHM_AES, "AndroidKeyStore");
+        generator.init(
+            new KeyGenParameterSpec.Builder(SAVED_KEY, KeyProperties.PURPOSE_ENCRYPT | KeyProperties.PURPOSE_DECRYPT)
+                .setBlockModes(KeyProperties.BLOCK_MODE_GCM)
+                .setEncryptionPaddings(KeyProperties.ENCRYPTION_PADDING_NONE)
+                .setKeySize(256)
+                .setRandomizedEncryptionRequired(true)
+                .build()
+        );
+        return generator.generateKey();
     }
 
     /**

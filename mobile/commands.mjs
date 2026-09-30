@@ -66,6 +66,12 @@ export function createCommandHandler({ service, native, account = null, uuid = (
         for (const ctrl of service.controllers.values()) ctrl.abort();
         await account.signOut(); service.resetConnection(); service.emit(); break;
       }
+      // Staying signed in on this phone: the saved sign-in is sealed natively (mobile/account.mjs, WorkbenchAccount.java).
+      case 'account.remember': {
+        if (!account) throw new InputError(CHAT_UNAVAILABLE);
+        const enabled = c.enabled === true;
+        await service.execute({ type: 'account.remember', enabled }); await account.setRemember(enabled); service.emit(); break;
+      }
       case 'connection.mode':
         if (c.mode !== 'api-key' && !account) throw new InputError(CHAT_UNAVAILABLE);
         await service.execute(c); break;
