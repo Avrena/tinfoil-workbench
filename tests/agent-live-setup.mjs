@@ -31,7 +31,8 @@ import { agentArguments, outsidePaths } from '../dist/core/agent.js';
 
 const root = dirname(dirname(fileURLToPath(import.meta.url)));
 const option = name => { const i = process.argv.indexOf(name); return i > 0 ? process.argv[i + 1] : null; };
-const profile = mkdtempSync(join(tmpdir(), 'tinfoil-agent-live-'));
+// --profile reuses the profile of an earlier run (a saved sign-in is restored at launch); otherwise a new one is made.
+const profile = option('--profile') ?? mkdtempSync(join(tmpdir(), 'tinfoil-agent-live-'));
 app.setPath('userData', profile);
 const logFile = option('--log'), wanted = (option('--models') ?? 'kimi,glm,deepseek').split(','), onlyTasks = option('--tasks')?.split(',') ?? null;
 const secrets = new Set();
@@ -109,7 +110,9 @@ const MODELS = { kimi: /^kimi-k3$/, glm: /^glm-5[.-]3$/, deepseek: /^deepseek-v4
 let spentInput = 0, spentOutput = 0;
 
 async function runTask(model, task) {
-  const madeRoot = task.made ? mkdtempSync(join(tmpdir(), 'workbench-agent-root-')) : null;
+  // Not under the temporary folder: it is in AppData, which the agent refuses as a root. release/ is ignored by git.
+  if (task.made) mkdirSync(join(root, 'release'), { recursive: true });
+  const madeRoot = task.made ? mkdtempSync(join(root, 'release', 'agent-live-root-')) : null;
   let dir = task.made ? null : project();
   const before = dir ? hashes(dir) : {};
   await command({ type: 'thread.new', projectId: null });
