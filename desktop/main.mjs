@@ -15,7 +15,7 @@ import { runPython } from './python-runner.mjs';
 import { findPythons, describePython } from './python-find.mjs';
 import { createAgentTools, unsafeFolder } from './agent-tools.mjs';
 import { agentArguments } from '../dist/core/agent.js';
-import { commandApproval, changeApproval, pythonApproval } from '../dist/core/approval.js';
+import { commandApproval, changeApproval, pythonApproval, confirmation } from '../dist/core/approval.js';
 import { createApprovals } from './approval-window.mjs';
 import { safeExternalURL } from '../dist/core/markdown.js';
 import { pythonArguments } from '../dist/core/tools.js';
@@ -37,6 +37,8 @@ protocol.registerSchemesAsPrivileged([{ scheme: 'app', privileges: { standard: t
 app.enableSandbox();
 app.setAppUserModelId('org.avrena.tinfoil.workbench');
 let window, service, account, accountFlow, closeCoordinator, approvals, quitting = false;
+/** Asks before acting, in Workbench's own window (core/approval.ts `confirmation`) rather than a Windows message box. */
+const confirm = options => approvals.ask(window, confirmation(options));
 if (!app.requestSingleInstanceLock()) app.quit();
 else {
   app.on('second-instance', () => { if (window) { if (window.isMinimized()) window.restore(); window.focus(); } });
@@ -111,12 +113,9 @@ async function launch() {
     close: () => { if (window && !window.isDestroyed()) window.close(); },
     confirmForce: async () => {
       if (!window || window.isDestroyed()) return false;
-      const answer = await dialog.showMessageBox(window, {
-        type: 'warning', buttons: ['Keep open', 'Close anyway'], defaultId: 0, cancelId: 0,
-        message: 'The interface did not confirm that the draft was saved.',
-        detail: 'Closing now may discard unsaved edits or the latest draft. Already saved encrypted conversations are not reset. Keep the window open to retry or export your work.'
-      });
-      return answer.response === 1;
+      return confirm({ tone: 'warning', decline: 'Keep open', approve: 'Close anyway',
+        title: 'The interface did not confirm that the draft was saved.',
+        message: 'Closing now may discard unsaved edits or the latest draft. Already saved encrypted conversations are not reset. Keep the window open to retry or export your work.' });
     }
   });
   window.on('close', event => {
@@ -231,9 +230,8 @@ async function command(input) {
       if(c.type==='account.manage')await account.manage();else await account.refresh();break;
     }
     case 'account.signout': {
-      const result=await dialog.showMessageBox(window,{type:'question',buttons:['Keep signed in','Sign out on this device'],defaultId:0,cancelId:0,
-        message:'Sign out of Tinfoil Chat?',detail:'This stops active responses, ends Workbench’s website session, deletes the sign-in saved on this PC and clears account tokens. Your local conversations and separately saved API key remain. No automatic API-key fallback is used. This does not sign out your regular browser.'});
-      if(result.response!==1)break;
+      if(!await confirm({decline:'Keep signed in',approve:'Sign out on this device',
+        title:'Sign out of Tinfoil Chat?',message:'This stops active responses, ends Workbench’s website session, deletes the sign-in saved on this PC and clears account tokens. Your local conversations and separately saved API key remain. No automatic API-key fallback is used. This does not sign out your regular browser.'}))break;
       for(const ctrl of service.controllers.values())ctrl.abort();
       await account.signOut();service.resetConnection();service.emit();break;
     }
@@ -242,9 +240,9 @@ async function command(input) {
       if(!service.needsAuthorization(id))break;
       const owner=service.activeOwner(),thread=findThread(service.workspace,id);
       const name=owner==='api-key'?'the saved developer API key':account.snapshot().profile?.name;
-      const result=await dialog.showMessageBox(window,{type:'question',buttons:['Cancel','Allow this thread'],defaultId:0,cancelId:0,
-        message:'Use this existing thread with '+name+'?',detail:'Thread: '+thread.title+'\nThe selected conversation history and attached reference text will be sent only when you next press Send. This approval does not send a request, upload a workspace or move cloud chats.'});
-      if(result.response===1){if(owner!==service.activeOwner())throw new InputError('The account changed. Review it again.');await service.authorizeThread(id);}break;
+      const allowed=await confirm({approve:'Allow this thread',
+        title:'Use this existing thread with '+name+'?',message:'Thread: '+thread.title+'\n\nThe selected conversation history and attached reference text will be sent only when you next press Send. This approval does not send a request, upload a workspace or move cloud chats.'});
+      if(allowed){if(owner!==service.activeOwner())throw new InputError('The account changed. Review it again.');await service.authorizeThread(id);}break;
     }
     case 'window.close-ack':
       if (!closeCoordinator?.acknowledge(identifier(c.requestId))) throw new InputError('This close request is no longer active.');
@@ -268,9 +266,8 @@ async function command(input) {
     case 'open.url': {
       const url = safeExternalURL(text(c.url, 'Link', 4096, true));
       if (!url) throw new InputError('Only absolute HTTP or HTTPS links without embedded credentials can be opened.');
-      const result = await dialog.showMessageBox(window, { type: 'question', buttons: ['Cancel', 'Open in browser'], defaultId: 0, cancelId: 0,
-        message: `Open ${new URL(url).hostname} outside Workbench?`, detail: url + '\n\nThis link comes from conversation content. Opening it shares the URL with your browser and the destination site.' });
-      if (result.response === 1) await shell.openExternal(url);
+      if (await confirm({ approve: 'Open in browser', title: `Open ${new URL(url).hostname} outside Workbench?`, text: url,
+        message: 'This link comes from conversation content. Opening it shares the URL with your browser and the destination site.' })) await shell.openExternal(url);
       break;
     }
     case 'python.pick': {
@@ -301,9 +298,8 @@ async function command(input) {
       } else if (c.approve && pending.tool.name === 'delegate_task') {
         const child=pending.tool.delegate;
         if(!child)throw new InputError('The delegated task is not ready for approval.');
-        const result=await dialog.showMessageBox(window,{type:'question',buttons:['Cancel','Send one delegated request'],defaultId:0,cancelId:0,noLink:true,
-          message:'Approve one additional model request?',detail:'Model: '+child.model+'\nMaximum output: 4,096 tokens (or the lower conversation limit). Additional inference usage applies. Only the task below is sent; no tools or conversation history are inherited.\n\n'+child.task});
-        approve=result.response===1;
+        approve=await confirm({approve:'Send one delegated request',title:'Approve one additional model request?',text:child.task,
+          message:'Model: '+child.model+'\nMaximum output: 4,096 tokens (or the lower conversation limit). Additional inference usage applies.\n\nOnly the task below is sent; no tools or conversation history are inherited.'});
       } else if (c.approve) {
         if(pending.tool.name!=='python')throw new InputError('This tool has no approval handler.');
         if (!service.workspace.pythonPath) throw new InputError('Choose Python in Advanced, under Model-requested Python, first. Decline this run and stop the response to change the interpreter.');
@@ -324,10 +320,9 @@ async function command(input) {
       if (!isAbsolute(folder) || !(await stat(folder)).isDirectory()) throw new InputError('Choose a folder.');
       const unsafe = unsafeFolder(folder);
       if (unsafe) throw new InputError(`The workspace agent cannot work in ${unsafe}. Choose a project folder instead.`);
-      const result = await dialog.showMessageBox(window, { type: 'warning', buttons: ['Cancel', 'Use this folder'], defaultId: 0, cancelId: 0, noLink: true,
-        message: 'Let the workspace agent work in this folder?',
-        detail: `${folder}\n\nThe model can list, search and read files in this folder without asking. Every command and every file change needs your approval. Commands run with your Windows account's permissions, not in a sandbox.` });
-      if (result.response === 1) await service.setAgentFolder(identifier(c.id), folder);
+      if (await confirm({ tone: 'warning', approve: 'Use this folder', title: 'Let the workspace agent work in this folder?', text: folder,
+        message: "The model can list, search and read files in this folder without asking. Commands and file changes ask first unless Approvals in Advanced lets them run without asking. Commands run with your Windows account's permissions, not in a sandbox." }))
+        await service.setAgentFolder(identifier(c.id), folder);
       break;
     }
     case 'agent.folder.clear': await service.setAgentFolder(identifier(c.id), null); break;
@@ -336,12 +331,12 @@ async function command(input) {
       if (!service.agentTools) throw new InputError('The workspace agent needs the Windows app.');
       const level = c.level;
       if (level === 'changes' || level === 'auto') {
-        const result = await dialog.showMessageBox(window, { type: 'warning', buttons: ['Keep asking', level === 'auto' ? 'Run without asking' : 'Change files without asking'], defaultId: 0, cancelId: 0, noLink: true,
-          message: level === 'auto' ? 'Let the workspace agent run commands and change files without asking?' : 'Let the workspace agent change files in its folder without asking?',
-          detail: level === 'auto'
+        const allowed = await confirm({ tone: 'warning', decline: 'Keep asking', approve: level === 'auto' ? 'Run without asking' : 'Change files without asking',
+          title: level === 'auto' ? 'Let the workspace agent run commands and change files without asking?' : 'Let the workspace agent change files in its folder without asking?',
+          message: level === 'auto'
             ? "In this conversation, commands run and files in its folder change as soon as the model asks, and so does model-requested Python when it is on. A command still asks when it names a path outside the folder, deletes files, changes git history or talks to a remote, changes system settings or asks for administrator rights, downloads or sends data, or installs packages.\n\nThat check reads the command's words. It is not a sandbox: a command can do more than it says, and commands run with your Windows account's permissions. Stop ends a response at any time."
             : 'In this conversation, edits and new files inside its folder are written as soon as the model asks, each shown in the conversation. Commands still ask.' });
-        if (result.response !== 1) break;
+        if (!allowed) break;
       } else if (level !== 'ask') throw new InputError('Unknown approval level.');
       await service.setAgentApproval(identifier(c.id), level);
       break;
@@ -397,9 +392,8 @@ async function command(input) {
       const artifact = tool?.artifacts.find(a => a.id === identifier(c.artifactId));
       if (!artifact) throw new InputError('This generated file no longer exists.');
       if (['text/html','image/svg+xml'].includes(artifact.mime)) {
-        const warning = await dialog.showMessageBox(window, {type:'warning', buttons:['Cancel','Save original source'],defaultId:0,cancelId:0,
-          message:'Save original markup outside the protected preview?',detail:'The saved file is unencrypted. HTML or SVG can contain scripts and external references; opening it in another browser does not retain Workbench’s preview restrictions.'});
-        if (warning.response !== 1) break;
+        if (!await confirm({tone:'warning',approve:'Save original source',title:'Save original markup outside the protected preview?',
+          message:'The saved file is unencrypted. HTML or SVG can contain scripts and external references; opening it in another browser does not retain Workbench’s preview restrictions.'})) break;
       }
       const choice = await dialog.showSaveDialog(window, { title: 'Save generated file outside the encrypted workspace', defaultPath: artifact.name });
       if (!choice.canceled && choice.filePath) await writeFile(choice.filePath, Buffer.from(artifact.data, 'base64'), { mode: 0o600 });
@@ -415,20 +409,18 @@ async function command(input) {
       break;
     }
     case 'cloud.disconnect': {
-      const result = await dialog.showMessageBox(window, { type: 'question', buttons: ['Cancel', 'Remove chat key'], defaultId: 0, cancelId: 0,
-        message: 'Remove your Tinfoil chat key from Workbench?', detail: 'Cloud chats and projects are removed from this PC and stay in your Tinfoil account. A chat with changes that were not written yet is kept here as a local conversation.' });
-      if (result.response === 1) await service.execute(c);
+      if (await confirm({ approve: 'Remove chat key', title: 'Remove your Tinfoil chat key from Workbench?',
+        message: 'Cloud chats and projects are removed from this PC and stay in your Tinfoil account. A chat with changes that were not written yet is kept here as a local conversation.' })) await service.execute(c);
       break;
     }
     case 'thread.delete': {
       const thread = findThread(service.workspace, identifier(c.id));
       if (service.busyThreadId === c.id) throw new InputError('Stop the active response before deleting.');
-      const result = await dialog.showMessageBox(window, thread.cloud
-        ? { type: 'warning', buttons: ['Cancel', 'Delete from Tinfoil cloud'], defaultId: 0, cancelId: 0, message: `Delete “${thread.title}” from Tinfoil cloud?`,
-          detail: 'This deletes the chat from your Tinfoil account, so it also disappears from Tinfoil Chat on your other devices. There is no undo.' }
-        : { type: 'warning', buttons: ['Cancel', 'Delete conversation'], defaultId: 0, cancelId: 0,
-          message: `Delete “${thread.title}”?`, detail: 'This removes the local conversation. There is no undo; exported copies and filesystem backups are not erased.' });
-      if (result.response === 1) await service.execute(c);
+      if (await confirm(thread.cloud
+        ? { tone: 'danger', approve: 'Delete from Tinfoil cloud', title: `Delete “${thread.title}” from Tinfoil cloud?`,
+          message: 'This deletes the chat from your Tinfoil account, so it also disappears from Tinfoil Chat on your other devices. There is no undo.' }
+        : { tone: 'danger', approve: 'Delete conversation', title: `Delete “${thread.title}”?`,
+          message: 'This removes the local conversation. There is no undo; exported copies and filesystem backups are not erased.' })) await service.execute(c);
       break;
     }
     case 'attachments.pick': {
@@ -448,9 +440,8 @@ async function command(input) {
     case 'export': {
       const thread = structuredClone(findThread(service.workspace, identifier(c.id)));
       if (!['json','markdown'].includes(c.format)) throw new InputError('Invalid export format.');
-      const warning = await dialog.showMessageBox(window, { type: 'warning', buttons: ['Cancel','Export plaintext'], defaultId: 0, cancelId: 0,
-        message: 'Export an unencrypted copy?', detail: 'The export contains conversation text, reasoning, system instructions attached file contents, tool arguments, outputs and generated artifacts (JSON). It never includes your API key. Store it somewhere private.' });
-      if (warning.response !== 1) break;
+      if (!await confirm({ tone: 'warning', approve: 'Export plaintext', title: 'Export an unencrypted copy?',
+        message: 'The export contains conversation text, reasoning, system instructions, attached file contents, tool arguments, outputs and generated artifacts (JSON). It never includes your API key. Store it somewhere private.' })) break;
       const ext = c.format === 'json' ? 'json' : 'md';
       const selected = await dialog.showSaveDialog(window, { defaultPath: `conversation.${ext}`, filters: [{ name: 'Conversation', extensions: [ext] }] });
       if (!selected.canceled && selected.filePath) await writeFile(selected.filePath, c.format === 'json' ? exportThread(thread) : exportMarkdown(thread), { encoding: 'utf8', mode: 0o600 });

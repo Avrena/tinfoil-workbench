@@ -1,8 +1,9 @@
 import { join } from 'node:path';
 
 /** Approval windows (docs/WORKSPACE-AGENT.md). Each is a small modal window of its own, opened by the main process for
- * one pending call, from app://approval: another origin than the conversation page, with its own preload. It shows the
- * request the main process built (core/approval.ts), and only that window can answer it; closing it declines. */
+ * one pending call, or for a question it asks before acting (`confirmation`), from app://approval: another origin than
+ * the conversation page, with its own preload. It shows the request the main process built (core/approval.ts), and
+ * only that window can answer it; closing it declines. */
 export function createApprovals({ BrowserWindow, ipcMain, screen, root, devTools = false }) {
   const open = new Map(); // webContents id -> { request, win, decided, fitted }
   ipcMain.handle('approval:request', event => open.get(event.sender.id)?.request ?? null);
@@ -17,15 +18,16 @@ export function createApprovals({ BrowserWindow, ipcMain, screen, root, devTools
     if (!entry || entry.fitted || entry.win.isDestroyed()) return;
     entry.fitted = true;
     const area = screen.getDisplayMatching(entry.win.getBounds()).workArea, [width] = entry.win.getContentSize();
-    entry.win.setContentSize(width, Math.max(220, Math.min(Math.ceil(Number(height) || 0), Math.floor(area.height * 0.85))));
+    const least = entry.request.kind === 'confirm' ? 120 : 220;
+    entry.win.setContentSize(width, Math.max(least, Math.min(Math.ceil(Number(height) || 0), Math.floor(area.height * 0.85))));
     entry.win.center(); entry.win.show();
   });
   return {
     /** Resolves true only when the person chose to approve in this window. `onShow` is for the smoke test. */
     ask(parent, request, { onShow } = {}) {
       return new Promise(resolve => {
-        const win = new BrowserWindow({ parent: parent ?? undefined, modal: !!parent, show: false, width: 680, height: 420, useContentSize: true,
-          minWidth: 420, minHeight: 220, title: 'Tinfoil Workbench', backgroundColor: '#1e1e1e', autoHideMenuBar: true,
+        const win = new BrowserWindow({ parent: parent ?? undefined, modal: !!parent, show: false, width: request.kind === 'confirm' ? 520 : 680, height: 420, useContentSize: true,
+          minWidth: 420, minHeight: request.kind === 'confirm' ? 120 : 220, title: 'Tinfoil Workbench', backgroundColor: '#1e1e1e', autoHideMenuBar: true,
           minimizable: false, maximizable: false, fullscreenable: false,
           webPreferences: { preload: join(root, 'desktop', 'approval-preload.cjs'), contextIsolation: true, nodeIntegration: false,
             sandbox: true, webSecurity: true, webviewTag: false, spellcheck: false, devTools } });

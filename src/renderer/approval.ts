@@ -36,9 +36,10 @@ function marked(text: string, paths: string[]): DocumentFragment {
 async function show(): Promise<void> {
   const request = await bridge.request();
   if (!request) { bridge.decide(false); return; }
-  document.title = request.title; document.body.dataset.kind = request.kind;
+  document.title = request.title; document.body.dataset.kind = request.kind; document.body.dataset.tone = request.tone ?? '';
   $('title').textContent = request.title;
   const body = $('body');
+  for (const paragraph of (request.message ?? '').split(/\n{2,}/)) if (paragraph.trim()) body.append(element('p', 'message', paragraph));
   if (request.text !== undefined) { const pre = element('pre', 'code'); pre.append(marked(request.text, request.outside)); body.append(pre); }
   if (request.diff) {
     const pre = element('pre', 'diff');

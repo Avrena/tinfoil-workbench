@@ -2,12 +2,21 @@ import { AGENT_SHELLS, diffCounts, outsidePaths, type AgentShell } from './agent
 
 /** What the approval window shows (desktop/approval-window.mjs). The main process builds it from the pending call; the
  * conversation page never supplies it. `text` is the exact command or code, `diff` the change's lines without the two
- * file header lines, `facts` where and how it runs, and `outside` the paths outside the folder that a command names. */
+ * file header lines, `facts` where and how it runs, and `outside` the paths outside the folder that a command names.
+ * A confirmation (`confirmation`) has a `message` instead, and a `tone` for its mark and its approve button. */
 export interface ApprovalRequest {
-  kind: 'command' | 'change' | 'python';
+  kind: 'command' | 'change' | 'python' | 'confirm';
   title: string; approve: string; decline: string;
+  message?: string; tone?: 'question' | 'warning' | 'danger';
   text?: string; diff?: string[];
   facts: string[]; outside: string[]; warning: string;
+}
+/** A question the main process asks before it acts (signing out, deleting, exporting, raising the agent's approval
+ * level…), drawn by Workbench instead of a Windows message box. `text` is shown as is, in a fixed-width block (a
+ * folder, a link, a delegated task); paragraphs of `message` are separated by blank lines. */
+export function confirmation(options: { title: string; message: string; approve: string; decline?: string; tone?: 'question' | 'warning' | 'danger'; text?: string }): ApprovalRequest {
+  return { kind: 'confirm', title: options.title, message: options.message, approve: options.approve, decline: options.decline ?? 'Cancel',
+    tone: options.tone ?? 'question', ...(options.text === undefined ? {} : { text: options.text }), facts: [], outside: [], warning: '' };
 }
 /** Lines of a diff shown in the window; the conversation's card keeps all of them. */
 export const APPROVAL_DIFF_LINES = 2000;

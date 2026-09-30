@@ -32,3 +32,16 @@ button.primary { border-color: var(--blue); background: var(--blue); color: #fff
 button.primary:hover { background: #1a86dc; }
 button:disabled { opacity: .45; cursor: default; }
 @media (forced-colors: active) { mark.outside-path { forced-color-adjust: none; background: Highlight; color: HighlightText; } }
+/* Confirmations (core/approval.ts `confirmation`): a question with its explanation, marked by its tone, in place of a
+   Windows message box. A dangerous one (deleting) has a red approve button. */
+#body { display: grid; gap: 10px; }
+#body:empty, #facts:empty, .warning:empty { display: none; }
+.message { margin: 0; font-size: 13.5px; line-height: 1.55; color: #c8c8c8; white-space: pre-line; overflow-wrap: anywhere; }
+body[data-kind="confirm"] h1 { display: flex; align-items: flex-start; gap: 10px; }
+body[data-kind="confirm"] h1::before { content: "?"; flex: none; display: grid; place-items: center; width: 22px; height: 22px; border-radius: 50%; background: #1f3a55; color: #9cc9f5; font-size: 13px; font-weight: 700; line-height: 1; }
+body[data-tone="warning"] h1::before { content: "!"; background: #4a3b1e; color: var(--amber); }
+body[data-tone="danger"] h1::before { content: "!"; background: #4a2420; color: #f3a79c; }
+body[data-tone="danger"] button.primary { border-color: #c42b1c; background: #c42b1c; }
+body[data-tone="danger"] button.primary:hover { background: #d13a2b; }
+body[data-kind="confirm"] pre.code { max-height: 40vh; }
+body[data-kind="confirm"] #body { padding-left: 32px; }

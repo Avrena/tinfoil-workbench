@@ -5,7 +5,7 @@ import { tmpdir } from 'node:os';
 import { basename, join } from 'node:path';
 import { AGENT_LIMITS, AGENT_TOOLS, agentArguments, agentFolderName, agentGuide, askAnyway, commandRisk, compactAgentHistory, diffCounts, globMatcher, outsidePaths, searchPattern, shortenOutput, unifiedDiff, workspacePath } from '../dist/core/agent.js';
 import { agentEnvironment, toolGuide, withToolGuide } from '../dist/core/prompt.js';
-import { changeApproval, commandApproval, pythonApproval } from '../dist/core/approval.js';
+import { changeApproval, commandApproval, confirmation, pythonApproval } from '../dist/core/approval.js';
 import { validateWorkspace } from '../dist/core/validation.js';
 import { exportMarkdown, forkThread, newThread } from '../dist/core/workspace.js';
 import { createAgentTools, readableStderr, unsafeFolder } from '../desktop/agent-tools.mjs';
@@ -435,4 +435,11 @@ test('a conversation that used the agent cannot move into a cloud project', wind
   s.workspace.projects.push({ id: 'cloudproj', name: 'Cloud', createdAt: 1, cloud: { id: 'p1', etag: '1', description: '', instructions: '', color: '', documents: [], syncedAt: 1 } });
   await assert.rejects(s.execute({ type: 'thread.move', id: thread.id, projectId: 'cloudproj' }), new RegExp(AGENT_CLOUD.slice(0, 40)));
   await assert.rejects(s.setAgentFolder(thread.id, 'relative\\path'), /absolute path on a drive/);
+});
+
+test('a confirmation asks with Cancel by default and carries only what the main process gave it', () => {
+  const asked = confirmation({ title: 'Remove your Tinfoil chat key from Workbench?', message: 'Cloud chats stay in your account.', approve: 'Remove chat key' });
+  assert.deepEqual(asked, { kind: 'confirm', title: 'Remove your Tinfoil chat key from Workbench?', message: 'Cloud chats stay in your account.', approve: 'Remove chat key', decline: 'Cancel', tone: 'question', facts: [], outside: [], warning: '' });
+  const folder = confirmation({ title: 'Let the workspace agent work in this folder?', message: 'The model can read files here.', approve: 'Use this folder', decline: 'Keep asking', tone: 'danger', text: 'D:/work' });
+  assert.equal(folder.text, 'D:/work'); assert.equal(folder.decline, 'Keep asking'); assert.equal(folder.tone, 'danger');
 });
