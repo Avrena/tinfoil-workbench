@@ -123,6 +123,8 @@ export interface Workspace {
   agentRoot?: string;
   /** Pictures attached to messages and drafts, by ImageAttachment id. Never in snapshots. */
   images?: Record<string, StoredImage>;
+  /** The picture behind the conversation (Settings → Chat background), base64. Never in snapshots: they carry its id. */
+  backgroundPicture?: { id: string; mime: string; data: string };
 }
 /** `writer` and `clock` are this installation's edit clock for Tinfoil's conflict order (docs/CLOUD.md). */
 export interface CloudConfig { key: string; keyId: string; user: string; writer: string; clock: number }
@@ -146,6 +148,8 @@ export interface Snapshot {
   /** Tinfoil's public model catalog, loaded without credentials when the model picker needs it. */
   modelCatalog?: 'idle' | 'loading' | 'ready' | 'failed';
   busyThreadId: string | null; storage: 'os-encrypted' | 'preview';
+  /** The id of the stored background picture, for the page to fetch it once (`background.get`), or null. */
+  background?: string | null;
   notice: string | null; pythonConfigured?: boolean;
   /** Python in the Windows app: the interpreter runs use (`missing` when its file is gone) and, once searched, the
    * installed ones Workbench found. The page may pick one of those; any other path comes from the native picker. */
@@ -217,6 +221,9 @@ export type Command =
   | { type: 'attachments.pick' }
   /** Stores a picture the page prepared (renderer/attach.ts) under the id it chose, for a draft or message to use. */
   | { type: 'image.add'; id: string; mime: string; data: string }
+  /** The chat background picture: pick one with the host's picker (answers with `files`), store the page's prepared
+   * copy, remove it, or fetch it (answers with `picture`). */
+  | { type: 'background.pick' } | { type: 'background.set'; mime: string; data: string } | { type: 'background.clear' } | { type: 'background.get' }
   | { type: 'export'; id: string; format: 'markdown' | 'json' }
   | { type: 'import' }
   | { type: 'clipboard'; text: string }
@@ -227,7 +234,7 @@ export type Command =
 export interface DesktopBridge {
   snapshot(): Promise<Snapshot>;
   onCloseRequested?(callback: (requestId: string) => void): () => void;
-  command(command: Command): Promise<{ snapshot: Snapshot; attachments?: Attachment[]; files?: PickedFile[]; artifact?: Artifact }>;
+  command(command: Command): Promise<{ snapshot: Snapshot; attachments?: Attachment[]; files?: PickedFile[]; artifact?: Artifact; picture?: string | null }>;
   /** Windows only: the folder a dropped or pasted file object is, registered with the main process so a message may
    * attach it; null for a file. Only a real dropped or pasted file has a path. */
   folderFor?(file: File): Promise<{ path: string; name: string } | null>;

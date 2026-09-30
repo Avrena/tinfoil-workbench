@@ -19,7 +19,9 @@ let previewAccount=signedOutAccount(),previewMode='api-key',previewRemember=true
 let previewCloud={state:'off',keyId:null,user:null,lastSyncAt:null,message:null,chats:0,projects:0,older:0},previewLoading=[];
 const workspace=newWorkspace(),listeners=new Set();let sequence=0,busy=null,stopped=false;
 Object.assign(workspace.threads[0].settings,{model:'demo/writer',compareModel:'demo/analyst'});
-const snapshot=()=>({sequence:++sequence,account:structuredClone(previewAccount),connectionMode:previewMode,rememberAccount:previewRemember,cloud:structuredClone(previewCloud),cloudLoading:[...previewLoading],workspace:structuredClone({version:workspace.version,activeId:workspace.activeId,threads:workspace.threads,projects:workspace.projects,instructionPresets:workspace.instructionPresets,view:workspace.view}),pythonConfigured:!!previewPython.current,python:structuredClone(previewPython),agent:{available:true,gitBash:true,root:previewAgentRoot},hasKey:false,models:['demo/writer','demo/analyst','deepseek-v4-pro','kimi-k3'],capabilities:structuredClone(previewCatalog),modelCatalog:'ready',verification:{state:'idle',checkedAt:null,steps:[]},busyThreadId:busy,storage:'preview',notice:'OFFLINE PREVIEW · Synthetic responses · No API connection or local persistence'});
+/** The chat background picture set in this page (`background.set`). */
+let previewBackground=null;
+const snapshot=()=>({sequence:++sequence,background:previewBackground?.id??null,account:structuredClone(previewAccount),connectionMode:previewMode,rememberAccount:previewRemember,cloud:structuredClone(previewCloud),cloudLoading:[...previewLoading],workspace:structuredClone({version:workspace.version,activeId:workspace.activeId,threads:workspace.threads,projects:workspace.projects,instructionPresets:workspace.instructionPresets,view:workspace.view}),pythonConfigured:!!previewPython.current,python:structuredClone(previewPython),agent:{available:true,gitBash:true,root:previewAgentRoot},hasKey:false,models:['demo/writer','demo/analyst','deepseek-v4-pro','kimi-k3'],capabilities:structuredClone(previewCatalog),modelCatalog:'ready',verification:{state:'idle',checkedAt:null,steps:[]},busyThreadId:busy,storage:'preview',notice:'OFFLINE PREVIEW · Synthetic responses · No API connection or local persistence'});
 const emit=()=>{const s=snapshot();for(const fn of listeners)fn(s);};
 // Synthetic picker metadata. Display-only (`known: false`), so the bundled reasoning profiles still apply.
 function previewModel(id,display){return {id,label:display.name,known:false,source:'unknown',reasoning:false,effort:[],toggle:false,defaultEnabled:true,enable:{},disable:{},toolCalling:null,
@@ -180,6 +182,11 @@ window.tinfoil=Object.freeze({
       case 'stop':stopped=true;break;
       case 'attachments.pick':extra=[{name:'outline.md',content:'A fictional scene outline. Preview-only attachment.'}];break;
       case 'image.add':previewImages.set(c.id,{mime:c.mime,data:c.data});break;
+      // A drawn landscape stands in for a picked picture; the stored one lives only in this page.
+      case 'background.pick':{const canvas=document.createElement('canvas');canvas.width=640;canvas.height=400;const g=canvas.getContext('2d');const sky=g.createLinearGradient(0,0,0,400);sky.addColorStop(0,'#3a6ea5');sky.addColorStop(1,'#f0b27a');g.fillStyle=sky;g.fillRect(0,0,640,400);g.fillStyle='#2e4a3a';g.beginPath();g.moveTo(0,400);g.lineTo(180,220);g.lineTo(330,330);g.lineTo(470,180);g.lineTo(640,400);g.fill();return {snapshot:snapshot(),files:[{name:'preview-landscape.png',mime:'image/png',data:canvas.toDataURL('image/png').split(',')[1]}]};}
+      case 'background.set':previewBackground={id:crypto.randomUUID(),url:`data:${c.mime};base64,${c.data}`};break;
+      case 'background.clear':previewBackground=null;break;
+      case 'background.get':return {snapshot:snapshot(),picture:previewBackground?.url??null};
       case 'clipboard':await navigator.clipboard.writeText(c.text);break;
       case 'credentials.set':case 'credentials.clear':case 'connect':throw new InputError('Preview mode cannot accept API keys or contact Tinfoil. Use the desktop app.');
       case 'models.catalog':break;

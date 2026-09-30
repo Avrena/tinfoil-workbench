@@ -245,10 +245,15 @@ export function validateWorkspace(value: unknown): Workspace {
     version: 1, activeId, threads, projects, instructionPresets, ...(v.connectionMode?{connectionMode:v.connectionMode as Workspace['connectionMode']}:{}), ...(v.rememberAccount===false?{rememberAccount:false as const}:{}), ...(v.cloud===undefined?{}:{cloud:cloudConfig(v.cloud)}), view: viewPreferences(v.view), pythonPath: text(v.pythonPath ?? '', 'Python interpreter path', 4096),
     ...(v.agentRoot === undefined ? {} : {agentRoot: agentFolder(v.agentRoot)}),
     ...(v.images === undefined ? {} : {images: images(v.images)}),
+    ...(v.backgroundPicture === undefined ? {} : {backgroundPicture: backgroundPicture(v.backgroundPicture)}),
     apiKey: text(v.apiKey, 'API key', 4096), cacheSecret: text(v.cacheSecret, 'Cache secret', 200, true),
   };
 }
 
+export function backgroundPicture(value: unknown): NonNullable<Workspace['backgroundPicture']> {
+  const v = record(value), { mime, data } = storedImage(v);
+  return { id: identifier(v.id), mime, data };
+}
 function images(value: unknown): Record<string, StoredImage> {
   const entries = Object.entries(record(value));
   if (entries.length > LIMITS.threads * LIMITS.attachments) throw new InputError('Too many stored pictures.');

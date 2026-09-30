@@ -95,7 +95,7 @@ export class WorkbenchService {
       account: this.options.account?.snapshot()??signedOutAccount(), connectionMode:this.workspace.connectionMode??'api-key', rememberAccount:this.workspace.rememberAccount!==false,
       cloud: this.cloud?.snapshot() ?? { state: 'off', keyId: null, user: null, lastSyncAt: null, message: null, chats: 0, projects: 0, older: 0 }, cloudLoading: this.cloud ? [...this.cloud.loading] : [],
       agent: { available: !!this.agentTools, gitBash: !!this.agentTools?.gitBash, root: this.agentTools ? this.workspace.agentRoot ?? null : null },
-      busyThreadId: this.busyThreadId, storage: 'os-encrypted', notice: this.notice };
+      busyThreadId: this.busyThreadId, storage: 'os-encrypted', notice: this.notice, background: this.workspace.backgroundPicture?.id ?? null };
   }
   emit() { this.onChange(this.snapshot()); }
   emitSoon() {
@@ -135,6 +135,8 @@ export class WorkbenchService {
         : { type: 'text', text: '[A picture was attached here, but it is no longer stored on this device.]' })] };
     });
   }
+  /** The chat background picture as a data URL for the page, or null. */
+  backgroundPicture() { const p = this.workspace.backgroundPicture; return p ? `data:${p.mime};base64,${p.data}` : null; }
   /** A conversation that is, or will become, a Tinfoil cloud chat. */
   cloudBound(t) { return !!(t.cloud || t.cloudPending || this.workspace.projects.find(p => p.id === t.projectId)?.cloud); }
   /** The workspace agent's folder and shell for a conversation (docs/WORKSPACE-AGENT.md), or null when it is off, has no
@@ -468,6 +470,9 @@ export class WorkbenchService {
         if (this.workspace.activeId === c.id) this.workspace.activeId = this.workspace.threads[0].id;
         break;
       }
+      // The chat background picture, as the page prepared it (renderer/appearance.ts); a new id on each change.
+      case 'background.set': { const { mime, data } = storedImage({ mime: c.mime, data: c.data }); this.workspace.backgroundPicture = { id: randomUUID(), mime, data }; break; }
+      case 'background.clear': delete this.workspace.backgroundPicture; break;
       case 'image.add': {
         const id = imageId(c.id), image = storedImage({ mime: c.mime, data: c.data });
         const images = this.workspace.images ??= {};

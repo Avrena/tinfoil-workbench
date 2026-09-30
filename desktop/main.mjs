@@ -462,6 +462,16 @@ async function command(input) {
           message: 'This removes the local conversation. There is no undo; exported copies and filesystem backups are not erased.' })) await service.execute(c);
       break;
     }
+    case 'background.get': return { snapshot: service.snapshot(), picture: service.backgroundPicture() };
+    case 'background.pick': {
+      const selected = await dialog.showOpenDialog(window, { properties: ['openFile'], title: 'Choose a background picture',
+        filters: [{ name: 'Pictures', extensions: Object.keys(IMAGE_EXTENSIONS).map(e => e.slice(1)) }] });
+      const path = selected.canceled ? null : selected.filePaths[0];
+      if (!path) return { snapshot: service.snapshot(), files: [] };
+      if (attachmentKind(basename(path)) !== 'image') throw new InputError('Choose a PNG, JPEG, GIF, WebP or BMP picture.');
+      const bytes = await boundedBytes(path, IMAGE_LIMITS.sourceBytes);
+      return { snapshot: service.snapshot(), files: [{ name: basename(path), mime: IMAGE_EXTENSIONS[extname(path).toLowerCase()], data: bytes.toString('base64') }] };
+    }
     case 'attachments.pick': {
       // Text is read here. Pictures and PDFs go to the page as bytes, which prepares them like a dropped file
       // (renderer/attach.ts): it redraws pictures and reads the text out of PDFs.

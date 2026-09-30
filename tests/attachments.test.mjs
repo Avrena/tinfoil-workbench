@@ -163,3 +163,31 @@ test('Android passes picked pictures and PDFs to the page, and refuses folders',
   await assert.rejects(command({ type: 'thread.draft', id: s.workspace.activeId, text: '', attachments: [folder()] }), /Windows app/);
   await assert.rejects(command({ type: 'send', id: s.workspace.activeId, text: 'x', attachments: [folder()] }), /Windows app/);
 });
+
+test('the chat background picture is stored encrypted with the workspace and reaches the page only when asked', async t => {
+  const f = await setup(t), { s } = f;
+  assert.equal(s.snapshot().background, null);
+  await s.execute({ type: 'background.set', mime: 'image/jpeg', data: '/9j/4AAQSkZJRg==' });
+  const id = s.snapshot().background;
+  assert.match(id, /^[0-9a-f-]{36}$/);
+  assert.ok(!JSON.stringify(s.snapshot()).includes('/9j/4AAQSkZJRg=='));
+  assert.equal(s.backgroundPicture(), 'data:image/jpeg;base64,/9j/4AAQSkZJRg==');
+  assert.deepEqual(validateWorkspace(structuredClone(f.stored)).backgroundPicture, { id, mime: 'image/jpeg', data: '/9j/4AAQSkZJRg==' });
+  await s.execute({ type: 'background.set', mime: 'image/png', data: 'iVBORw0KGgo=' });
+  assert.notEqual(s.snapshot().background, id, 'a new picture gets a new id, so the page fetches it again');
+  await assert.rejects(s.execute({ type: 'background.set', mime: 'text/html', data: 'PGI+' }), /picture type/);
+  await s.execute({ type: 'background.clear' });
+  assert.equal(s.snapshot().background, null); assert.equal(s.backgroundPicture(), null); assert.ok(!('backgroundPicture' in f.stored));
+});
+
+test('Android picks a background picture through the document picker and refuses other files', async t => {
+  let stored = null;
+  const s = new WorkbenchService({ read: async () => stored, write: async v => { stored = v; }, flush: async () => {} }, async () => { throw new Error('No provider expected'); });
+  await s.initialize(); t.after(() => s.shutdown());
+  const native = { picks: [[{ name: 'sky.png', data: 'iVBORw0KGgo=' }], [{ name: 'notes.md', data: Buffer.from('x').toString('base64') }]],
+    async openDocuments() { return { files: this.picks.shift() ?? [] }; }, async confirm() { return { confirmed: false }; } };
+  const command = createCommandHandler({ service: s, native });
+  assert.deepEqual((await command({ type: 'background.pick' })).files, [{ name: 'sky.png', mime: 'image/png', data: 'iVBORw0KGgo=' }]);
+  await assert.rejects(command({ type: 'background.pick' }), /Choose a PNG/);
+  assert.equal((await command({ type: 'background.get' })).picture, null);
+});

@@ -859,3 +859,33 @@ dialog:not(.message-editor) .modal-body { padding: 8px 20px 20px; }
 [data-variant="light"] .visual-canvas svg [stroke="#9085e9"] { stroke: #4a3aa7; }
 [data-variant="light"] .visual-canvas svg [fill="#e66767"] { fill: #e34948; }
 [data-variant="light"] .visual-canvas svg [stroke="#e66767"] { stroke: #e34948; }
+
+/* Chat background (renderer/backdrop.ts): a layer behind the conversation column that never takes the pointer. Only
+   while it shows is the column its own stacking context, so the layer can sit under the column's content. */
+.main.has-backdrop { isolation: isolate; }
+.main.has-backdrop .composer-region { background: transparent; }
+.chat-backdrop { position: absolute; inset: 0; z-index: -1; overflow: hidden; pointer-events: none; }
+.chat-backdrop[hidden] { display: none; }
+.backdrop-picture, .backdrop-texture { position: absolute; inset: 0; }
+/* A blurred picture reaches past the edges by twice the blur, which would otherwise fade them. */
+.backdrop-picture { inset: calc(-1 * var(--bleed, 0px)); background: center / cover no-repeat; }
+.chat-backdrop:not([data-kind="picture"]) .backdrop-picture, .chat-backdrop:not([data-kind="texture"]) .backdrop-texture { display: none; }
+.chat-backdrop[data-kind="picture"]::after { content: ""; position: absolute; inset: 0; background: var(--n0); opacity: var(--dim, 0); }
+.backdrop-texture { opacity: calc(var(--texture-strength, .5) * .09); background-position: center; }
+.chat-backdrop[data-texture="grid"] .backdrop-texture { background-image: linear-gradient(to right, var(--n100) 1px, transparent 1px), linear-gradient(to bottom, var(--n100) 1px, transparent 1px); background-size: 16px 16px; }
+.chat-backdrop[data-texture="dots"] .backdrop-texture { background-image: radial-gradient(circle, var(--n100) 1.1px, transparent 1.7px); background-size: 16px 16px; }
+.chat-backdrop[data-texture="grain"] .backdrop-texture { opacity: calc(var(--texture-strength, .5) * .3); background-size: 180px 180px; background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='180' height='180'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.85' numOctaves='3' stitchTiles='stitch'/%3E%3CfeColorMatrix values='0 0 0 0 .5 0 0 0 0 .5 0 0 0 0 .5 0 0 0 1 0'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E"); }
+
+/* Settings → Chat background: an effect's slider shows only while its switch is on. */
+.background-options { display: grid; margin-top: 2px; }
+.background-options[hidden], .background-slider[hidden], .background-thumb[hidden], .background-picture-note[hidden], #background-clear[hidden] { display: none; }
+.background-slider { display: flex; align-items: center; gap: 10px; margin: 0; padding: 2px 0 10px; }
+.background-slider input { flex: 1; min-width: 0; padding: 0; border: 0; background: none; accent-color: var(--f100); }
+.background-slider output { flex: 0 0 42px; text-align: right; font-size: 12px; font-variant-numeric: tabular-nums; color: var(--n68); }
+.background-effect .toggle-row { padding: 10px 0; }
+.background-effect:has(.background-slider:not([hidden])) .toggle-row { border-bottom: 0; }
+.background-picture-row { display: flex; align-items: center; gap: 8px; padding: 4px 0 8px; }
+.background-thumb { flex: none; width: 56px; height: 36px; border: 1px solid var(--n16); border-radius: 6px; background: var(--b1) center / cover no-repeat; }
+.background-picture-note { flex: 1; font-size: 12px; color: var(--n68); }
+.background-picture-row button { min-height: 0; height: 30px; padding: 0 10px; border: 1px solid var(--n16); font-size: 12px; }
+.background-picture-row [data-action="background-pick"] { margin-left: auto; }

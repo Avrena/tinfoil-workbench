@@ -136,6 +136,17 @@ with sync_playwright() as p:
  page.wait_for_function("window.tinfoil.snapshot().then(s=>s.workspace.view.theme.mode==='dark')",timeout=3000)
  assert page.evaluate("getComputedStyle(document.querySelector('.main')).backgroundColor")=='rgb(30, 30, 30)'
  checks.append('Settings → Appearance: a light preset recolours the page and is stored, a picked colour marks it edited, System shows both variants')
+ # Settings → Chat background: each kind shows only its own options; an effect's slider shows only while its switch is on.
+ page.locator('.sidebar-bottom [data-action=settings]').click();expect(page.locator('#background-texture-options')).to_be_hidden();expect(page.locator('#chat-backdrop')).to_be_hidden()
+ page.locator('[data-for=background-kind] [data-value=texture]').click();expect(page.locator('#background-texture-options')).to_be_visible();expect(page.locator('#chat-backdrop')).to_have_attribute('data-kind','texture')
+ page.locator('[data-for=background-texture] [data-value=dots]').click();expect(page.locator('#chat-backdrop')).to_have_attribute('data-texture','dots')
+ page.locator('[data-for=background-kind] [data-value=picture]').click();expect(page.locator('#background-texture-options')).to_be_hidden();expect(page.locator('#background-picture-note')).to_be_visible()
+ assert page.locator('#background-picture-options .background-slider:visible').count()==1,'only Dim, which starts on, shows its slider'
+ page.locator('[data-action=background-pick]').click();expect(page.locator('#chat-backdrop')).to_have_attribute('data-kind','picture');expect(page.locator('#background-clear')).to_be_visible()
+ page.locator('#background-blur-on').check();expect(page.locator('#background-blur-row')).to_be_visible();page.locator('#background-blur-on').uncheck();expect(page.locator('#background-blur-row')).to_be_hidden()
+ page.wait_for_function("window.tinfoil.snapshot().then(s=>!!s.background&&s.workspace.view.background.kind==='picture'&&s.workspace.view.background.texture==='dots')",timeout=3000)
+ page.locator('[data-action=background-clear]').click();expect(page.locator('#chat-backdrop')).to_be_hidden();page.keyboard.press('Escape');expect(page.locator('#settings-dialog')).to_be_hidden()
+ checks.append('Settings → Chat background: texture and picture options, a picked picture behind the conversation, effect sliders only while switched on')
  # All fixture content below is synthetic; test hook exists only in this in-memory page.
  page.evaluate('window.__fixture({content:"```html\\n<h1 style=\\\"color:rgb(0, 255, 0)\\\">Static preview</h1><script>parent.fixturePwned=true</script><a href=\\\"https://evil.test/x\\\">No navigation</a><img src=\\\"https://evil.test/tracker\\\">\\n```",reasoning:""})')
  page.locator('.preview-code').click();expect(page.locator('#artifact-panel')).to_be_visible();frame=page.frame_locator('#artifact-stage iframe')

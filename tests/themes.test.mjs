@@ -69,3 +69,13 @@ test('the presets are Workbench and the Codex app\'s, each variant it has', () =
   assert.deepEqual(presetsFor('light').slice(0, 3).map(p => p.label), ['Workbench', 'Absolutely', 'Catppuccin']);
   assert.deepEqual(THEME_PRESETS.find(p => p.id === 'vs-code-plus').dark, { accent: '#007acc', surface: '#1e1e1e', ink: '#d4d4d4', contrast: 60 });
 });
+
+test('chat background settings keep each effect\'s value while it is off, and refuse anything out of range', async () => {
+  const { backgroundPreferences, defaultBackground } = await import('../dist/core/preferences.js');
+  assert.deepEqual(backgroundPreferences(undefined), defaultBackground);
+  assert.deepEqual(viewPreferences({}).background, defaultBackground);
+  const b = backgroundPreferences({ kind: 'picture', texture: 'dots', strength: 400, blur: { on: false, value: 30 }, greyscale: { on: true, value: 0 }, dim: 'yes' });
+  assert.deepEqual(b, { kind: 'picture', texture: 'dots', strength: defaultBackground.strength, blur: { on: false, value: 30 },
+    greyscale: { on: true, value: defaultBackground.greyscale.value }, dim: defaultBackground.dim });
+  assert.equal(backgroundPreferences({ kind: 'video' }).kind, 'none');
+});

@@ -177,6 +177,12 @@ export function createCommandHandler({ service, native, account = null, uuid = (
         return { snapshot: snapshot(), attachments: texts.length ? attachments(textAttachments(texts, LIMITS)) : [],
           files: media.map(file => mediaFile(file, Math.min(PICK_BYTES, IMAGE_LIMITS.sourceBytes))) };
       }
+      case 'background.get': return { snapshot: snapshot(), picture: service.backgroundPicture() };
+      case 'background.pick': {
+        const picked = await pick(native, { multiple: false, maxCount: 1, maxBytes: PICK_BYTES });
+        if (picked.length && attachmentKind(String(picked[0]?.name ?? '')) !== 'image') throw new InputError('Choose a PNG, JPEG, GIF, WebP or BMP picture.');
+        return { snapshot: snapshot(), files: picked.map(file => mediaFile(file, Math.min(PICK_BYTES, IMAGE_LIMITS.sourceBytes))) };
+      }
       case 'thread.draft':
         if (attachesFolder(c)) throw new InputError(FOLDER_UNAVAILABLE);
         await service.execute(c); break;
