@@ -1,5 +1,5 @@
 /** Live check of the workspace agent with real models (docs/WORKSPACE-AGENT.md). Manual: it needs a Tinfoil Chat
- * account and a person to sign in. Run `npx electron tests/agent-live.mjs [--log <file>] [--models kimi,glm,deepseek]`.
+ * account and a person to sign in. Run `npx electron tests/agent-live.mjs [--log <file>] [--models kimi,glm,deepseek] [--tasks explain,fix]`.
  *
  * The real app runs from source with a temporary profile; the tester signs in in the Account view. For each model, two
  * tasks run in fresh copies of a small Node project with one failing test, in new local conversations at temperature 0:
@@ -31,7 +31,7 @@ const root = dirname(dirname(fileURLToPath(import.meta.url)));
 const option = name => { const i = process.argv.indexOf(name); return i > 0 ? process.argv[i + 1] : null; };
 const profile = mkdtempSync(join(tmpdir(), 'tinfoil-agent-live-'));
 app.setPath('userData', profile);
-const logFile = option('--log'), wanted = (option('--models') ?? 'kimi,glm,deepseek').split(',');
+const logFile = option('--log'), wanted = (option('--models') ?? 'kimi,glm,deepseek').split(','), onlyTasks = option('--tasks')?.split(',') ?? null;
 const secrets = new Set();
 let service = null, stage = 'start';
 const sleep = ms => new Promise(r => setTimeout(r, ms));
@@ -79,7 +79,7 @@ const testsPass = dir => spawnSync(process.platform === 'win32' ? 'node.exe' : '
 
 // The tester's stand-in: a change is approved; a command only when it names nothing outside the project and is not a
 // deletion, network, install, git history or system command.
-const DENY = /\b(remove-item|rm|rmdir|rd|del|erase|format-volume|set-executionpolicy|invoke-webrequest|invoke-restmethod|iwr|irm|curl|wget|start-process|shutdown|restart-computer|reg|set-itemproperty|new-service|schtasks|winget|choco|pip|npx)\b|\bgit\s+(push|pull|fetch|reset|clean|checkout|commit|remote|rebase|merge)\b|\bnpm\s+(install|i|ci|publish|update|add|uninstall)\b/i;
+const DENY = /\b(remove-item|rm|rmdir|rd|del|erase|format-volume|set-executionpolicy|invoke-webrequest|invoke-restmethod|iwr|irm|curl|wget|start-process|shutdown|restart-computer|reg|set-itemproperty|new-service|schtasks|winget|choco|pip|npx)\b|\bgit\s+(push|pull|fetch|reset|clean|checkout|commit|remote|rebase|merge)\b|\bnpm(?:\.cmd)?\s+(install|i|ci|publish|update|add|uninstall)\b/i;
 function decide(tool) {
   if (tool.name !== 'run_command') return { approve: true };
   const args = agentArguments('run_command', tool.arguments), outside = outsidePaths(args.command, tool.agent.folder, args.workdir);
@@ -92,7 +92,8 @@ const TASKS = [
   { id: 'explain', text: 'What does this project do, and how are its tests run? Do not change anything.' },
   { id: 'fix', text: 'One of the tests fails. Find out why, make it pass, and run the tests again.' },
 ];
-const MODELS = { kimi: /^kimi-k3$/, glm: /^glm-5[.-]3$/, deepseek: /^deepseek-v4-pro$/ };
+// DeepSeek V4 Pro left Tinfoil's model list; V4.1 Flash took its place.
+const MODELS = { kimi: /^kimi-k3$/, glm: /^glm-5[.-]3$/, deepseek: /^deepseek-v4[.-]1[.-]flash$/ };
 let spentInput = 0, spentOutput = 0;
 
 async function runTask(model, task) {
@@ -144,7 +145,7 @@ async function run() {
   log('models', { chosen: Object.fromEntries(chosen), available: service.models.length });
   for (const [name, model] of chosen) {
     if (!model) { log('skipped', { model: name, reason: 'not in the model list' }); continue; }
-    for (const task of TASKS) {
+    for (const task of TASKS.filter(task => !onlyTasks || onlyTasks.includes(task.id))) {
       if (spentInput > 900_000) { log('skipped', { model, task: task.id, reason: 'the input budget is spent' }); continue; }
       stage = `${model} ${task.id}`; await runTask(model, task);
     }

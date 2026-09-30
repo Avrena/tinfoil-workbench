@@ -18,13 +18,17 @@ export function pythonArguments(value: string): { code: string } {
 }
 export class ToolCallAccumulator {
   private calls = new Map<number, ToolCall>();
+  /** `max` is the number of calls one response may make: four for the ordinary tools, more for the workspace agent. */
+  constructor(private max = 4) {}
   add(deltas: unknown): void {
     if (deltas === undefined) return;
-    if (!Array.isArray(deltas) || deltas.length > 4) throw new InputError('Too many tool calls in one response.');
+    if (!Array.isArray(deltas) || deltas.length > this.max) throw new InputError(`The model made more than ${this.max} tool calls in one response.`);
     for (const item of deltas) {
       if (!item || typeof item !== 'object') throw new InputError('Invalid streamed tool call.');
       const d = item as Record<string, any>;
-      if (!Number.isInteger(d.index) || d.index < 0 || d.index >= 4 || (d.type && d.type !== 'function')) throw new InputError('Unsupported streamed tool call.');
+      if (!Number.isInteger(d.index) || d.index < 0) throw new InputError('Unsupported streamed tool call: it has no valid index.');
+      if (d.index >= this.max) throw new InputError(`The model made more than ${this.max} tool calls in one response. Nothing from that response was run.`);
+      if (d.type && d.type !== 'function') throw new InputError('Unsupported streamed tool call: only function calls are accepted.');
       const call = this.calls.get(d.index) ?? { id: '', type: 'function' as const, function: { name: '', arguments: '' } };
       if (d.id !== undefined) {
         if (typeof d.id !== 'string' || (call.id && call.id !== d.id)) throw new InputError('Tool identifier changed mid-stream.');

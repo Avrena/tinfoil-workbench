@@ -74,6 +74,7 @@ test('diffs show the changed lines with context, and a new file as all added', (
 test('the agent guide depends only on the shell, sits in the tool guide, and the environment follows it escaped', () => {
   assert.equal(agentGuide('powershell'), agentGuide('powershell')); assert.notEqual(agentGuide('powershell'), agentGuide('bash'));
   assert.match(agentGuide('powershell'), /-LiteralPath/); assert.match(agentGuide('bash'), /Git Bash/);
+  assert.match(agentGuide('powershell'), /run npm\.cmd/); assert.doesNotMatch(agentGuide('bash'), /npm\.cmd/);
   assert.match(toolGuide({ visual: false, python: false, agent: 'powershell' }), /<workbench_tools>[\s\S]*<workspace_agent>[\s\S]*<\/workspace_agent>\n<\/workbench_tools>/);
   assert.doesNotMatch(toolGuide({ visual: true, python: false }), /workspace_agent/);
   const environment = agentEnvironment('C:\\Projects\\a<b>', 'bash');
@@ -308,6 +309,20 @@ test('an agent reply may take 30 rounds, then stops and says so', windows, async
   const last = requests.at(-1).messages.filter(m => m.role === 'tool');
   assert.equal(last.filter(m => JSON.parse(m.content).shortened).length, 0, 'short results are sent whole');
   assert.doesNotThrow(() => validateWorkspace(structuredClone(s.workspace)), '29 calls and their history fit a stored reply');
+});
+
+test('one agent step may hold 16 calls, run one after another; a 17th fails the step before anything runs', windows, async t => {
+  const reads = n => chunk({ tool_calls: Array.from({ length: n }, (_, i) => ({ index: i, id: 'call_read' + i, type: 'function', function: { name: 'read_file', arguments: JSON.stringify({ path: 'app.js' }) } })) }, 'tool_calls');
+  const { s, requests } = await agentSetup(t, { script: n => n === 1 ? reads(AGENT_LIMITS.callsPerStep) : answer('Read it.') });
+  await send(s); await done(s);
+  const reply = s.workspace.threads[0].turns[0].replies[0];
+  assert.equal(AGENT_LIMITS.callsPerStep, 16); assert.equal(reply.status, 'complete'); assert.equal(reply.tools.length, 16);
+  assert.ok(reply.tools.every(tool => tool.status === 'complete' && tool.batchSize === 16)); assert.equal(toolMessages(requests[1]).length, 16);
+  assert.doesNotThrow(() => validateWorkspace(structuredClone(s.workspace)), 'a batch of 16 is stored in a valid workspace');
+  const over = await agentSetup(t, { script: () => reads(17) });
+  await send(over.s); await done(over.s);
+  const failed = over.s.workspace.threads[0].turns[0].replies[0];
+  assert.equal(failed.status, 'error'); assert.match(failed.error, /more than 16 tool calls in one response/); assert.equal(failed.tools.length, 0);
 });
 
 test('a conversation that used the agent cannot move into a cloud project', windows, async t => {

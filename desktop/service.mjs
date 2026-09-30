@@ -498,7 +498,7 @@ export class WorkbenchService {
         Object.assign(body,reasoningParameters(cap,primary?job.settings.reasoningEffort:job.settings.compareReasoningEffort,primary?job.settings.thinkingMode:job.settings.compareThinkingMode));
         if(offeredTools.length){body.tools=offeredTools;body.tool_choice='auto';}
         if(job.settings.webSearch && cap.toolCalling!==false)body.web_search_options={};
-        const accumulator = new ToolCallAccumulator(), events = new RouterEventParser(); let finish = null, roundReasoning = '', roundContent = '', usage = null;
+        const accumulator = new ToolCallAccumulator(agent ? AGENT_LIMITS.callsPerStep : 4), events = new RouterEventParser(); let finish = null, roundReasoning = '', roundContent = '', usage = null;
         // Preserve visible narration across tool rounds, while sending each round only once.
         if (round > 0 && reply.content && !reply.content.endsWith('\n\n')) reply.content += '\n\n';
         reply.finalContentOffset = reply.content.length;

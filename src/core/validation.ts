@@ -8,6 +8,8 @@ export const LIMITS = Object.freeze({
   versions: 50, storedTurns: 2000,
   instructions: 40_000, instructionName: 80, instructionPresets: 50,
   importBytes: 24 * 1024 * 1024, workspaceBytes: 64 * 1024 * 1024,
+  /** Tool calls one model response may make: the workspace agent's limit; the other tools stop at four (service). */
+  callsPerStep: 16,
 });
 export class InputError extends Error {
   constructor(message: string) { super(message); this.name = 'InputError'; }
@@ -250,7 +252,7 @@ export function validateTool(value: unknown): ToolRun {
   if (!['queued','awaiting_approval','running','complete','error','denied','cancelled'].includes(String(v.status))) throw new InputError('Invalid tool status.');
   return { id: identifier(v.id), callId: text(v.callId, 'Tool call ID', 200), name: text(v.name, 'Tool name', 80),
     ...(v.contentOffset === undefined ? {} : {contentOffset: offset(v.contentOffset)}),
-    ...(v.batchId === undefined ? {} : {batchId:identifier(v.batchId), batchIndex:integer(v.batchIndex,0,3),batchSize:integer(v.batchSize,1,4)}),
+    ...(v.batchId === undefined ? {} : {batchId:identifier(v.batchId), batchIndex:integer(v.batchIndex,0,LIMITS.callsPerStep-1),batchSize:integer(v.batchSize,1,LIMITS.callsPerStep)}),
     ...(v.delegate === undefined ? {} : {delegate:validateDelegate(v.delegate)}),
     ...(v.provider === undefined ? {} : {provider:validateProvider(v.provider)}),
     ...(v.agent === undefined ? {} : {agent:validateAgentRun(v.agent)}),
@@ -264,7 +266,7 @@ function validateToolMessage(value: unknown): ApiMessage {
   if (!['assistant','tool'].includes(String(v.role))) throw new InputError('Invalid role in tool history.');
   const message: ApiMessage = { role: v.role as ApiMessage['role'], content: text(v.content, 'Tool history', LIMITS.response) };
   if (v.role === 'tool') message.tool_call_id = text(v.tool_call_id, 'Tool call ID', 200, true);
-  if (v.tool_calls !== undefined) message.tool_calls = list(v.tool_calls, 4).map(item => {
+  if (v.tool_calls !== undefined) message.tool_calls = list(v.tool_calls, LIMITS.callsPerStep).map(item => {
     const c = record(item), f = record(c.function);
     if (c.type !== 'function') throw new InputError('Invalid tool-call type.');
     return { id: text(c.id, 'Tool call ID', 200, true), type: 'function', function: { name: text(f.name, 'Tool name', 80, true), arguments: text(f.arguments, 'Tool arguments', 128000) } };
