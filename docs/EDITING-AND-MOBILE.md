@@ -1,18 +1,30 @@
 # Editing, project navigation and mobile layouts
 
-These editing semantics have been kept since 0.7, which also refined shared insets, compact control wrapping and outer-shell focus scrolling. See [SPACING.md](SPACING.md).
+Editing has kept its semantics since 0.7, which also refined shared insets, compact control wrapping and outer-shell focus scrolling (see [SPACING.md](SPACING.md)). Since 1.2, edits make versions inside the conversation instead of new conversations in the sidebar.
 
-## Editing a draft, earlier prompt or response
+## Versions inside a conversation
 
-The expand button beside the composer attachment control opens a larger source editor. Save draft returns text to the composer; it does not send. An earlier user message's Edit action instead creates a branch before that turn with the revised prompt as an unsent draft. Attached text files are retained in that session, not silently submitted. Pending attachments are still session-only and should be rechecked after restarting.
+An edited message, Retry, and an edited answer or thinking text each make a new version of the turn where they happen. That turn and the turns after it are set aside whole, and ‹ 2/3 › arrows bring them back. Versions with the same message differ only in their replies (Retry, edited answers and thinking), so their arrows sit on the reply. Versions whose messages differ have arrows on the message, and each arrow lands on the latest answer to that message. The conversation shows one path, and only that path is sent to a model, exported as Markdown and written to a Tinfoil cloud chat; the JSON export keeps every version. A conversation keeps up to 50 versions of one point and 2,000 turns with all its versions (`src/core/versions.ts`).
 
-A completed assistant message has Edit beside its reply actions. Write edits the source, Preview renders safe Markdown and mathematical LaTeX, and Changes shows the changed region. Answer and Thinking keep separate buffers when switching tabs. Formatting buttons insert bold, fenced code and display-math syntax; Ctrl/Cmd+Z uses the textarea's native undo history. Ctrl/Cmd+Enter saves, never regenerates. Escape/Cancel offers Keep editing or Discard changes when there are unsaved edits. Pressing Escape again keeps that question: since 0.12 the renderer handles Escape itself, because Chromium would otherwise close the dialog on the second press.
+Showing another version sends nothing. It waits while a reply is being written or a message is being edited, and an answer being edited with changes has to be saved or cancelled first. Branch still copies the path shown into a new conversation, without the versions set aside. Conversations branched before 1.2 stay as they are.
 
-Save new branch retains the original thread and its later turns, creates a new thread through the chosen response, and marks the revised response. Future messages in that branch use the edited answer exactly once. Tool calls/results remain paired and their stored outputs are not editable here. Figures retain mapped insertion positions; an anchor inside replaced text follows that replacement. Heavy prose restructuring can therefore warrant a later artifact revision rather than imply semantic re-placement of every chart.
+## Editing a draft, a message or an answer
 
-The Thinking tab is available only for reasoning actually returned by the provider. Its edits are local annotations, visibly distinguished from original model thinking. Original protocol reasoning attached to tool calls remains untouched, and edited thinking is not injected into future requests. This also does not alter the selected model's effort/toggle settings. Restore original recovers the earliest saved text. Original generation timing/usage remains historical; editing consumes no model request.
+The expand button beside the composer attachment control opens a larger source editor. Save draft returns text to the composer; it does not send.
 
-An edit is saved only if the source still matches what was opened. A stale response is rejected with the working copy retained. Active generation must stop first, and incomplete/stopped replies cannot be relabelled as completed merely by editing. This version does not autosave an open modal's unsaved buffers across an application crash; the composer draft and explicitly saved branches use the existing encrypted workspace.
+Edit on one of your messages puts it and its attached files in the composer, marked *Editing message N*. Send makes a new version of it, answered from the turns before it; Cancel or Escape ends the edit. Either way the draft that was in the composer comes back; the edit itself is not saved as the draft, so it does not survive a restart.
+
+Edit on a completed answer opens the answer, and the thinking text when the provider returned some, in place of the reply. Ctrl/Cmd+Enter or *Save as new version* saves; nothing is regenerated. Escape or Cancel closes at once when nothing changed and otherwise asks first. The fields keep their text across redraws and conversation switches. The new version holds only the edited reply; the answer as it was, and the turns after it, stay one arrow away. Future messages use the edited answer exactly once. Tool calls/results remain paired and their stored outputs are not editable here. Figures retain mapped insertion positions; an anchor inside replaced text follows that replacement. Heavy prose restructuring can therefore warrant a later artifact revision rather than imply semantic re-placement of every chart.
+
+Thinking text can be edited only when the provider returned some. Its edits are local annotations, visibly distinguished from original model thinking. Original protocol reasoning attached to tool calls remains untouched, and edited thinking is not injected into future requests. This also does not alter the selected model's effort/toggle settings. The earlier version keeps the text as the model returned it. Original generation timing/usage remains historical; editing consumes no model request.
+
+An edit is saved only if the answer still matches what was opened. A stale answer is rejected with the working copy retained. Active generation must stop first, and incomplete/stopped replies cannot be relabelled as completed merely by editing; Retry asks again instead. Unsaved edits are not kept across an application crash; the composer draft and saved versions use the encrypted workspace.
+
+## Messages in other roles
+
+Reading & visibility → *Add messages in other roles*, off by default, shows a role choice in the composer. With Assistant or System chosen, Send becomes Add: the message joins the conversation as written, no model is asked, and later requests send it in that role at its place in the conversation. Such messages carry no files and can be edited in the composer like your own. Tinfoil cloud chats have no place for them, so the choice is off in cloud chats and in conversations that will become one, and a conversation that holds them does not move to the cloud.
+
+Workbench versions before 1.2 cannot open a workspace that holds messages in other roles, and they drop set-aside versions when they save.
 
 ## Project and thread headings
 

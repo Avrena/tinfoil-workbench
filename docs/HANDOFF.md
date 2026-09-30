@@ -42,7 +42,7 @@ Modify Advanced instructions/model effort without applying, switch threads and r
 
 Open the instructions control beside the model; a new conversation must show None. Choose a starter, send a short message and check that the answer's footer names it. Switch back to None and check that the earlier answer keeps its label. Save an entry, edit it and delete it; a conversation that already uses it must keep its copy. In the instructions editor and in the message editor, type some text and press Escape twice: the discard question must stay and the text must remain. With close review open over an unsaved editor, Escape must answer close review and leave the editor open.
 
-Check response/prompt branching, local thinking annotations, project move/rename, search, keyboard focus, Copy, in-dialog errors and clearing an unsubmitted API key by closing Settings. Deleting a project must retain its threads. Exported files are plaintext and may contain the selected text, references, tool outputs or instructions; handle them accordingly.
+Check versions: edit a message in the composer and send it, Retry an answer, edit an answer and its thinking in place, and step through the ‹ › arrows on the message and the reply; Branch still makes a new conversation. Check local thinking annotations, project move/rename, search, keyboard focus, Copy, in-dialog errors and clearing an unsubmitted API key by closing Settings. Deleting a project must retain its threads. Exported files are plaintext and may contain the selected text, references, tool outputs or instructions; handle them accordingly.
 
 ## 4. Accept visuals and protected tools
 
