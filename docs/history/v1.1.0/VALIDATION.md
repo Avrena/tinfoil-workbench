@@ -77,4 +77,4 @@ The release files were built from commit `d44ddfb`. The tag commit adds only thi
 
 The Windows files are not code-signed. The APK is signed with APK Signature Scheme v2, with the same release key as 1.0.0 (certificate SHA-256 `6395ead797a520c632156abcd9ee2731869c64ed0ee510ad5b52e887185494cb`), has versionName 1.1.0 and versionCode 1001000, targets SDK 36 with minimum SDK 24, and requests the same two permissions.
 
-GitHub Actions ran all three workflows on commit `d44ddfb` in the pull request runs 36654637301 (Windows client), 36654637345 (Android client) and 36654637383 (renderer UI suites); all three passed, including the uploads of their build outputs.
+GitHub Actions ran all three workflows on commit `d44ddfb` in the pull request runs 36654637301 (Windows client), 36654637345 (Android client) and 36654637383 (renderer UI suites); all three passed. The Windows and Android runs could not keep their build copies: the repository's artifact storage quota was full, and the upload step is allowed to fail, so GitHub reported it as passed. This sentence was corrected after the 1.2.0 release; it said the uploads had passed.
