@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import { mkdtempSync, mkdirSync, readdirSync, readFileSync, realpathSync, rmSync, symlinkSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { basename, join } from 'node:path';
-import { AGENT_LIMITS, AGENT_TOOLS, agentArguments, agentFolderName, agentGuide, askAnyway, commandRisk, compactAgentHistory, diffCounts, globMatcher, outsidePaths, searchPattern, shortenOutput, unifiedDiff, workspacePath } from '../dist/core/agent.js';
+import { AGENT_LIMITS, AGENT_TOOLS, agentArguments, agentFolderName, agentGuide, askAnyway, commandRisk, compactAgentHistory, diffCounts, globMatcher, madeFolder, outsidePaths, searchPattern, shortenOutput, unifiedDiff, workspacePath } from '../dist/core/agent.js';
 import { agentEnvironment, toolGuide, withToolGuide } from '../dist/core/prompt.js';
 import { changeApproval, commandApproval, confirmation, pythonApproval } from '../dist/core/approval.js';
 import { validateWorkspace } from '../dist/core/validation.js';
@@ -93,7 +93,8 @@ test('the agent guide depends only on the shell, sits in the tool guide, and the
   assert.match(toolGuide({ visual: false, python: false, agent: 'powershell' }), /<workbench_tools>[\s\S]*<workspace_agent>[\s\S]*<\/workspace_agent>\n<\/workbench_tools>/);
   assert.doesNotMatch(toolGuide({ visual: true, python: false }), /workspace_agent/);
   const environment = agentEnvironment('C:\\Projects\\a<b>', 'bash');
-  assert.match(environment, /folder: C:\\Projects\\a&lt;b&gt;\nshell: Git Bash/);
+  assert.match(environment, /folder: C:\\Projects\\a&lt;b&gt;\nfolder origin: a folder the user chose for this conversation\nshell: Git Bash\napprovals: the user approves every command and every file change first;/);
+  assert.match(agentGuide('powershell'), /When a message does not need them \(a greeting/);
   const [system] = withToolGuide([{ role: 'system', content: 'Mine' }], `${toolGuide({ visual: false, python: false, agent: 'bash' })}\n\n${environment}`);
   assert.ok(system.content.indexOf('</workbench_tools>') < system.content.lastIndexOf('<environment>\nfolder') &&system.content.endsWith('</environment>\n\nMine'));
 });
@@ -250,7 +251,7 @@ test('the agent is offered only with its folder, in a local conversation of the 
   await send(s); await done(s);
   assert.deepEqual(requests[0].tools.map(tool => tool.function.name), ['list_files', 'search_files', 'read_file', 'edit_file', 'write_file', 'run_command', 'update_plan']);
   const system = requests[0].messages[0].content;
-  assert.match(system, /<workspace_agent>/); assert.ok(system.includes(`<environment>\nfolder: ${dir}\nshell: Windows PowerShell 5.1`));
+  assert.match(system, /<workspace_agent>/); assert.ok(system.includes(`<environment>\nfolder: ${dir}\nfolder origin: a folder the user chose for this conversation\nshell: Windows PowerShell 5.1`));
   assert.deepEqual(s.snapshot().agent, { available: true, gitBash: false, root: null });
 
   const off = await agentSetup(t, { mode: 'off', script: () => answer('Done.') });
@@ -442,4 +443,19 @@ test('a confirmation asks with Cancel by default and carries only what the main 
   assert.deepEqual(asked, { kind: 'confirm', title: 'Remove your Tinfoil chat key from Workbench?', message: 'Cloud chats stay in your account.', approve: 'Remove chat key', decline: 'Cancel', tone: 'question', facts: [], outside: [], warning: '' });
   const folder = confirmation({ title: 'Let the workspace agent work in this folder?', message: 'The model can read files here.', approve: 'Use this folder', decline: 'Keep asking', tone: 'danger', text: 'D:/work' });
   assert.equal(folder.text, 'D:/work'); assert.equal(folder.decline, 'Keep asking'); assert.equal(folder.tone, 'danger');
+});
+
+test('the environment says a folder Workbench made is named after the first message, and what runs without asking', () => {
+  const id = '2DDB91c0-aaaa', root = 'D:/Work/Tinfoil/workspaces';
+  const made = String.raw`D:\Work\Tinfoil\workspaces\2026-09-30 Hello fork 2ddb`;
+  assert.equal(madeFolder(made, root, id), true);
+  assert.equal(madeFolder(made + ' (2)', root, id), true);
+  assert.equal(madeFolder(String.raw`E:\old-root\2026-09-30 Hello fork 2ddb`, root, id), true, 'a branch or an earlier root keeps its name');
+  assert.equal(madeFolder(String.raw`D:\Work\Tinfoil\workspaces\2026-09-30 Hello fork 9f1c`, root, 'ffff'), true, 'made under the root');
+  assert.equal(madeFolder(String.raw`D:\Projects\shop`, root, id), false);
+  assert.equal(madeFolder(String.raw`D:\Projects\2026-09-30 notes 1234`, root, id), false);
+  const environment = agentEnvironment(made, 'powershell', { approval: 'auto', made: true });
+  assert.match(environment, /folder origin: made by Workbench for this conversation and named after its first message; the user did not choose or mention this name/);
+  assert.match(environment, /approvals: commands and file changes run without asking/);
+  assert.match(agentEnvironment(made, 'powershell', { approval: 'changes' }), /approvals: file changes inside the folder are written without asking[^\n]*the user approves every command first/);
 });

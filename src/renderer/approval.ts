@@ -13,6 +13,21 @@ function element(tag: string, className: string, text?: string): HTMLElement {
   if (text !== undefined) node.textContent = text;
   return node;
 }
+/** The mark beside a confirmation's question, drawn like the app's icons: a triangle for a warning or a deletion (the
+ * tone colours it), a circle for a question. Its outline first, then the strokes inside it. */
+const MARKS: Record<'question' | 'warning', string[]> = {
+  question: ['M12 2.8a9.2 9.2 0 1 0 0 18.4 9.2 9.2 0 0 0 0-18.4z', 'M9.6 9.3a2.5 2.5 0 1 1 3.5 2.3c-.7.3-1.1.9-1.1 1.7v.3', 'M12 16.9v.1'],
+  warning: ['M10.3 3.9 2.5 17.4A2 2 0 0 0 4.2 20.4h15.6a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0z', 'M12 9.2v4.3', 'M12 16.9v.1'],
+};
+function mark(tone: ApprovalRequest['tone']): SVGSVGElement {
+  const ns = 'http://www.w3.org/2000/svg', svg = document.createElementNS(ns, 'svg');
+  svg.setAttribute('viewBox', '0 0 24 24'); svg.setAttribute('aria-hidden', 'true'); svg.setAttribute('class', 'mark');
+  MARKS[tone === 'question' ? 'question' : 'warning'].forEach((d, index) => {
+    const path = document.createElementNS(ns, 'path');
+    path.setAttribute('d', d); path.setAttribute('class', index ? 'mark-line' : 'mark-shape'); svg.append(path);
+  });
+  return svg;
+}
 /** The command or code, with each path outside the folder that it names marked where it appears. */
 function marked(text: string, paths: string[]): DocumentFragment {
   const lower = text.toLowerCase(), ranges: Array<[number, number]> = [];
@@ -37,7 +52,8 @@ async function show(): Promise<void> {
   const request = await bridge.request();
   if (!request) { bridge.decide(false); return; }
   document.title = request.title; document.body.dataset.kind = request.kind; document.body.dataset.tone = request.tone ?? '';
-  $('title').textContent = request.title;
+  if (request.kind === 'confirm') $('title').replaceChildren(mark(request.tone ?? 'question'), element('span', 'title-text', request.title));
+  else $('title').textContent = request.title;
   const body = $('body');
   for (const paragraph of (request.message ?? '').split(/\n{2,}/)) if (paragraph.trim()) body.append(element('p', 'message', paragraph));
   if (request.text !== undefined) { const pre = element('pre', 'code'); pre.append(marked(request.text, request.outside)); body.append(pre); }

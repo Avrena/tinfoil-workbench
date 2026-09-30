@@ -1,5 +1,5 @@
 import type { ApiMessage } from './types.js';
-import { agentGuide, AGENT_SHELLS, type AgentShell } from './agent.js';
+import { agentGuide, AGENT_SHELLS, type AgentApproval, type AgentShell } from './agent.js';
 
 /** The system message follows the XML-section layout of Tinfoil Chat's own client (tinfoilsh/tinfoil-webapp, read,
  * not copied): a guide to the tools offered on this request, then the user's own instructions unchanged, then the
@@ -39,12 +39,21 @@ ${sections.join('\n\n')}
 </workbench_tools>`;
 }
 
-/** The workspace agent's folder and shell. It follows the guide, so the part shared by every conversation stays first. */
-export function agentEnvironment(folder: string, shell: AgentShell): string {
+/** What the approval level (Settings.agentApproval) lets run without asking, as the model is told it. */
+const APPROVALS: Record<AgentApproval, string> = {
+  ask: 'the user approves every command and every file change first',
+  changes: 'file changes inside the folder are written without asking, and the user sees each one; the user approves every command first',
+  auto: 'commands and file changes run without asking, and the user sees each one; a command that names a path outside the folder, deletes files, touches git history or remotes, changes system settings, downloads or installs is approved by the user first',
+};
+/** The workspace agent's folder, where it came from, the shell and the approval level. It follows the guide, so the
+ * part shared by every conversation stays first. A folder Workbench made (`madeFolder`) is named after the first
+ * message, which a model otherwise reads as the user naming the folder. */
+export function agentEnvironment(folder: string, shell: AgentShell, { approval = 'ask', made = false }: { approval?: AgentApproval; made?: boolean } = {}): string {
   return `<environment>
 folder: ${escapePromptContent(folder)}
+folder origin: ${made ? 'made by Workbench for this conversation and named after its first message; the user did not choose or mention this name' : 'a folder the user chose for this conversation'}
 shell: ${AGENT_SHELLS[shell]}
-approvals: the user approves every command and every file change; reading inside the folder is not approved separately
+approvals: ${APPROVALS[approval]}; reading inside the folder is not approved separately
 network: not restricted
 </environment>`;
 }

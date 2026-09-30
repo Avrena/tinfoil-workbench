@@ -9,7 +9,7 @@ import { extractCodeBlocks } from '../dist/core/markdown.js';
 import { ToolCallAccumulator, PYTHON_TOOL, pythonArguments, findTextToolCalls } from '../dist/core/tools.js';
 import { VISUAL_TOOLS, VISUAL_TOOL_NAMES, RENDER_KINDS } from '../dist/core/visual-tools.js';
 import { toolGuide, withToolGuide, agentEnvironment } from '../dist/core/prompt.js';
-import { AGENT_TOOLS, AGENT_TOOL_NAMES, AGENT_APPROVED, AGENT_LIMITS, agentArguments, agentFolderName, askAnyway, compactAgentHistory, shortenOutput } from '../dist/core/agent.js';
+import { AGENT_TOOLS, AGENT_TOOL_NAMES, AGENT_APPROVED, AGENT_LIMITS, agentArguments, agentFolderName, askAnyway, compactAgentHistory, madeFolder, shortenOutput } from '../dist/core/agent.js';
 import { capabilityFor, reasoningParameters, normalizeCapability } from '../dist/core/capabilities.js';
 import { executeVisual } from './visual-runtime.mjs';
 import { DELEGATE_TOOL, delegateArguments, toolActive } from '../dist/core/activity.js';
@@ -116,7 +116,7 @@ export class WorkbenchService {
    * folder yet, or is not available here. */
   agentFor(thread, s = thread.settings) {
     if (!this.agentTools || s.agentMode !== 'ask' || !thread.agentFolder || this.cloudBound(thread)) return null;
-    return { folder: thread.agentFolder, shell: s.agentShell === 'bash' ? 'bash' : 'powershell' };
+    return { folder: thread.agentFolder, shell: s.agentShell === 'bash' ? 'bash' : 'powershell', approval: s.agentApproval ?? 'ask', made: madeFolder(thread.agentFolder, this.workspace.agentRoot, thread.id) };
   }
   /** The main process sets the folder after its native folder picker; no renderer command can name one. */
   async setAgentFolder(id, folder) {
@@ -565,7 +565,7 @@ export class WorkbenchService {
     const offeredTools = this.offeredTools(job);
     const agent = offeredTools.some(t => AGENT_TOOL_NAMES.has(t.function.name)) ? this.agentFor(findThread(this.workspace, job.threadId), job.settings) : null;
     const guide = toolGuide({ visual: offeredTools.some(t => VISUAL_TOOL_NAMES.has(t.function.name)), python: offeredTools.some(t => t.function.name === 'python'), agent: agent?.shell ?? null });
-    const messages = withToolGuide(structuredClone(job.messages), agent ? `${guide}\n\n${agentEnvironment(agent.folder, agent.shell)}` : guide);
+    const messages = withToolGuide(structuredClone(job.messages), agent ? `${guide}\n\n${agentEnvironment(agent.folder, agent.shell, agent)}` : guide);
     // A reply may take 10 minutes; a workspace agent reply 60, not counting the time it waits for the user's approval.
     const limit = agent ? AGENT_LIMITS.activeMs : 600000, rounds = agent ? AGENT_LIMITS.rounds : 5, callBudget = agent ? AGENT_LIMITS.calls : 8;
     let spent = 0, since = start, total = setTimeout(() => { timeout = true; ctrl.abort(); }, limit);

@@ -38,9 +38,14 @@ button:disabled { opacity: .45; cursor: default; }
 #body:empty, #facts:empty, .warning:empty { display: none; }
 .message { margin: 0; font-size: 13.5px; line-height: 1.55; color: #c8c8c8; white-space: pre-line; overflow-wrap: anywhere; }
 body[data-kind="confirm"] h1 { display: flex; align-items: flex-start; gap: 10px; }
-body[data-kind="confirm"] h1::before { content: "?"; flex: none; display: grid; place-items: center; width: 22px; height: 22px; border-radius: 50%; background: #1f3a55; color: #9cc9f5; font-size: 13px; font-weight: 700; line-height: 1; }
-body[data-tone="warning"] h1::before { content: "!"; background: #4a3b1e; color: var(--amber); }
-body[data-tone="danger"] h1::before { content: "!"; background: #4a2420; color: #f3a79c; }
+body[data-kind="confirm"] .mark { flex: none; width: 22px; height: 22px; margin-top: 1px; }
+.mark-shape { fill: #1f3a55; stroke: #7fb6ea; stroke-width: 1.6; stroke-linejoin: round; }
+.mark-line { fill: none; stroke: #cfe5fa; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+body[data-tone="warning"] .mark-shape { fill: #4a3b1e; stroke: var(--amber); }
+body[data-tone="warning"] .mark-line { stroke: #ffe2a8; }
+body[data-tone="danger"] .mark-shape { fill: #4a2420; stroke: #f08b7d; }
+body[data-tone="danger"] .mark-line { stroke: #ffd2cb; }
+@media (forced-colors: active) { .mark-shape { fill: none; stroke: CanvasText; } .mark-line { stroke: CanvasText; } }
 body[data-tone="danger"] button.primary { border-color: #c42b1c; background: #c42b1c; }
 body[data-tone="danger"] button.primary:hover { background: #d13a2b; }
 body[data-kind="confirm"] pre.code { max-height: 40vh; }
