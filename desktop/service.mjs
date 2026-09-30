@@ -22,7 +22,7 @@ const idleVerification = () => ({ state: 'idle', checkedAt: null, steps: [] });
 /** A reply cut off because the Android app left the screen (see the `backgroundedSince` host option). */
 export const AGENT_CLOUD = 'Tinfoil cloud chats cannot use the workspace agent: its commands, reads and file changes exist only on this computer. Use a local conversation.';
 export const AGENT_UNAVAILABLE = 'The workspace agent needs the Windows app.';
-export const NO_PYTHON = 'Workbench found no Python on this computer. Install Python from python.org, or choose python.exe in Settings → Execution.';
+export const NO_PYTHON = 'Workbench found no Python on this computer. Install Python from python.org, or choose python.exe in Advanced, under Model-requested Python.';
 export const ROLE_MESSAGES_CLOUD = 'Tinfoil cloud chats have no place for messages added in another role. Keep this conversation on this device to add them.';
 export const BACKGROUND_INTERRUPTION = 'The reply stopped because Workbench left the screen: Android pauses apps in the background, which ends their connections. Partial output was preserved. Retry asks again in a new version.';
 const bounded = (v, max = 100) => typeof v === 'string' ? v.slice(0, max) : '';
@@ -147,9 +147,9 @@ export class WorkbenchService {
     const info = this.pythonFound?.find(p => p.path === path) ?? await this.python.describe(path);
     if (this.workspace.pythonPath === path) this.pythonInfo = info ? { path, version: info.version } : { path, version: null, missing: true };
   }
-  /** Looks for installed Python (Settings → Execution, or a first run); a search already running is shared. With none
-   * chosen, or the chosen one gone, the first one found is used: it is shown in Settings → Execution and in each
-   * approval window. */
+  /** Looks for installed Python (Python turned on in Advanced, or a first run); a search already running is shared.
+   * With none chosen, or the chosen one gone, the first one found is used: it is shown in Advanced and in each approval
+   * window. */
   async findPython() {
     if (!this.python) throw new InputError('Python runs only in the Windows app.');
     if (!this.pythonSearch) {

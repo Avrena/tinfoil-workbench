@@ -2,8 +2,8 @@ import { spawn } from 'node:child_process';
 import { readFile, readdir, stat, realpath } from 'node:fs/promises';
 import { join, dirname, basename } from 'node:path';
 
-/** Finds installed Python without running it, so Settings → Execution can offer it and the first Python run can
- * use it. It looks where Python is installed on Windows: interpreters registered under Software\Python (PEP 514:
+/** Finds installed Python without running it, so Advanced can offer it where Python is turned on and the first
+ * Python run can use it. It looks where Python is installed on Windows: interpreters registered under Software\Python (PEP 514:
  * python.org, the Microsoft Store and Anaconda register there, and the `py` launcher lists the same entries), the
  * folders on PATH, and the usual install folders. Each version comes from the file: its version resource, else the
  * pythonXY.dll beside it. Nothing is run except PowerShell, to read the registry.

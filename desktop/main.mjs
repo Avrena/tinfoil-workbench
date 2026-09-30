@@ -306,7 +306,7 @@ async function command(input) {
         approve=result.response===1;
       } else if (c.approve) {
         if(pending.tool.name!=='python')throw new InputError('This tool has no approval handler.');
-        if (!service.workspace.pythonPath) throw new InputError('Choose Python in Settings → Execution first. Decline this run and stop the response to change the interpreter.');
+        if (!service.workspace.pythonPath) throw new InputError('Choose Python in Advanced, under Model-requested Python, first. Decline this run and stop the response to change the interpreter.');
         approve = await approvals.ask(window, pythonApproval(pythonArguments(pending.tool.arguments).code, service.workspace.pythonPath));
       }
       // Recheck after the approval window or dialog: cancellation and stale requests cannot execute.

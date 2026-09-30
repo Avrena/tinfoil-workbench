@@ -265,9 +265,6 @@ dialog::backdrop{background:#0008}
 .modal-actions button{font-size:11px}
 .modal-actions button:first-child{margin-right:auto}
 .key-status{font-size:11px;color:#bac5d4;margin-top:14px}
-.execution-settings{border-top:1px solid #3e4149;padding-top:18px;margin-top:16px;font-size:12px}
-.execution-settings summary{cursor:pointer;color:#bbc5d4}
-.execution-settings button{font-size:11px;margin-top:10px;border:1px solid #4a5360}
 .toggle-row{display:flex;align-items:center;justify-content:space-between;margin:0;padding:15px 0;border-bottom:1px solid #373c44;font-size:12px}
 .toggle-row input{width:16px;height:16px;accent-color:#528fc4}
 .toggle-row kbd{margin-left:7px}
@@ -861,7 +858,7 @@ dialog[open]{transform:translateZ(0);isolation:isolate}
    (older WebViews are padded natively and report 0). body's padding insets the shell; dialogs, the
    message editor and toasts are laid out against the whole screen and use the same --safe-* area,
    because a control under the status bar cannot be tapped. */
-[data-platform=android] .window-controls,[data-platform=android] .execution-settings,[data-platform=android] .tools-badge,
+[data-platform=android] .window-controls,[data-platform=android] .python-interpreter,[data-platform=android] .tools-badge,
 [data-platform=android] .run-code,[data-platform=android] [data-panel="pdf"],[data-platform=android] .settings-account-link,
 [data-platform=android] .shortcut{display:none!important}
 :root[data-platform=android]{--safe-top:var(--safe-area-inset-top,0px);--safe-right:var(--safe-area-inset-right,0px);--safe-bottom:var(--safe-area-inset-bottom,0px);--safe-left:var(--safe-area-inset-left,0px);
@@ -928,11 +925,16 @@ dialog[open]{transform:translateZ(0);isolation:isolate}
 .instructions-confirm span{flex:1 1 220px}
 .instructions-confirm-actions{display:flex;flex-wrap:wrap}
 @media(forced-colors:active){.instruction-option[aria-current=true]{outline:1px solid Highlight}}
-.python-status{display:grid;gap:2px;margin-top:14px;font-size:11px;color:#bac5d4}
-.python-name{font-size:12px;font-weight:600;color:#e3e7ee}
+/* The Python interpreter in Advanced, under Model-requested Python (drawn like the agent's folders). */
+.python-interpreter{display:grid;gap:8px;margin:10px 0 4px}
+.python-interpreter[hidden],.python-choice[hidden],.python-actions button[hidden]{display:none}
+.python-status{display:grid;gap:2px;min-width:0;font-size:12px;color:#c7cad0}
+.python-label{font-size:11px;color:#8f949c}
+.python-name{font-weight:600;color:#e3e7ee}
 .python-name.warn{color:#e6c07a}
 .python-path{color:#9aa3b0;overflow-wrap:anywhere}
-.python-choice{margin-top:10px}
 .python-choice label{font-size:11px;color:#8f949c}
 .python-choice select{margin-top:4px;font-size:12px;padding:6px 8px}
-.python-actions{display:flex;flex-wrap:wrap;gap:0 8px}
+.python-actions{display:flex;flex-wrap:wrap;gap:6px}
+.python-actions button{font-size:12px;padding:4px 10px}
+@media (pointer:coarse),(hover:none){.python-actions button{min-height:40px}}

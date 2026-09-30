@@ -11,7 +11,7 @@ import {settings,attachments,InputError} from '/core/validation.js';
 import {agentFolderName} from '/core/agent.js';
 // The workspace agent's root for new folders: synthetic, like every preview path; set by the Choose… button in Advanced.
 let previewAgentRoot=null;
-// Synthetic interpreters for Settings → Execution; nothing is searched or run.
+// Synthetic interpreters for Advanced → Model-requested Python; nothing is searched or run.
 const previewPythons=[{path:'C:\\Preview\\Python313\\python.exe',version:'3.13.2',onPath:true},{path:'C:\\Preview\\Python311\\python.exe',version:'3.11.9'}];
 let previewPython={current:null,found:null,searching:false};
 let previewAccount=signedOutAccount(),previewMode='api-key',previewRemember=true;

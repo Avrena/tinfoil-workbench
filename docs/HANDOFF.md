@@ -22,7 +22,7 @@ Stop at the first failing command and preserve its output. Bootstrap runs npm ci
 
 `doctor` must report all entries passing. A source-only pass says nothing about installation readiness. Native smoke must exit zero and print `DESKTOP_SMOKE_OK: encrypted storage, bridge, attested SDK import, native PDF print and PDF.js canvas`. It temporarily changes userData so it does not test against your real workspace. A smoke pass still does not exercise real authentication or the manual close interactions below.
 
-Python is optional for normal use. Native runner tests are skipped without a detected interpreter; note the skip count. Select a real Python executable in Settings only for approved execution tests. Python Playwright, Pillow and PyMuPDF are additional developer dependencies for the optional browser/layout suites, not Windows-client runtime requirements.
+Python is optional for normal use. Native runner tests are skipped without a detected interpreter; note the skip count. Select a real Python executable in Advanced only for approved execution tests. Python Playwright, Pillow and PyMuPDF are additional developer dependencies for the optional browser/layout suites, not Windows-client runtime requirements.
 
 ## 2. Accept first launch and account behavior
 
@@ -50,7 +50,7 @@ Create one inline chart/table and one self-contained HTML artifact with a suppor
 
 Open a local PDF, navigate a multi-page file, change zoom and inspect extracted text. Export a model-created artifact as PDF, then open the result in an independent local viewer. This is separate from the shared Chromium print-layout test. Password-protected and unusual font/codec PDFs are not guaranteed.
 
-For optional Python, open Settings → Execution: it must list the installed interpreters with their versions, the one on PATH first, and use that one when none was chosen; a Microsoft Store shortcut or an uninstalled Python must not be listed. Pick another from the list, then request a harmless `print(1 + 1)` example. Decline once and verify no execution. Approve only the shown exact code, check stdout, then cancel a controlled sleep. Python has local account permissions, not a security sandbox. No runtime package install should occur implicitly.
+For optional Python, set Model-requested Python to "Ask before every run" in Advanced: the interpreter must appear under it with its version, found without choosing anything, the one on PATH first, with the other installed interpreters listed; picking one there must not ask to Apply; a Microsoft Store shortcut or an uninstalled Python must not be listed. Pick another from the list, then request a harmless `print(1 + 1)` example. Decline once and verify no execution. Approve only the shown exact code, check stdout, then cancel a controlled sleep. Python has local account permissions, not a security sandbox. No runtime package install should occur implicitly.
 
 For opt-in delegation, inspect the explicit task and approve one short child request, then test a decline/cancel. The UI must separate child and parent usage and not imply parallel execution. Hosted MCP/search requests require live entitlement testing; passive event rendering is not proof of an authenticated hosted execution session.
 

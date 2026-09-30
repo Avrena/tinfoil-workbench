@@ -12,7 +12,7 @@ const TYPES = { '.pdf': 'application/pdf', '.html': 'text/html', '.png': 'image/
  * -I, a fresh cwd and a minimal environment are hygiene, not access controls.
  */
 export async function runPython({ code, interpreter, signal, timeoutMs = 30000, onOutput = () => {} }) {
-  if (!interpreter || !isAbsolute(interpreter)) throw new InputError('Choose an installed Python interpreter in Settings → Execution first.');
+  if (!interpreter || !isAbsolute(interpreter)) throw new InputError('Choose a Python interpreter in Advanced, under Model-requested Python, first.');
   if (typeof code !== 'string' || !code.trim() || code.length > 64000 || code.includes('\0')) throw new InputError('Invalid Python code.');
   if (signal?.aborted) throw new InputError('Python execution cancelled.');
   const root = await mkdtemp(join(tmpdir(), 'tinfoil-python-'));

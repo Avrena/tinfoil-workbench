@@ -169,7 +169,7 @@ if args.debug:
     record('snapshot carries no credentials', 'apiKey' not in s['workspace'] and 'cacheSecret' not in s['workspace'])
     bridge = page.eval("() => ({ keys: Object.keys(window.tinfoil).sort(), frozen: Object.isFrozen(window.tinfoil), writable: Object.getOwnPropertyDescriptor(window, 'tinfoil').writable })")
     record('window.tinfoil is the fixed, frozen bridge', bridge['keys'] == ['command', 'onAppEvent', 'snapshot', 'subscribe'] and bridge['frozen'] and not bridge['writable'])
-    record('desktop-only controls are hidden', page.eval("() => ['.window-controls', '.execution-settings', '.settings-account-link'].every(s => getComputedStyle(document.querySelector(s)).display === 'none')"))
+    record('desktop-only controls are hidden', page.eval("() => ['.window-controls', '.python-interpreter', '.settings-account-link'].every(s => getComputedStyle(document.querySelector(s)).display === 'none')"))
     probe = "async (url) => { try { const r = await fetch(url); return 'status ' + r.status; } catch (e) { return 'blocked'; } }"
     record('renderer page cannot reach the network (CSP)', page.eval(probe, 'https://atc.tinfoil.sh/routers?platform=snp') == 'blocked')
     record('worker reaches Tinfoil', worker.eval(probe, 'https://atc.tinfoil.sh/routers?platform=snp') == 'status 200')
