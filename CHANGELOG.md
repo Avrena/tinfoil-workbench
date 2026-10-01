@@ -1,6 +1,6 @@
 # Changelog
 
-## 1.4.0 — conversation tags (unreleased)
+## 1.4.0 — conversation tags
 
 - Settings → Tags holds a list of tags, starting with fourteen presets (Coding, Writing, Research, Learning, Creative, Health, Work, Money, Personal, Travel, Legal, Cyber, NSFW and Ambiguous).
   - Each tag has a name, one of nine colours, a hint for the model, and a style: filled, outline, filled with outline, a stripe on its left edge, or a dot before its name.

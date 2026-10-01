@@ -228,28 +228,29 @@ The generated `preview/index.html` uses labelled synthetic responses and cannot 
 | Local execution | Neither the agent nor Python is a sandbox. Agent commands are not folder-confined. Interactive programs and long-running servers are unsupported; Stop and timeout termination are best effort. |
 | Agent conversations | A conversation that has used the agent stays on this computer and cannot move to Tinfoil cloud chats. |
 | Cloud chats | The list is limited to the 300 most recent chats. Folder attachments are refused. Cloud projects are managed in Tinfoil Chat. |
+| Tags | Tinfoil Chat on the web keeps a cloud chat's tags but does not show them, and its backups leave them out. Exports leave tags out. Android has no cloud chats, so tags on a phone stay there. How well a model tags depends on the model. |
 | Cloud pictures and widgets | A picture Tinfoil no longer has reaches the model as a note; other fetch failures can block sending. Charts, timelines and stat cards are rendered; other Tinfoil widgets are listed as not displayed. Workbench visuals are not written back, so Tinfoil Chat shows those answers as text. |
 | Models | Models may ignore the tool guide. Recognised visual calls written as text can be displayed and labelled as such; other calls remain text. |
 | Security assurance | Workbench is not an independently audited security product. Local encryption and enclave verification do not make local execution safe. |
 
 ## Verification
 
-The [1.3.0 validation record](docs/VALIDATION.md), recorded on 1 October 2026, is the source for these results. It separates automated checks, review builds, installed-release checks and work that was not run.
+The [1.4.0 validation record](docs/VALIDATION.md), recorded on 1 October 2026, is the source for these results. It separates automated checks, review builds, installed-release checks and work that was not run.
 
 | Recorded scope | Result |
 |---|---|
-| Strict build and Node tests | 561 passed, 0 failed, 1 skipped |
-| Production-renderer browser tests | 526 checks across 12 suites passed |
+| Strict build and Node tests | 583 passed, 0 failed, 1 skipped |
+| Production-renderer browser tests | 533 checks across 12 suites passed |
 | Windows build and native smoke | Packaging gates passed; source, packaged and installed-app checks covered native storage, PDF handling, the agent runner and the approval window |
 | Packaged and installed Windows app | Live inference and sync enclave verification passed; installation over an existing review build was checked |
-| Live agent checks | Small-project tasks with three models, plus greeting checks with two models |
-| Cloud pictures | Manual checks fetched a web chat's picture into Workbench and showed a Workbench upload in Tinfoil Chat |
-| Android | Debug/live and release checks on Android 14 and 16 emulators; an in-place update from 1.2.0 preserved a draft |
-| Physical Android hardware | Only preservation of a saved session across the update was checked for 1.3.0 |
+| Live tagging checks | Six runs with seven Tinfoil chat models on sets of 13 and 18 conversations; titles and tags judged by reading each conversation |
+| Cloud chats | A test chat's extra field survived a rename in Tinfoil Chat on the web; tags of cloud chats were checked against an in-memory enclave |
+| Android | Debug/live and release checks on Android 14 and 16 emulators; an in-place update from 1.3.0 preserved a draft |
+| Physical Android hardware | Only opening signed in after the update was checked for 1.4.0 |
 
 The record also documents failed checks and their fixes. Drop and paste were checked with scratch scripts and manual runs, not a committed browser test. Browser viewport and touch emulation do not establish native-device support.
 
-**Not checked for this release:** a repeated clean Windows installation, a standard-user Windows account, running the portable executable, Android picture/PDF picking on a device, long agent tasks, Git Bash or approval levels with a real model, and the updated live cloud test script. A real model's answer about a fetched cloud picture and missing-picture or unfetched-copy cases also remain unverified. Earlier open checks remain open unless the record says otherwise; see [not executed](docs/VALIDATION.md#not-executed).
+**Not checked for this release:** tags travelling between two Workbench installs with a real account, tags on a physical Android phone, a repeated clean Windows installation, a standard-user Windows account and running the portable executable. Earlier open checks remain open unless the record says otherwise; see [not executed](docs/VALIDATION.md#not-executed).
 
 The [manual acceptance checklist](docs/HANDOFF.md) covers work beyond automated tests. [Rendering measurements](docs/RENDERING.md) describe a synthetic workload, not general performance claims. Earlier records are in [docs/history](docs/history).
 
