@@ -219,7 +219,7 @@ async function models() {
   log('models', { testing: available, missing: CHAT_MODELS.filter(m => !service.models.includes(m)) });
   for (const model of available) {
     await setTagging({ enabled: true, titles: true, model });
-    const totals = { right: 0, firstExpected: 0, titleOk: 0, errors: 0, input: 0, output: 0, seconds: 0, n: 0 };
+    const totals = { right: 0, firstExpected: 0, titleOk: 0, errors: 0, tags: 0, several: 0, input: 0, output: 0, seconds: 0, n: 0 };
     for (const item of CORPUS) {
       const id = threads.get(item.id);
       if (!id) continue;
@@ -227,6 +227,7 @@ async function models() {
       await untag(id);
       const result = await suggest(id), t = thread(id), chosen = names(t), s = score(item, chosen, t.title);
       Object.assign(totals, { right: totals.right + s.right, firstExpected: totals.firstExpected + s.firstExpected, titleOk: totals.titleOk + s.titleOk, errors: totals.errors + !!result.error,
+        tags: totals.tags + chosen.length, several: totals.several + (chosen.length > 1),
         input: totals.input + result.usage.input, output: totals.output + result.usage.output, seconds: totals.seconds + result.seconds, n: totals.n + 1 });
       log('suggest', { model, item: item.id, tags: chosen, title: t.title, ...s, ...result, spent });
     }
