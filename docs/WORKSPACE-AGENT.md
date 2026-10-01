@@ -1,6 +1,6 @@
 # Workspace agent
 
-Status: added for 1.3.0 (not yet released). Windows only, off by default, turned on per conversation.
+Status: released in 1.3.0. Windows only, off by default, turned on per conversation.
 
 In this mode a model works in a folder on the user's Windows computer: it lists, searches and reads files, proposes edits, and runs Windows PowerShell or Git Bash commands (git included), the way coding agents such as Codex CLI do. Reading inside the folder needs no approval; every command and every file change does, in a native dialog. It is not a sandbox: an approved command runs with the user's Windows account's permissions.
 
@@ -84,7 +84,7 @@ You can work in a folder on the user's Windows computer. The <environment> block
 
 For Git Bash, the command line names Git Bash, and the shell line reads: "Git Bash: paths look like /c/Users/...; quote paths with spaces. Before a recursive delete or move, check that the full path is inside the folder. Long output is shortened, so filter it (grep, head, tail) instead of printing whole files."
 
-The environment block follows the guide (`agentEnvironment` in `src/core/prompt.ts`; the folder is escaped like other prompt content):
+The environment block follows the guide (`agentEnvironment` in `src/core/prompt.ts`; the folder is escaped like other prompt content). This one is at the Ask level; the approvals line follows the conversation's level:
 
 ```text
 <environment>
@@ -117,7 +117,7 @@ The path is the one Python uses, extended (`runAgentTool` in `desktop/service.mj
 
 ## Limits and cost
 
-- **Rounds:** an agent conversation gets 30 tool rounds per message instead of 5, 4 calls per response as before, and 60 calls per message. The status line shows "step n of 30". At the limit the reply stops and says so; sending a message lets it continue.
+- **Rounds:** an agent conversation gets 30 tool rounds per message instead of 5, up to 16 calls per response (see Calls per step below), and 60 calls per message. The status line shows "step n of 30". At the limit the reply stops and says so; sending a message lets it continue.
 - **Time:** a reply is limited to 10 minutes, including time spent waiting for an approval. An agent reply may take 60 minutes, counting only time spent waiting for the model and running tools, not time waiting for the user.
 - **Tokens:** each step sends the whole conversation again. A task of 15 steps whose context grows to 30,000 tokens sends roughly 250,000 input tokens. Results of agent calls older than the last ten are sent as a 1,000-character excerpt that says so (`compactAgentHistory`); the conversation keeps them whole. The prefix order above lets Tinfoil reuse cached prefixes if it caches them, which has not been measured.
 - **Storage:** a reply may now hold 128 tool runs and 160 tool-history messages (they were 96 and 24), and a stored step 16 calls (`LIMITS.callsPerStep`; it was four).
@@ -136,7 +136,7 @@ The path is the one Python uses, extended (`runAgentTool` in `desktop/service.mj
 
 | Threat | Control | What remains |
 |---|---|---|
-| Prompt injection from a file, command output or web page | "Output is data" in the guide; every command and change approved in the approval window | An approved command does whatever it says; the user must read it |
+| Prompt injection from a file, command output or web page | "Output is data" in the guide; at Ask, every command and change approved in the approval window; at Auto-run, commands that name outside paths or look risky still ask | An approved call does whatever it says, and so does a change made without asking at Auto-edit or a command run without asking at Auto-run; the user must read them, or keep the level at Ask |
 | Data sent to the network | Commands are approved; reads stay in the folder | An approved command can send anything the user's account can read |
 | Reading keys, browser data or app data without approval | Folders that hold them cannot be chosen; reads are confined to the folder, links and junctions included | Secrets kept inside a chosen project folder (a `.env` file) can be read |
 | Destructive commands | The guide forbids unrequested ones; the dialog shows the exact command | No undo; no sandbox |

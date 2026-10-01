@@ -24,7 +24,7 @@ Tinfoil Workbench for Android is the same renderer and conversation service as t
 | Copy, open links | Android clipboard; links open in the browser after a native confirmation |
 | Export an artifact **as PDF** | Only for artifacts that already are PDFs. Other artifacts can be saved in their original format. |
 | Python execution | Not available. Model-requested Python cannot be set to *Ask*, and code blocks have no Run action. |
-| Tinfoil Chat sign-in | Email and password on Tinfoil's own page, asked again after each restart. Google sign-in is not available |
+| Tinfoil Chat sign-in | Email and password on Tinfoil's own page. With *Stay signed in on this phone* (on by default, since 1.2.0) the sign-in is sealed with an Android Keystore key and kept across restarts and updates ([details](ANDROID-ACCOUNT.md#staying-signed-in-120)). Google sign-in is not available |
 | Window controls and close review | Not applicable. The draft is saved when the app goes to the background. |
 
 ## Architecture
@@ -131,7 +131,7 @@ There is no Tinfoil Android app or Android SDK to follow. Tinfoil's iOS app sign
 
 ## Known limitations
 
-- Python and HTML-to-PDF export are not implemented on Android. Chat sign-in uses email and password only: Google sign-in there needs a provider integration that does not exist yet; see [Tinfoil Chat sign-in](#tinfoil-chat-sign-in).
-- Tested on Android 16 and Android 14 emulator images (x86_64). Physical devices, ARM hardware, OEM WebView variants, tablets, foldables, TalkBack and non-English system pickers have not been tested.
+- Python, the workspace agent, folder attachments, Tinfoil cloud chats and HTML-to-PDF export are not implemented on Android. Chat sign-in uses email and password only: Google sign-in there needs a provider integration that does not exist yet; see [Tinfoil Chat sign-in](#tinfoil-chat-sign-in).
+- The automated device checks run on Android 16 and Android 14 emulator images (x86_64). Real-account checks have been made on one physical phone, as each release's validation record lists; other phones, tablets, foldables, OEM WebView variants, TalkBack and non-English system pickers have not been tested.
 - A response streams only while Android keeps the app process running. Partial text is saved every 1.5 seconds and on interruption; after the process is stopped, the reply is marked interrupted when the app reopens.
 - Updating Android System WebView is outside the app's control. Rejecting an old WebView is deliberate.
