@@ -1,6 +1,6 @@
 # Changelog
 
-## 1.3.0 — workspace agent (unreleased)
+## 1.3.0 — workspace agent, files and pictures, themes
 
 - Workspace agent (Windows): Advanced → Workspace agent turns it on for a conversation. There you choose, once, where new folders are made (for example D:\Work\Tinfoil): a conversation without a folder gets a new, empty one there when it first sends, named after the date and its first message. A project folder can be chosen there instead, in a native picker with a confirmation; the message box has no folder button. The model lists, searches and reads files in the folder without asking. It runs Windows PowerShell 5.1 or Git Bash commands (git included) and changes files only after you approve each one in a native dialog that shows the exact command, or the change as a diff. It is not a sandbox: an approved command runs with your Windows account's permissions. Drive roots, your home folder, AppData, Windows and program folders cannot be chosen, as a folder or as the place for new ones; a conversation's new folder is never reused or deleted by Workbench. A change is written only if the file has not changed since it was proposed. See docs/WORKSPACE-AGENT.md.
 - When a command names paths outside the folder, the approval card lists them first and the dialog one to a line. It is a warning, not a limit: an approved command can read a file anywhere you can.
