@@ -263,6 +263,8 @@ test('native account window has a separate memory-only partition and no preload 
  const e=fakeElectron(),w=new AccountWindow(e);await w.create();const opts=e.windows[0].opts.webPreferences;
  assert.equal(e.partitions[0][0].startsWith('persist:'),false);assert.equal(e.partitions[0][1].cache,false);assert.equal(opts.preload,undefined);
  assert.equal(opts.nodeIntegration,false);assert.equal(opts.contextIsolation,true);assert.equal(opts.sandbox,true);assert.equal(opts.webSecurity,true);assert.equal(opts.devTools,false);
+ // Hidden after sign-in, the page must keep answering token reads promptly.
+ assert.equal(opts.backgroundThrottling,false);
  let decision;e.ses.permissions(null,'media',v=>decision=v);assert.equal(decision,false);assert.equal(e.ses.check(),false);
  e.ses.request({url:'file:///tmp/x'},v=>decision=v);assert.equal(decision.cancel,true);e.ses.request({url:'app://workbench/index.html'},v=>decision=v);assert.equal(decision.cancel,true);
  await w.clear();assert.equal(e.windows[0].dead,true);assert.equal(e.ses.cleared,true);

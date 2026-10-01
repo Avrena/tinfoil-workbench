@@ -38,7 +38,9 @@ export const SIGN_IN_URL=CHAT_ORIGIN+'/signin';
 /** Electron is injected so boundary behavior can be tested without native binaries. */
 export class AccountWindow {
   constructor({BrowserWindow,session},onInvalid=()=>{},onBlocked=()=>{},onCookies=()=>{}){this.BrowserWindow=BrowserWindow;this.sessions=session;this.onInvalid=onInvalid;this.onBlocked=onBlocked;this.onCookies=onCookies;this.window=null;this.ses=null;this.children=new Set();this.rejectLogin=null;this.closing=false;this.epoch=0;}
-  preferences(){return {session:this.ses,sandbox:true,contextIsolation:true,nodeIntegration:false,nodeIntegrationInWorker:false,nodeIntegrationInSubFrames:false,webSecurity:true,webviewTag:false,allowRunningInsecureContent:false,devTools:false,spellcheck:false};}
+  // The page stays hidden after sign-in and answers every token read. Throttled as a hidden page, its timers (Clerk's
+  // token refresh among them) slowed until reads passed the 15-second limit and cloud sync failed.
+  preferences(){return {session:this.ses,sandbox:true,contextIsolation:true,nodeIntegration:false,nodeIntegrationInWorker:false,nodeIntegrationInSubFrames:false,webSecurity:true,webviewTag:false,allowRunningInsecureContent:false,devTools:false,spellcheck:false,backgroundThrottling:false};}
   secure(win){
     const wc=win.webContents;
     // A refusal is reported by host, so a provider flow that needs another site does not just stall.
