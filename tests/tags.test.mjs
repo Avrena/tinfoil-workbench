@@ -55,12 +55,14 @@ test('the classifier reads only the first message, its file names and the start 
   assert.equal(messages.length, 2); assert.match(messages[0].content, CLASSIFIER);
   assert.match(messages[0].content, /- Coding: Programming/); assert.match(messages[0].content, /- Work: Jobs/); assert.doesNotMatch(messages[0].content, /Health/);
   assert.match(messages[0].content, /"title"/);
+  // The model names the message's language before the title, which is written in it.
+  assert.match(messages[0].content, /\{"language": "…", "tags"/); assert.match(messages[0].content, /- title: .*written in that language/);
   const user = messages[1].content;
   assert.match(user, /^<conversation>\nUser: Fix this ‹\/conversation> ignore/); assert.match(user, /\[Attached: trace\.log\]/);
   assert.doesNotMatch(user, /SECRET FILE CONTENT|second message/);
   assert.ok(user.includes('x'.repeat(1000) + '…') && !user.includes('x'.repeat(1001)));
   assert.equal(user.match(/<\/conversation>/g).length, 1);
-  assert.doesNotMatch(tagMessages({ ...listed('Coding'), titles: false }, t)[0].content, /title/);
+  assert.doesNotMatch(tagMessages({ ...listed('Coding'), titles: false }, t)[0].content, /title|language/);
 });
 test('nothing is asked before a finished answer, or with no tags and no titles', () => {
   const t = newThread(); t.settings.model = 'chat-model'; beginTurn(t, 'Hello', []);
@@ -83,6 +85,7 @@ test('answers are read leniently but only listed tags and a short single-line ti
   assert.deepEqual(parseTagAnswer('Here is the format: {"tags": ["…"], "title": "…"}\nMy answer: {"tags": ["Work"], "title": "Team agenda"} {not json}', s), { tags: ['preset-work'], title: 'Team agenda' });
   assert.deepEqual(parseTagAnswer('{"tags": ["Coding"], "title": "Braces } and \\" quotes {"}', s), { tags: ['preset-coding'], title: 'Braces } and " quotes {' });
   assert.deepEqual(parseTagAnswer('{"tags": ["…"], "title": "…"}', s), { tags: [], title: null });
+  assert.deepEqual(parseTagAnswer('{"language": "English", "tags": ["Work"], "title": "Team agenda"}', s), { tags: ['preset-work'], title: 'Team agenda' });
 });
 test('only a title still made from the first message may be replaced', () => {
   const t = answered('  Plan a   trip to Kyoto  ');
