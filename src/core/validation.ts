@@ -1,6 +1,6 @@
 import { viewPreferences } from './preferences.js';
-import type { ReplyEdit, ApiMessage, Artifact, Attachment, CloudConfig, GenerationSettings, ImageAttachment, InstructionPreset, Reply, StoredImage, Thread, ToolRun, Turn, TurnVersion, Workspace } from './types.js';
-import { IMAGE_ID, IMAGE_LIMITS, STORED_IMAGE_TYPES } from './attachments.js';
+import type { ReplyEdit, ApiMessage, Artifact, Attachment, CloudConfig, CloudPicture, GenerationSettings, ImageAttachment, InstructionPreset, Reply, StoredImage, Thread, ToolRun, Turn, TurnVersion, Workspace } from './types.js';
+import { CLOUD_PICTURE_ID, IMAGE_ID, IMAGE_LIMITS, STORED_IMAGE_TYPES } from './attachments.js';
 import type { CloudChatLink, CloudProjectLink } from './cloud.js';
 export const LIMITS = Object.freeze({
   prompt: 160_000, attachment: 200_000, attachments: 8,
@@ -245,6 +245,7 @@ export function validateWorkspace(value: unknown): Workspace {
     version: 1, activeId, threads, projects, instructionPresets, ...(v.connectionMode?{connectionMode:v.connectionMode as Workspace['connectionMode']}:{}), ...(v.rememberAccount===false?{rememberAccount:false as const}:{}), ...(v.cloud===undefined?{}:{cloud:cloudConfig(v.cloud)}), view: viewPreferences(v.view), pythonPath: text(v.pythonPath ?? '', 'Python interpreter path', 4096),
     ...(v.agentRoot === undefined ? {} : {agentRoot: agentFolder(v.agentRoot)}),
     ...(v.images === undefined ? {} : {images: images(v.images)}),
+    ...(v.cloudImages === undefined ? {} : {cloudImages: cloudImages(v.cloudImages)}),
     ...(v.backgroundPicture === undefined ? {} : {backgroundPicture: backgroundPicture(v.backgroundPicture)}),
     apiKey: text(v.apiKey, 'API key', 4096), cacheSecret: text(v.cacheSecret, 'Cache secret', 200, true),
   };
@@ -259,6 +260,18 @@ function images(value: unknown): Record<string, StoredImage> {
   if (entries.length > LIMITS.threads * LIMITS.attachments) throw new InputError('Too many stored pictures.');
   // Own properties only, so an identifier such as __proto__ cannot reach the prototype.
   return Object.fromEntries(entries.map(([id, image]) => [imageId(id), storedImage(image)]));
+}
+
+/** A cloud picture's own key: base64 of 32 bytes. */
+export const PICTURE_KEY = /^[A-Za-z0-9+/]{43}=$/;
+function cloudImages(value: unknown): Record<string, CloudPicture> {
+  const entries = Object.entries(record(value));
+  if (entries.length > LIMITS.threads * LIMITS.attachments) throw new InputError('Too many cloud pictures.');
+  return Object.fromEntries(entries.map(([id, item]) => {
+    const v = record(item);
+    if (typeof v.id !== 'string' || !CLOUD_PICTURE_ID.test(v.id) || typeof v.key !== 'string' || !PICTURE_KEY.test(v.key)) throw new InputError('Invalid cloud picture.');
+    return [imageId(id), { chat: cloudId(v.chat), id: v.id, key: v.key }];
+  }));
 }
 
 export function validateArtifact(value: unknown): Artifact {

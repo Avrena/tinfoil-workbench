@@ -1,7 +1,8 @@
 /** Tinfoil cloud chats and projects: the parts that need no network or cryptography. The formats follow Tinfoil's
  * own client (docs/CLOUD.md). Remote plaintext is untrusted input; everything taken from it is length-limited. */
-import type { Attachment, Project, Reply, Thread, ToolRun, Turn } from './types.js';
-import { InputError, LIMITS, validateArtifact } from './validation.js';
+import type { Attachment, CloudPicture, Project, Reply, Thread, ToolRun, Turn } from './types.js';
+import { InputError, LIMITS, PICTURE_KEY, validateArtifact } from './validation.js';
+import { CLOUD_PICTURE_ID, IMAGE_LIMITS, STORED_IMAGE_TYPES, base64Bytes, cloudImageId, pictureSize, pictureType } from './attachments.js';
 import { defaults, uid } from './workspace.js';
 import { escapePromptContent } from './prompt.js';
 import { RENDER_KINDS, artifactFileName, structuredVisual, visualArguments } from './visual-tools.js';
@@ -12,9 +13,9 @@ import { RENDER_KINDS, artifactFileName, structuredVisual, visualArguments } fro
 export interface CloudChatLink { id: string; etag: string; project: string | null; turns: number; loaded: boolean; dirty: boolean; syncedAt: number; format?: number;
   /** The path changed at `turns` (another version was made or shown): the cloud chat's messages after it are replaced. */
   rewritten?: true }
-/** How much of a cloud chat's messages Workbench reads: 2 added Tinfoil Chat's widgets. A loaded chat read with an
- * older format is read again at the next sync. */
-export const CLOUD_FORMAT = 2;
+/** How much of a cloud chat's messages Workbench reads: 2 added Tinfoil Chat's widgets, 3 its pictures. A loaded chat
+ * read with an older format is read again at the next sync. */
+export const CLOUD_FORMAT = 3;
 export interface CloudDocument { id: string; etag: string; name: string; type: string; content: string }
 export interface CloudProjectLink { id: string; etag: string; description: string; instructions: string; color: string; documents: CloudDocument[]; syncedAt: number }
 
@@ -61,16 +62,46 @@ export function groupMessages(messages: unknown[]): { user: number | null; assis
   return groups;
 }
 
-/** Documents attached to a Tinfoil message become reference files; images, which Workbench cannot send, are named in
- * the turn's display only (never added to its prompt, which must stay the cloud message's text). */
+/** Documents attached to a Tinfoil message become reference files, and pictures are shown by the thumbnails the
+ * message holds; the turn's prompt stays the cloud message's text. */
 function cloudAttachments(message: Json | null): Attachment[] {
   const list = Array.isArray(message?.attachments) ? message!.attachments as unknown[] : [];
   const files: Attachment[] = [];
   for (const a of list.slice(0, LIMITS.attachments)) {
     const item = obj(a); const content = str(item?.textContent, LIMITS.attachment);
-    if (item?.type === 'document' && content) files.push({ name: str(item.fileName, 200).replace(/[\x00-\x1f\x7f]/g, '') || 'document', content });
+    if (item?.type === 'document' && content) files.push({ name: fileName(item.fileName, 'document'), content });
+    else if (item?.type === 'image') { const picture = cloudPicture(item); if (picture) files.push(picture); }
   }
   return files;
+}
+const fileName = (v: unknown, fallback: string): string => str(v, 200).replace(/[\x00-\x1f\x7f]/g, '') || fallback;
+const BASE64 = /^[A-Za-z0-9+/]+={0,2}$/;
+/** A picture of a Tinfoil Chat message, shown by its thumbnail (JPEG or PNG; its shape read from its header). The
+ * picture itself stays in Tinfoil's attachment storage until the chat is continued (CloudSync `fetchPictures`). A
+ * picture without a usable thumbnail is left out. */
+function cloudPicture(item: Json): Attachment | null {
+  const id = typeof item.id === 'string' && CLOUD_PICTURE_ID.test(item.id) ? item.id : null;
+  const thumb = typeof item.thumbnailBase64 === 'string' && item.thumbnailBase64.length <= IMAGE_LIMITS.thumbChars - 32 ? item.thumbnailBase64 : '';
+  if (!id || !thumb || thumb.length % 4 || !BASE64.test(thumb)) return null;
+  const bytes = base64Bytes(thumb), type = pictureType(bytes), size = pictureSize(bytes);
+  if ((type !== 'image/jpeg' && type !== 'image/png') || !size) return null;
+  const stated = str(item.mimeType, 40);
+  return { name: fileName(item.fileName, 'picture'), content: '', kind: 'image',
+    image: { id: cloudImageId(id), mime: STORED_IMAGE_TYPES.has(stated) ? stated : 'image/png', ...size, thumb: `data:${type};base64,${thumb}` } };
+}
+/** Where the pictures of a cloud chat's messages are kept, by the stored picture IDs cloudAttachments gives them: the
+ * picture's storage ID and its own key, which Tinfoil Chat keeps in the message. */
+export function cloudPictures(plain: Json, chat: string): Record<string, CloudPicture> {
+  const out: Record<string, CloudPicture> = {};
+  for (const m of Array.isArray(plain.messages) ? plain.messages as unknown[] : []) {
+    const files = obj(m)?.attachments;
+    for (const a of Array.isArray(files) ? files as unknown[] : []) {
+      const item = obj(a);
+      if (item?.type === 'image' && typeof item.id === 'string' && CLOUD_PICTURE_ID.test(item.id) && typeof item.encryptionKey === 'string' && PICTURE_KEY.test(item.encryptionKey))
+        out[cloudImageId(item.id)] = { chat, id: item.id, key: item.encryptionKey };
+    }
+  }
+  return out;
 }
 
 /** UTF-8 text as base64 without Node's Buffer, since this module also runs in the renderer. */
@@ -168,10 +199,12 @@ export function threadFromCloud(plain: Json, link: Omit<CloudChatLink, 'turns' |
  * with every field Workbench does not know; a message whose text changed keeps its other fields but loses its
  * `timeline`, which would still show the old text. Only completed replies are written. After another version was made
  * or shown (`rewritten`), the messages after the known turns are replaced by the path shown. Messages added in another
- * role are never written; conversations holding them do not become cloud chats. */
-export function cloudPatch(remote: Json, thread: Thread, clock: { v: number; w: string; version: number }, now: number): Json {
+ * role are never written; conversations holding them do not become cloud chats. A new turn's pictures must already be
+ * in Tinfoil's attachment storage (`pictures`, CloudSync `sendPictures`); the message holds their keys and thumbnails,
+ * as Tinfoil Chat writes them. Folders are paths on this computer and are never written. */
+export function cloudPatch(remote: Json, thread: Thread, clock: { v: number; w: string; version: number }, now: number, pictures: Readonly<Record<string, CloudPicture>> = {}): Json {
   const messages = Array.isArray(remote.messages) ? [...remote.messages] as unknown[] : [];
-  const groups = groupMessages(messages), known = Math.min(thread.cloud?.turns ?? 0, groups.length, thread.turns.length);
+  const groups = groupMessages(messages), known = knownTurns(remote, thread);
   const out: unknown[] = [];
   let next = 0; // index into `messages`, so messages outside the known turns (none, normally) stay in order
   const edited = (m: Json, fields: Json): Json => { const copy: Json = { ...m, ...fields }; delete copy.timeline; return copy; };
@@ -192,22 +225,32 @@ export function cloudPatch(remote: Json, thread: Thread, clock: { v: number; w: 
   for (const turn of thread.turns.slice(known)) {
     if (turn.role) continue;
     const reply = selected(turn);
-    // Only text files: pictures and folders are refused in cloud chats (service `start`).
-    const files = turn.attachments.filter(a => !a.kind);
+    const files = turn.attachments.filter(a => a.kind !== 'folder');
     out.push({ role: 'user', content: turn.prompt, timestamp: new Date(turn.createdAt).toISOString(),
-      ...(files.length ? { attachments: files.map(a => ({ id: uid(), type: 'document', fileName: a.name, textContent: a.content })) } : {}) });
+      ...(files.length ? { attachments: files.map(a => a.kind === 'image' ? picturePart(a, pictures) : { id: uid(), type: 'document', fileName: a.name, textContent: a.content }) } : {}) });
     if (reply?.status === 'complete') out.push(newAnswer(reply, now));
   }
   return { ...remote, title: thread.title, ...(thread.title !== remote.title ? { titleState: 'manual' } : {}), messages: out,
     updatedAt: new Date(now).toISOString(), clock: clock.v, writer: clock.w, clockVersion: clock.version };
 }
+/** How many of a conversation's turns the cloud chat `remote` already has; cloudPatch writes the turns after them. */
+export const knownTurns = (remote: Json, thread: Thread): number =>
+  Math.min(thread.cloud?.turns ?? 0, groupMessages(Array.isArray(remote.messages) ? remote.messages : []).length, thread.turns.length);
+/** A picture as Tinfoil Chat keeps it in a message: its storage ID and own key, its name, type and thumbnail, never
+ * the picture itself. */
+function picturePart(file: Attachment, pictures: Readonly<Record<string, CloudPicture>>): Json {
+  const image = file.image!, stored = Object.hasOwn(pictures, image.id) ? pictures[image.id] : undefined;
+  if (!stored) throw new InputError(`${file.name} is not in Tinfoil cloud yet. Sync and try again.`);
+  return { id: stored.id, type: 'image', fileName: file.name, mimeType: image.mime, thumbnailBase64: image.thumb.slice(image.thumb.indexOf(',') + 1),
+    description: file.name, encryptionKey: stored.key };
+}
 const newAnswer = (reply: Reply, now: number): Json => ({ role: 'assistant', content: reply.content, ...(reply.reasoning ? { thoughts: reply.reasoning } : {}),
   modelDisplayName: reply.model, timestamp: new Date(now).toISOString() });
 
 /** A new cloud chat for a conversation that has none yet. */
-export function newCloudChat(thread: Thread, cloudProject: string | null, clock: { v: number; w: string; version: number }, now: number): Json {
+export function newCloudChat(thread: Thread, cloudProject: string | null, clock: { v: number; w: string; version: number }, now: number, pictures: Readonly<Record<string, CloudPicture>> = {}): Json {
   return cloudPatch({ title: thread.title, messages: [], createdAt: new Date(thread.createdAt).toISOString(), model: thread.settings.model, projectId: cloudProject },
-    { ...thread, cloud: { id: '', etag: '0', project: cloudProject, turns: 0, loaded: true, dirty: true, syncedAt: now } }, clock, now);
+    { ...thread, cloud: { id: '', etag: '0', project: cloudProject, turns: 0, loaded: true, dirty: true, syncedAt: now } }, clock, now, pictures);
 }
 
 /** Maps a cloud project onto a Workbench project. */

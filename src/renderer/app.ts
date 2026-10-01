@@ -658,7 +658,7 @@ async function attachFiles(files:File[],folders:{path:string;name:string}[]=[],r
   const thread=current(),id=thread.id,existing=pendingFiles.get(id)??[];
   if(composerRole()!=='user'){toast('Files go with your own messages. Switch the tab above the message box to User.',true);return;}
   if(existing.length+files.length+folders.length+ready.length>8){toast('Attach at most eight files or folders to a message.',true);return;}
-  if(cloudBound(thread)&&(folders.length||files.some(f=>/^image\//.test(f.type)||/\.(png|jpe?g|gif|webp|bmp)$/i.test(f.name)))){toast('Tinfoil cloud chats cannot carry pictures or folders from Workbench. Use a local conversation.',true);return;}
+  if(cloudBound(thread)&&folders.length){toast('Tinfoil cloud chats cannot hold folders: a folder is a path on this computer, for the workspace agent. Use a local conversation.',true);return;}
   const added:Attachment[]=[...ready],errors:string[]=[];
   if(files.length>1||files.some(f=>f.size>2e6))toast(`Reading ${files.length>1?`${files.length} files`:files[0]!.name}…`);
   for(const file of files){

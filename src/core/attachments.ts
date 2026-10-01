@@ -8,7 +8,9 @@ export const TEXT_EXTENSIONS = new Set(['.txt','.md','.markdown','.json','.jsonl
 /** Pictures the page can decode. Each is redrawn before it is stored, as PNG when it has transparency and JPEG otherwise. */
 export const IMAGE_EXTENSIONS: Readonly<Record<string, string>> = { '.png': 'image/png', '.jpg': 'image/jpeg', '.jpeg': 'image/jpeg',
   '.gif': 'image/gif', '.webp': 'image/webp', '.bmp': 'image/bmp' };
-export const STORED_IMAGE_TYPES = new Set(['image/png', 'image/jpeg']);
+/** What a stored picture can be: Workbench stores PNG and JPEG; a picture fetched from a Tinfoil cloud chat keeps the
+ * type Tinfoil Chat stored, which can also be GIF or WebP. */
+export const STORED_IMAGE_TYPES = new Set(['image/png', 'image/jpeg', 'image/gif', 'image/webp']);
 /** Word, PowerPoint and Excel files need a converter Workbench does not have. */
 export const OFFICE_EXTENSIONS = new Set(['.doc','.docx','.ppt','.pptx','.xls','.xlsx','.odt','.odp','.ods','.rtf','.pages','.key','.numbers']);
 export const IMAGE_LIMITS = Object.freeze({
@@ -21,6 +23,44 @@ export const IMAGE_LIMITS = Object.freeze({
 });
 /** A stored picture's id, chosen by the page: never a name an object already has, such as __proto__. */
 export const IMAGE_ID = /^img-[A-Za-z0-9_-]{8,80}$/;
+/** A picture in a Tinfoil cloud chat: the ID Tinfoil's sync enclave gave it, and the stored picture's ID here. */
+export const CLOUD_PICTURE_ID = /^[A-Za-z0-9_-]{8,79}$/;
+export const cloudImageId = (id: string): string => 'img-c' + id;
+/** The type of a picture from its first bytes (PNG, JPEG, GIF or WebP), or null. A picture's stated type is not
+ * trusted: Tinfoil Chat can label a redrawn BMP as BMP while storing PNG. */
+export function pictureType(bytes: Uint8Array): string | null {
+  const at = (offset: number, ...expected: number[]): boolean => expected.every((b, i) => bytes[offset + i] === b);
+  if (at(0, 0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a)) return 'image/png';
+  if (at(0, 0xff, 0xd8, 0xff)) return 'image/jpeg';
+  if (at(0, 0x47, 0x49, 0x46, 0x38)) return 'image/gif';
+  if (at(0, 0x52, 0x49, 0x46, 0x46) && at(8, 0x57, 0x45, 0x42, 0x50)) return 'image/webp';
+  return null;
+}
+/** A PNG's or JPEG's width and height from its header, or null. Used for thumbnails, whose shape the page keeps. */
+export function pictureSize(bytes: Uint8Array): { width: number; height: number } | null {
+  const sized = (width: number, height: number) => width >= 1 && width <= 20000 && height >= 1 && height <= 20000 ? { width, height } : null;
+  const u16 = (i: number): number => (bytes[i]! << 8) | bytes[i + 1]!;
+  const type = pictureType(bytes);
+  if (type === 'image/png') return bytes.length >= 24 ? sized(u16(16) * 65536 + u16(18), u16(20) * 65536 + u16(22)) : null;
+  if (type !== 'image/jpeg') return null;
+  // JPEG segments: FF, a marker, a two-byte length that counts itself. A start-of-frame segment holds the size.
+  for (let i = 2; i + 9 < bytes.length;) {
+    if (bytes[i] !== 0xff) return null;
+    const marker = bytes[i + 1]!;
+    if (marker === 0xff) { i++; continue; }
+    if (marker >= 0xc0 && marker <= 0xcf && marker !== 0xc4 && marker !== 0xc8 && marker !== 0xcc) return sized(u16(i + 7), u16(i + 5));
+    const length = u16(i + 2);
+    if (length < 2) return null;
+    i += 2 + length;
+  }
+  return null;
+}
+/** Base64 as bytes, without Node's Buffer, since this module also runs in the page. */
+export function base64Bytes(text: string): Uint8Array {
+  const binary = atob(text), bytes = new Uint8Array(binary.length);
+  for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
+  return bytes;
+}
 export const PDF_SOURCE_BYTES = 40 * 1024 * 1024;
 export type AttachmentKind = 'text' | 'image' | 'pdf' | 'office' | 'other';
 export function extensionOf(name: string): string {

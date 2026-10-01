@@ -126,12 +126,35 @@ test('pictures are refused for a model that cannot read them, and in history it 
   assert.equal(first.content, 'What is this?\n\n[A picture was attached here. This model cannot read pictures, so it is not included.]');
 });
 
-test('a picture that is not stored, or any picture or folder in a cloud chat, is refused before sending', async t => {
-  const { s } = await setup(t), id = s.workspace.activeId;
+test('a picture that is not stored, or a folder in a cloud chat, is refused before sending; a picture there is sent', async t => {
+  const f = await setup(t), { s } = f, id = s.workspace.activeId;
   await assert.rejects(s.execute({ type: 'send', id, text: 'x', attachments: [picture('img-missing000000')] }), /no longer stored/);
   await add(s); s.workspace.threads[0].cloudPending = true;
-  await assert.rejects(s.execute({ type: 'send', id, text: 'x', attachments: [picture()] }), /cloud chats cannot carry pictures or folders/);
-  await assert.rejects(s.execute({ type: 'send', id, text: 'x', attachments: [folder()] }), /cloud chats cannot carry pictures or folders/);
+  await assert.rejects(s.execute({ type: 'send', id, text: 'x', attachments: [folder()] }), /cloud chats cannot hold folders/);
+  await s.execute({ type: 'send', id, text: 'x', attachments: [picture()] }); await done(s);
+  assert.equal(f.calls[0].messages.find(m => m.role === 'user').content[1].type, 'image_url');
+});
+
+test('a cloud chat\'s pictures are fetched before it is continued; their keys never reach snapshots', async t => {
+  const f = await setup(t), { s } = f, thread = s.workspace.threads[0], id = 'img-c' + 'ab'.repeat(18), key = Buffer.alloc(32, 5).toString('base64');
+  const answered = { id: 'r1', model: 'eyes', content: 'A beach.', reasoning: '', status: 'complete', finishReason: 'stop', error: null, usage: null, elapsedMs: 1 };
+  thread.turns = [{ id: 't1', prompt: 'Look', attachments: [picture(id)], createdAt: 1, selectedReplyId: 'r1', replies: [answered] }];
+  thread.cloud = { id: 'c1', etag: '1', project: null, turns: 1, loaded: true, dirty: false, syncedAt: 1 };
+  s.workspace.cloudImages = { [id]: { chat: 'c1', id: 'ab'.repeat(18), key }, 'img-cunused000000': { chat: 'c1', id: 'cd'.repeat(18), key } };
+  let fail = true; const fetched = [], written = [];
+  s.cloud = { loading: new Set(), writes: new Map(), snapshot: () => ({ state: 'ready', keyId: null, user: null, lastSyncAt: null, message: null, chats: 1, projects: 0, older: 0 }),
+    missingPictures: th => Object.hasOwn(s.workspace.images ?? {}, id) ? [] : [id], changed: async threadId => { written.push(threadId); },
+    async fetchPictures(th) { fetched.push(th.id); if (fail) throw new Error('Tinfoil cloud sync did not answer in time.'); s.workspace.images = { ...s.workspace.images, [id]: { mime: 'image/png', data: 'iVBORw0KGgo=', added: Date.now() } }; } };
+  assert.ok(!JSON.stringify(s.snapshot()).includes(key));
+  await assert.rejects(s.execute({ type: 'send', id: thread.id, text: 'Again', attachments: [] }), /pictures in this chat could not be fetched from Tinfoil cloud\. Tinfoil cloud sync did not answer in time\./);
+  assert.equal(f.calls.length, 0, 'nothing is sent without them');
+  fail = false;
+  await s.execute({ type: 'send', id: thread.id, text: 'Again', attachments: [] }); await done(s);
+  assert.deepEqual(fetched, [thread.id, thread.id]);
+  assert.equal(f.calls[0].messages.find(m => m.role === 'user').content[1].image_url.url, 'data:image/png;base64,iVBORw0KGgo=');
+  assert.deepEqual(written, [thread.id]);
+  assert.deepEqual(Object.keys(f.stored.cloudImages), [id], 'a reference no message uses is forgotten');
+  assert.ok(!JSON.stringify(s.snapshot()).includes(key));
 });
 
 test('an unused stored picture is forgotten after an hour; one a draft or message uses is kept', async t => {

@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { webcrypto } from 'node:crypto';
+import { createHash, webcrypto } from 'node:crypto';
 import { readFileSync } from 'node:fs';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -8,7 +8,7 @@ import { CloudSync } from '../desktop/cloud-sync.mjs';
 import { editReply } from '../dist/core/editing.js';
 import { showVersion } from '../dist/core/versions.js';
 import { CloudClient, CloudError, cloudKeyId, cloudChatId, SYNC_URL } from '../desktop/cloud-client.mjs';
-import { parseCloudKey } from '../dist/core/cloud.js';
+import { parseCloudKey, CLOUD_FORMAT } from '../dist/core/cloud.js';
 import { newWorkspace, addThread } from '../dist/core/workspace.js';
 import { validateWorkspace } from '../dist/core/validation.js';
 import { publicError } from '../dist/core/security.js';
@@ -51,9 +51,28 @@ function enclave({ keyId = KEY_ID } = {}) {
     },
     async remove(scope, id, key, ifMatch) { calls.push(['delete', scope, id, ifMatch]); const r = rows[scope].get(id); if (String(r?.etag) !== ifMatch) throw new CloudError('conflict', 409, 'SYNC_CONFLICT'); rows[scope].delete(id); },
     async newChatId() { calls.push(['id']); return `8199999999999_${++nextId}`; },
+    // Attachment storage: the enclave derives a picture's ID and key from the tag, chat and bytes, as the real one does.
+    pictures: new Map(),
+    async attachmentPut(chatId, data, tag) {
+      calls.push(['picture.put', chatId, tag]);
+      const digest = createHash('sha256').update(`${tag}\0${chatId}\0${data}`).digest(), id = digest.subarray(0, 18).toString('hex'), key = Buffer.alloc(32, digest[0]).toString('base64');
+      api.pictures.set(id, { chat: chatId, data, key }); return { id, key };
+    },
+    async attachmentGet(id, key) {
+      calls.push(['picture.get', id]);
+      const p = api.pictures.get(id);
+      if (!p) throw new CloudError('Tinfoil cloud sync refused the request (NOT_FOUND).', 404, 'NOT_FOUND');
+      if (p.key !== key) throw new CloudError('Tinfoil cloud sync refused the request (HTTP_400).', 400, 'HTTP_400');
+      return p.data;
+    },
   };
   return api;
 }
+// A 1 × 1 PNG; a JPEG header (300 × 200) as a thumbnail.
+const PNG = 'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==';
+const JPEG = '/9j/4AAQSkZJRgABAQAAAQABAAD/wAARCADIASwDASIAAhEBAxEB/9k=';
+const reply = content => ({ id: 'r' + content.length, model: 'kimi-k3', content, reasoning: '', status: 'complete', finishReason: 'stop', error: null, usage: null, elapsedMs: 1 });
+const localPicture = (id, name = 'photo.png') => ({ name, content: '', kind: 'image', image: { id, mime: 'image/png', width: 1, height: 1, thumb: 'data:image/png;base64,' + PNG } });
 function setup({ user = 'user_test', ws = newWorkspace(), server = enclave() } = {}) {
   const notices = [], account = { user, async sessionToken() { return { bearer: 'clerk-test-only', user: account.user }; } };
   const host = { workspace: () => ws, save: async () => { validateWorkspace(structuredClone(ws)); }, emit: () => {}, notice: m => notices.push(m),
@@ -113,10 +132,74 @@ test('chats loaded before widgets were read are read again once, unless they hol
   await sync.sync();
   assert.equal(pulls() - before, 1);
   assert.deepEqual(server.calls.filter(c => c[0] === 'pull').at(-1), ['pull', 'chat', 1], 'only the clean chat is pulled');
-  assert.deepEqual([apollo.cloud.format, apollo.turns[0].replies[0].tools?.length], [2, 1]);
+  assert.deepEqual([apollo.cloud.format, apollo.turns[0].replies[0].tools?.length], [CLOUD_FORMAT, 1]);
   assert.deepEqual([gemini.cloud.format, gemini.turns[0].replies[0].tools, gemini.cloud.dirty], [undefined, undefined, true]);
   await sync.sync();
   assert.equal(pulls() - before, 1, 'and only once');
+});
+
+test('a web chat\'s pictures are fetched, once, when it is continued; a picture Tinfoil no longer has is forgotten', async () => {
+  const server = enclave(), web = chat('Beach', 1), stored = await server.attachmentPut('c1', PNG, 'web'), gone = { id: 'f'.repeat(36), key: Buffer.alloc(32, 1).toString('base64') };
+  web.messages[0].attachments = [{ id: stored.id, type: 'image', fileName: 'beach.png', mimeType: 'image/png', thumbnailBase64: JPEG, encryptionKey: stored.key },
+    { id: gone.id, type: 'image', fileName: 'old.png', mimeType: 'image/png', thumbnailBase64: JPEG, encryptionKey: gone.key }];
+  server.seed('chat', 'c1', web); server.calls.length = 0;
+  const { sync, ws } = setup({ server });
+  await sync.connect(KEY);
+  const beach = byCloud(ws, 'c1'); await sync.load(beach.id);
+  const ids = beach.turns[0].attachments.map(a => a.image.id);
+  assert.deepEqual(ids, ['img-c' + stored.id, 'img-c' + gone.id]);
+  assert.deepEqual(ws.cloudImages[ids[0]], { chat: 'c1', id: stored.id, key: stored.key });
+  assert.equal(ws.images, undefined, 'nothing is fetched when the chat is opened');
+  assert.deepEqual(sync.missingPictures(beach), ids);
+  await sync.fetchPictures(beach);
+  assert.deepEqual([ws.images[ids[0]].mime, ws.images[ids[0]].data], ['image/png', PNG]);
+  assert.equal(ws.cloudImages[ids[1]], undefined, 'the missing picture\'s reference is forgotten');
+  assert.deepEqual(sync.missingPictures(beach), []);
+  await sync.fetchPictures(beach);
+  assert.equal(server.calls.filter(c => c[0] === 'picture.get').length, 2, 'each picture is asked for once');
+  assert.ok(!server.calls.some(c => c[0] === 'push' || c[0] === 'picture.put'), 'nothing is written');
+  assert.doesNotThrow(() => validateWorkspace(structuredClone(ws)));
+});
+
+test('a new turn\'s pictures are stored in Tinfoil before the chat is written, once, and keep the ID the enclave gave them', async () => {
+  const server = enclave(); server.seed('chat', 'c1', chat('Trip', 1));
+  const { sync, ws } = setup({ server });
+  await sync.connect(KEY);
+  const trip = byCloud(ws, 'c1'); await sync.load(trip.id);
+  ws.images = { 'img-local00000001': { mime: 'image/png', data: PNG, added: 1 } };
+  trip.turns.push({ id: 'n1', prompt: 'And this?', attachments: [localPicture('img-local00000001')], createdAt: 2, selectedReplyId: 'r6', replies: [reply('Sunny.')] });
+  await sync.changed(trip.id);
+  const puts = server.calls.filter(c => c[0] === 'picture.put'), [put] = puts, [id] = [...server.pictures.keys()];
+  assert.deepEqual(put.slice(0, 2), ['picture.put', 'c1']); assert.match(put[2], /^[0-9a-f]{32}$/);
+  const written = server.rows.chat.get('c1').plain.messages[2].attachments[0];
+  assert.deepEqual(written, { id, type: 'image', fileName: 'photo.png', mimeType: 'image/png', thumbnailBase64: PNG, description: 'photo.png', encryptionKey: server.pictures.get(id).key });
+  assert.equal(trip.turns[1].attachments[0].image.id, 'img-c' + id, 'the turn uses the enclave\'s ID');
+  assert.equal(ws.images['img-c' + id].data, PNG);
+  assert.deepEqual(ws.cloudImages['img-c' + id], { chat: 'c1', id, key: written.encryptionKey });
+  assert.equal(server.pictures.get(id).data, PNG);
+  // Writing the chat again, or reading it back after a change elsewhere, neither stores nor fetches the picture again.
+  trip.title = 'Renamed'; await sync.changed(trip.id);
+  server.edit('chat', 'c1', plain => { plain.title = 'From the phone'; }); await sync.sync();
+  assert.equal(trip.turns[1].attachments[0].image.id, 'img-c' + id);
+  assert.deepEqual(sync.missingPictures(trip), []);
+  assert.equal(server.calls.filter(c => c[0] === 'picture.put').length, 1);
+  assert.ok(!server.calls.some(c => c[0] === 'picture.get'));
+  assert.doesNotThrow(() => validateWorkspace(structuredClone(ws)));
+});
+
+test('moving a conversation to the cloud stores its pictures for the new chat; one with folders stays on this device', async () => {
+  const { sync, ws, server } = setup();
+  await sync.connect(KEY);
+  const t = ws.threads[0]; ws.images = { 'img-local00000002': { mime: 'image/png', data: PNG, added: 1 } };
+  t.turns.push({ id: 'n1', prompt: 'Look', attachments: [localPicture('img-local00000002', 'a.png'), localPicture('img-local00000002', 'b.png')], createdAt: 1, selectedReplyId: 'r5', replies: [reply('Nice.')] });
+  const folders = structuredClone(t); folders.id = 'with-folder'; folders.turns[0].attachments = [{ name: 'site', content: '', kind: 'folder', path: 'D:\\site' }]; ws.threads.push(folders);
+  await assert.rejects(sync.upload(folders.id), /folders from this computer attached/);
+  await sync.upload(t.id);
+  const pushed = server.rows.chat.get(t.cloud.id).plain.messages[0].attachments;
+  assert.deepEqual(pushed.map(a => [a.type, a.fileName]), [['image', 'a.png'], ['image', 'b.png']]);
+  assert.equal(pushed[0].id, pushed[1].id, 'the same picture twice is stored once');
+  assert.deepEqual(server.calls.filter(c => c[0] === 'picture.put').map(c => c[1]), [t.cloud.id, t.cloud.id]);
+  assert.equal(server.pictures.size, 1);
 });
 
 test('continuing or renaming a cloud chat writes it back against the version it was pulled at, keeping unknown fields', async () => {
@@ -272,6 +355,23 @@ test('the client speaks the enclave protocol over the attested channel only', as
   reply = () => new Response('x'.repeat(100), { status: 200 });
   const small = new CloudClient({ secureClient: () => secure, token: async () => 't', timing: { ready: 1000, request: 1000, maxBytes: 10 } });
   await assert.rejects(small.keyCurrent(), /size limit/);
+  // Pictures: stored and fetched by ID and their own key; the chat key is not sent, and a malformed answer is refused.
+  const pictureKey = Buffer.alloc(32, 3).toString('base64'), pictureId = 'ab'.repeat(18);
+  reply = () => new Response(JSON.stringify({ ok: true, id: pictureId, att_key: pictureKey }), { status: 200 });
+  assert.deepEqual(await client.attachmentPut('c1', PNG, 'tag-1'), { id: pictureId, key: pictureKey });
+  assert.equal(requests.at(-1)[0], SYNC_URL + '/v1/attachment/put');
+  assert.deepEqual(JSON.parse(requests.at(-1)[1].body), { chat_id: 'c1', plaintext: PNG, idempotency_key: 'tag-1' });
+  reply = () => new Response(JSON.stringify({ ok: true, plaintext: PNG }), { status: 200 });
+  assert.equal(await client.attachmentGet(pictureId, pictureKey), PNG);
+  assert.deepEqual([requests.at(-1)[0], JSON.parse(requests.at(-1)[1].body)], [SYNC_URL + '/v1/attachment/get', { id: pictureId, att_key: pictureKey }]);
+  for (const bad of [{ id: '../x', att_key: pictureKey }, { id: pictureId, att_key: 'short' }, {}]) {
+    reply = () => new Response(JSON.stringify(bad), { status: 200 });
+    await assert.rejects(client.attachmentPut('c1', PNG, 'tag-1'), /invalid picture reference/);
+  }
+  reply = () => new Response(JSON.stringify({ ok: true, plaintext: 'not base64!' }), { status: 200 });
+  await assert.rejects(client.attachmentGet(pictureId, pictureKey), /invalid picture/);
+  reply = () => new Response(JSON.stringify({ error: 'attachment not found', code: 'NOT_FOUND' }), { status: 404 });
+  await assert.rejects(client.attachmentGet(pictureId, pictureKey), e => e instanceof CloudError && e.status === 404 && !e.message.includes(pictureKey));
 });
 
 test('new chat IDs follow Tinfoil Chat\'s reverse-timestamp format and need no request', () => {

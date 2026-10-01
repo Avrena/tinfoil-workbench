@@ -45,7 +45,7 @@ test('Tinfoil Chat widgets become visuals where Tinfoil Chat shows them, drawn b
   assert.equal(map, undefined, 'a map is not drawn');
   assert.match(reply.tools[3].stdout, /showed a map here, which Workbench does not display/);
   assert.equal(validateThread(structuredClone(thread)).turns[0].replies[0].tools.length, 4, 'the result is a valid conversation');
-  assert.deepEqual([thread.cloud.format, CLOUD_FORMAT], [2, 2]);
+  assert.deepEqual([thread.cloud.format, CLOUD_FORMAT], [3, 3]);
   // The model sees the answer's text, never the widget calls, when the conversation continues.
   const history = buildHistory(thread);
   assert.deepEqual(history.map(m => [m.role, m.content]), [['user', 'How has revenue grown?'], ['assistant', message.content]]);

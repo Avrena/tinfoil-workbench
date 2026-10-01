@@ -1,4 +1,6 @@
 import { hkdfSync, randomUUID } from 'node:crypto';
+import { CLOUD_PICTURE_ID } from '../dist/core/attachments.js';
+import { PICTURE_KEY } from '../dist/core/validation.js';
 
 /** Tinfoil's cloud sync service (docs/CLOUD.md). The enclave at SYNC_URL seals and unseals chats with the user's chat
  * key; it is reached only through the SDK's attested client, verified against SYNC_REPO, so the key never leaves an
@@ -72,6 +74,22 @@ export class CloudClient {
     return r.etag;
   }
   async remove(scope, id, key, ifMatch) { await this.call('/v1/sync/delete', { scope, id, if_match: ifMatch, idempotency_key: randomUUID(), key: key.b64 }); }
+  /** Stores a picture (base64) for a chat in Tinfoil's attachment storage. The enclave chooses the picture's ID and its
+   * own AES-256 key and seals it; the chat key is not involved. The same idempotency key, chat and picture give the same
+   * ID and key again, so a retried upload leaves no second copy. */
+  async attachmentPut(chatId, data, idempotencyKey) {
+    const r = await this.call('/v1/attachment/put', { chat_id: chatId, plaintext: data, idempotency_key: idempotencyKey });
+    if (typeof r.id !== 'string' || !CLOUD_PICTURE_ID.test(r.id) || typeof r.att_key !== 'string' || !PICTURE_KEY.test(r.att_key))
+      throw new CloudError('Tinfoil cloud sync returned an invalid picture reference.', null, 'BAD_RESPONSE');
+    return { id: r.id, key: r.att_key };
+  }
+  /** A stored picture, as base64, by its ID and own key. */
+  async attachmentGet(id, key) {
+    const r = await this.call('/v1/attachment/get', { id, att_key: key });
+    if (typeof r.plaintext !== 'string' || !r.plaintext || r.plaintext.length % 4 || !/^[A-Za-z0-9+/]+={0,2}$/.test(r.plaintext))
+      throw new CloudError('Tinfoil cloud sync returned an invalid picture.', null, 'BAD_RESPONSE');
+    return r.plaintext;
+  }
   /** A new chat ID for a conversation created at `createdAt`. */
   newChatId(createdAt) { return cloudChatId(createdAt); }
 }

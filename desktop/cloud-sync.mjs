@@ -1,5 +1,6 @@
-import { randomUUID } from 'node:crypto';
-import { parseCloudKey, threadFromCloud, cloudPatch, newCloudChat, projectFromCloud, CLOUD_FORMAT } from '../dist/core/cloud.js';
+import { createHash, randomUUID } from 'node:crypto';
+import { parseCloudKey, threadFromCloud, cloudPatch, cloudPictures, knownTurns, newCloudChat, projectFromCloud, CLOUD_FORMAT } from '../dist/core/cloud.js';
+import { IMAGE_LIMITS, cloudImageId, pictureType } from '../dist/core/attachments.js';
 import { InputError, LIMITS } from '../dist/core/validation.js';
 import { findThread } from '../dist/core/workspace.js';
 import { CloudError, cloudKeyId } from './cloud-client.mjs';
@@ -150,6 +151,7 @@ export class CloudSync {
       const next = this.owned(threadFromCloud(plain, link, projectId, now, existing, existing ? existing.cloud.loaded : false));
       if (existing) Object.assign(existing, next);
       else if (ws.threads.length < LIMITS.threads) ws.threads.push(next);
+      if (next.cloud.loaded) this.notePictures(plain, id);
     }
     // Deleted in Tinfoil: explicit deletions, and, when the listing is complete, chats that are no longer listed.
     const removed = new Set(deletes.map(d => d.id).filter(id => typeof id === 'string'));
@@ -180,6 +182,7 @@ export class CloudSync {
       const current = this.ws.threads.find(x => x.id === id); if (!current?.cloud) return;
       Object.assign(current, threadFromCloud(plain, { id: current.cloud.id, etag: String(item.etag ?? current.cloud.etag), project: current.cloud.project },
         localProjectOf(this.ws, current.cloud.project), this.now(), current, true));
+      this.notePictures(plain, current.cloud.id);
       await this.host.save();
     } finally { this.loading.delete(id); this.host.emit(); }
   }
@@ -209,7 +212,8 @@ export class CloudSync {
     // A pull can re-seal an old row under the current key: a new version whose previous one is ours is not a change.
     if (String(item.etag) !== t.cloud.etag && String(item.previous_etag ?? '') === t.cloud.etag) t.cloud.etag = String(item.etag);
     if (String(item.etag) !== t.cloud.etag) return this.resolve(t, plain, String(item.etag));
-    const clock = this.nextClock(plain.clock), body = cloudPatch(plain, t, { ...clock, version: Number(item.etag) + 1 }, this.now());
+    await this.sendPictures(t, t.cloud.id, knownTurns(plain, t));
+    const clock = this.nextClock(plain.clock), body = cloudPatch(plain, t, { ...clock, version: Number(item.etag) + 1 }, this.now(), this.ws.cloudImages);
     // A move between cloud projects is part of the chat and of the row's metadata.
     const moved = (plain.projectId ?? null) !== t.cloud.project;
     if (moved) body.projectId = t.cloud.project;
@@ -224,7 +228,63 @@ export class CloudSync {
   async resolve(thread, plain, etag) {
     this.keepCopy(thread);
     Object.assign(thread, threadFromCloud(plain, { id: thread.cloud.id, etag, project: thread.cloud.project }, localProjectOf(this.ws, thread.cloud.project), this.now(), thread, true));
+    this.notePictures(plain, thread.cloud.id);
     await this.host.save(); this.host.emit();
+  }
+  /** Keeps where the pictures of a loaded cloud chat's messages are stored, so they can be fetched when the chat is
+   * continued. The references, with each picture's key, stay in the encrypted workspace and never reach snapshots; the
+   * service forgets those that no message uses any more (pruneImages). */
+  notePictures(plain, chatId) { const found = cloudPictures(plain, chatId); if (Object.keys(found).length) this.ws.cloudImages = { ...this.ws.cloudImages, ...found }; }
+  /** Stores the pictures of the turns a cloud chat does not have yet in Tinfoil's attachment storage, for chat `chatId`,
+   * as Tinfoil Chat does before it writes a chat. Each picture then takes the ID the enclave gave it, the ID it has when
+   * any device reads the chat next. Turns added while pictures upload are covered too. */
+  async sendPictures(thread, chatId, from) {
+    const ws = this.ws;
+    for (let j = from; j < thread.turns.length; j++) {
+      const turn = thread.turns[j]; if (turn.role) continue;
+      for (const file of turn.attachments) {
+        if (file.kind !== 'image' || !file.image || ws.cloudImages?.[file.image.id]?.chat === chatId) continue;
+        const picture = Object.hasOwn(ws.images ?? {}, file.image.id) ? ws.images[file.image.id] : await this.fetchPicture(file.image.id);
+        if (!picture) throw new InputError(`${file.name} is no longer stored on this device, so this conversation cannot be written to Tinfoil cloud.`);
+        // The same tag for the same chat and picture: a retry gets the same storage ID and key back.
+        const tag = createHash('sha256').update(`workbench-picture\0${chatId}\0${file.image.id}`).digest('hex').slice(0, 32);
+        const { id, key } = await this.client.attachmentPut(chatId, picture.data, tag);
+        const local = cloudImageId(id);
+        ws.images = { ...ws.images, [local]: { ...picture, added: this.now() } };
+        ws.cloudImages = { ...ws.cloudImages, [local]: { chat: chatId, id, key } };
+        file.image = { ...file.image, id: local };
+      }
+    }
+  }
+  /** The pictures a conversation shows that are kept only in Tinfoil's attachment storage so far. */
+  missingPictures(thread) {
+    const ws = this.ws, ids = new Set(thread.turns.flatMap(turn => turn.attachments.flatMap(a => a.kind === 'image' && a.image ? [a.image.id] : [])));
+    return [...ids].filter(id => !Object.hasOwn(ws.images ?? {}, id) && Object.hasOwn(ws.cloudImages ?? {}, id));
+  }
+  /** Fetches a conversation's pictures from Tinfoil's attachment storage before it is continued: as in Tinfoil Chat, a
+   * model gets every picture in the conversation. */
+  async fetchPictures(thread) {
+    const missing = this.missingPictures(thread);
+    for (const id of missing) await this.fetchPicture(id);
+    if (missing.length) await this.host.save();
+  }
+  /** One picture into the workspace. Null when Tinfoil no longer has it or it is not a picture Workbench can send;
+   * its reference is then forgotten, and a model is told a picture is missing. */
+  async fetchPicture(local) {
+    const ws = this.ws, stored = ws.cloudImages?.[local];
+    if (!stored) return null;
+    await this.assertAccount();
+    let data;
+    try { data = await this.client.attachmentGet(stored.id, stored.key); }
+    catch (error) {
+      if (!(error instanceof CloudError && (error.status === 404 || error.status === 400))) throw error;
+      data = null;
+    }
+    const mime = data && data.length <= IMAGE_LIMITS.dataChars ? pictureType(Buffer.from(data.slice(0, 64), 'base64')) : null;
+    if (!mime) { const { [local]: _gone, ...rest } = ws.cloudImages; ws.cloudImages = rest; return null; }
+    const picture = { mime, data, added: this.now() };
+    ws.images = { ...ws.images, [local]: picture };
+    return picture;
   }
   /** Moves a cloud chat into a cloud project or out of projects; a local project cannot hold a cloud chat. The caller
    * writes the change with changed(). Returns false for a conversation that is not a cloud chat. */
@@ -240,12 +300,14 @@ export class CloudSync {
     if (!t.turns.length) throw new InputError('Send a message in this conversation before moving it to Tinfoil cloud.');
     if (t.turns.some(turn => turn.role)) throw new InputError('Tinfoil cloud chats have no place for messages added in another role. This conversation stays on this device.');
     if (t.agentFolder || t.turns.some(turn => turn.replies.some(r => (r.tools ?? []).some(tool => tool.agent)))) throw new InputError('This conversation used the workspace agent, whose commands, reads and file changes exist only on this computer. It stays on this device.');
+    if (t.turns.some(turn => turn.attachments.some(a => a.kind === 'folder'))) throw new InputError('This conversation has folders from this computer attached, which Tinfoil cloud chats cannot hold. It stays on this device.');
     if (t.projectId && !this.ws.projects.find(p => p.id === t.projectId)?.cloud)
       throw new InputError('This conversation is in a local project. Move it out of the project, or into a cloud project, before moving it to Tinfoil cloud.');
     if (this.ws.threads.filter(x => x.cloud).length >= LIMITS.cloudChats) throw new InputError('Too many cloud chats on this device. Delete some first.');
     await this.assertAccount();
     const key = this.key(), project = cloudProjectOf(this.ws, t.projectId), chatId = await this.client.newChatId(t.createdAt);
-    const clock = this.nextClock(0), body = newCloudChat(t, project, { ...clock, version: 1 }, this.now());
+    await this.sendPictures(t, chatId, 0);
+    const clock = this.nextClock(0), body = newCloudChat(t, project, { ...clock, version: 1 }, this.now(), this.ws.cloudImages);
     const etag = await this.client.push('chat', chatId, key, body, '0', { messageCount: body.messages.length, projectId: project });
     const current = this.ws.threads.find(x => x.id === id);
     if (current) { current.cloud = { id: chatId, etag, project, turns: current.turns.length, loaded: true, dirty: false, syncedAt: this.now() }; delete current.cloudPending; }

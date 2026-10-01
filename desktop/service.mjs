@@ -22,6 +22,7 @@ import { projectContext } from '../dist/core/cloud.js';
 const idleVerification = () => ({ state: 'idle', checkedAt: null, steps: [] });
 /** A reply cut off because the Android app left the screen (see the `backgroundedSince` host option). */
 export const AGENT_CLOUD = 'Tinfoil cloud chats cannot use the workspace agent: its commands, reads and file changes exist only on this computer. Use a local conversation.';
+export const CLOUD_FOLDERS = 'Tinfoil cloud chats cannot hold folders: a folder is a path on this computer, for the workspace agent. Use a local conversation.';
 export const AGENT_UNAVAILABLE = 'The workspace agent needs the Windows app.';
 export const NO_PYTHON = 'Workbench found no Python on this computer. Install Python from python.org, or choose python.exe in Advanced, under Model-requested Python.';
 export const ROLE_MESSAGES_CLOUD = 'Tinfoil cloud chats have no place for messages added in another role. Keep this conversation on this device to add them.';
@@ -113,15 +114,16 @@ export class WorkbenchService {
     }
   }
   /** Forgets stored pictures that no message, version or draft uses, once they are an hour old (a picture the page
-   * just stored waits for the draft that uses it). */
+   * just stored waits for the draft that uses it), and at once where an unused cloud picture is kept. */
   pruneImages() {
-    const images = this.workspace.images;
-    if (!images) return;
+    const { images, cloudImages } = this.workspace;
+    if (!images && !cloudImages) return;
     const used = new Set(), collect = files => { for (const f of files ?? []) if (f.kind === 'image' && f.image) used.add(f.image.id); };
     const walk = turns => { for (const turn of turns) { collect(turn.attachments); for (const version of turn.versions ?? []) walk(version.turns); } };
     for (const thread of this.workspace.threads) { collect(thread.draftAttachments); walk(thread.turns); }
     const now = Date.now();
-    for (const [id, image] of Object.entries(images)) if (!used.has(id) && now - image.added > IMAGE_LIMITS.unusedMs) delete images[id];
+    for (const [id, image] of Object.entries(images ?? {})) if (!used.has(id) && now - image.added > IMAGE_LIMITS.unusedMs) delete images[id];
+    for (const id of Object.keys(cloudImages ?? {})) if (!used.has(id)) delete cloudImages[id];
   }
   /** The request's messages with their pictures as image parts, or, for a model whose catalog entry says it cannot read
    * pictures, a note in their place. */
@@ -132,7 +134,7 @@ export class WorkbenchService {
       if (!vision) return { ...message, content: message.content + images.map(() => '\n\n[A picture was attached here. This model cannot read pictures, so it is not included.]').join('') };
       return { ...message, content: [{ type: 'text', text: message.content }, ...images.map(id => Object.hasOwn(stored, id)
         ? { type: 'image_url', image_url: { url: `data:${stored[id].mime};base64,${stored[id].data}` } }
-        : { type: 'text', text: '[A picture was attached here, but it is no longer stored on this device.]' })] };
+        : { type: 'text', text: '[A picture was attached here, but it is not available on this device.]' })] };
     });
   }
   /** The chat background picture as a data URL for the page, or null. */
@@ -537,7 +539,7 @@ export class WorkbenchService {
   send(threadId, prompt, files, replace) {
     const thread = findThread(this.workspace, threadId);
     if (files.some(f => f.kind)) {
-      if (this.cloudBound(thread)) throw new InputError('Tinfoil cloud chats cannot carry pictures or folders from Workbench. Use a local conversation.');
+      if (files.some(f => f.kind === 'folder') && this.cloudBound(thread)) throw new InputError(CLOUD_FOLDERS);
       for (const f of files) if (f.kind === 'image' && !Object.hasOwn(this.workspace.images ?? {}, f.image.id)) throw new InputError(`${f.name} is no longer stored on this device. Remove it and attach it again.`);
       if (files.some(f => f.kind === 'image')) for (const model of thread.settings.compare ? [thread.settings.model, thread.settings.compareModel] : [thread.settings.model]) {
         const cap = capabilityFor(model, this.capabilities);
@@ -555,6 +557,14 @@ export class WorkbenchService {
     if(this.needsAuthorization(threadId))throw new InputError('Review and allow this existing thread for the selected account before sending.');
     const thread = findThread(this.workspace, threadId);
     if (thread.cloud && !thread.cloud.loaded) throw new InputError('This chat is still loading from Tinfoil cloud. Wait a moment, then send.');
+    // Pictures that Tinfoil Chat stored are fetched before the model gets the conversation. Outside cloud chats (a local
+    // copy of one), a picture that cannot be fetched reaches the model as a note.
+    if (this.cloud?.missingPictures(thread).length) {
+      try { await this.cloud.fetchPictures(thread); }
+      catch (error) { if (thread.cloud) throw new InputError(`The pictures in this chat could not be fetched from Tinfoil cloud. ${error.message}`); }
+      if (this.busyThreadId) throw new InputError('A response is already running. Stop it before starting another.');
+      if (!this.workspace.threads.includes(thread)) throw new InputError('This conversation was deleted.');
+    }
     if (thread.settings.toolsMode === 'ask') {
       if (!await this.ensurePython()) throw new InputError(`Model-requested Python is on, but ${NO_PYTHON}`);
       if (this.busyThreadId) throw new InputError('A response is already running. Stop it before starting another.');

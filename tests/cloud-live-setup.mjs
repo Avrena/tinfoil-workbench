@@ -6,13 +6,17 @@
  * view; the harness never receives the key. Then, through the real service and renderer:
  *   1. the first sync: counts of chats, projects and documents;
  *   2. read-only fidelity on real chats: up to ten recent chats are opened, and writing each back unchanged must
- *      leave its messages byte for byte as they are (computed locally; nothing is written);
- *   3. unless --read-only: a new test chat, with one short message, is moved to Tinfoil cloud, renamed, continued with
- *      a second short message and deleted, each step checked by pulling the row again. No existing chat is written.
- * Output is JSON lines of statuses, counts and booleans; no titles, messages, keys or tokens. A log line that
- * contained a tracked secret would be refused. The account is signed out at the end. */
-import { app, BrowserWindow, dialog } from 'electron';
+ *      leave its messages byte for byte as they are (computed locally; nothing is written). Up to two pictures in them
+ *      are fetched from Tinfoil's attachment storage (read only);
+ *   3. unless --read-only: a new test chat, whose first short message carries a small generated picture, is moved to
+ *      Tinfoil cloud (the picture is stored first and fetched back to compare), renamed, continued with a second short
+ *      message after the picture's local copy is dropped (so it is fetched again) and deleted, each step checked by
+ *      pulling the row again. No existing chat is written. Two requests to a model that reads pictures.
+ * Output is JSON lines of statuses, counts and booleans; no titles, messages, pictures, keys or tokens. A log line that
+ * contained a tracked secret would be refused. The account is signed out at the end, in the confirmation window. */
+import { app, BrowserWindow } from 'electron';
 import { mkdtempSync, appendFileSync, readdirSync, readFileSync } from 'node:fs';
+import { deflateSync } from 'node:zlib';
 import { join, dirname } from 'node:path';
 import { tmpdir } from 'node:os';
 import { fileURLToPath } from 'node:url';
@@ -40,9 +44,25 @@ function log(step, data = {}) {
 const wrap = (proto, name, around) => { const original = proto[name]; proto[name] = function (...args) { return around.call(this, original, args); }; };
 wrap(AccountSession.prototype, 'accept', function (original, [raw, expected]) { if (typeof raw?.bearer === 'string' && raw.bearer) secrets.add(raw.bearer); return original.call(this, raw, expected); });
 wrap(WorkbenchService.prototype, 'initialize', function (original, args) { service = this; return original.apply(this, args); });
-// Sign-out asks natively; the harness confirms its own final sign-out and, once, the test chat's deletion.
+// The harness answers only two confirmations, in Workbench's confirmation window: deleting its own test chat, and its
+// final sign-out. Each is checked by its title first.
 const confirmations = [];
-dialog.showMessageBox = async (_window, options) => { confirmations.push(options.message); return { response: 1, checkboxChecked: false }; };
+async function answerConfirmation(title) {
+  const find = () => BrowserWindow.getAllWindows().find(w => !w.isDestroyed() && w.webContents.getURL().startsWith('app://approval'));
+  await until('the confirmation window', () => !!find(), 15_000, 200);
+  await sleep(1000); // Approve arms after a moment.
+  const win = find(), shown = await win.webContents.executeJavaScript(`document.getElementById('title').textContent`, true);
+  if (!shown.includes(title)) throw new Error('An unexpected confirmation was open.');
+  confirmations.push(title); await win.webContents.executeJavaScript(`document.getElementById('approve').click()`, true);
+}
+/** A small PNG made here (16 × 16, a diagonal of two colours), so the test sends no real picture. */
+function testPicture() {
+  const crc = buf => { let c = ~0; for (const b of buf) { c ^= b; for (let k = 0; k < 8; k++) c = c & 1 ? (c >>> 1) ^ 0xedb88320 : c >>> 1; } return ~c >>> 0; };
+  const chunk = (type, data) => { const head = Buffer.alloc(8), tail = Buffer.alloc(4); head.writeUInt32BE(data.length); head.write(type, 4, 'latin1'); tail.writeUInt32BE(crc(Buffer.concat([head.subarray(4), data]))); return Buffer.concat([head, data, tail]); };
+  const ihdr = Buffer.alloc(13); ihdr.writeUInt32BE(16, 0); ihdr.writeUInt32BE(16, 4); ihdr[8] = 8; ihdr[9] = 2;
+  const rows = []; for (let y = 0; y < 16; y++) { rows.push(0); for (let x = 0; x < 16; x++) rows.push(...(x > y ? [32, 96, 200] : [240, 160, 32])); }
+  return Buffer.concat([Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]), chunk('IHDR', ihdr), chunk('IDAT', deflateSync(Buffer.from(rows))), chunk('IEND', Buffer.alloc(0))]).toString('base64');
+}
 
 const main = () => BrowserWindow.getAllWindows().find(w => !w.isDestroyed() && w.webContents.getURL().startsWith('app://workbench'));
 const js = code => main().webContents.executeJavaScript(code, true);
@@ -87,6 +107,15 @@ async function run() {
       unchangedWriteBackKeepsMessages: isDeepStrictEqual(patched.messages, plain.messages), keepsOtherFields: Object.keys(plain).every(k => k in patched) });
   }
   log('fidelity', { chats: fidelity.length, allKeepMessages: fidelity.every(f => f.unchangedWriteBackKeepsMessages), allKeepFields: fidelity.every(f => f.keepsOtherFields), details: fidelity });
+  // Pictures in those chats: shown by thumbnail; up to two are fetched (read only) and must be pictures Workbench can send.
+  stage = 'cloud pictures';
+  const shown = recent.flatMap(r => service.workspace.threads.find(x => x.id === r.id)?.turns.flatMap(turn => turn.attachments.filter(a => a.kind === 'image')) ?? []);
+  const fetchedPictures = [];
+  for (const file of shown.filter(f => service.workspace.cloudImages?.[f.image.id]).slice(0, 2)) {
+    const picture = await cloud().fetchPicture(file.image.id);
+    fetchedPictures.push({ fetched: !!picture, type: picture?.mime ?? null });
+  }
+  log('cloud-pictures', { shown: shown.length, withReference: shown.filter(f => service.workspace.cloudImages?.[f.image.id]).length, fetched: fetchedPictures });
   if (readOnly) return finish();
 
   // 3. A test chat's whole life: create locally, send, move to the cloud, rename, continue, delete.
@@ -94,25 +123,39 @@ async function run() {
   const id = service.workspace.activeId, stamp = new Date().toISOString().slice(0, 16);
   await command({ type: 'thread.rename', id, title: `Workbench cloud sync test ${stamp}` });
   if (!service.models.length) await command({ type: 'connect' });
-  const model = ['deepseek-v4-1-flash', 'gpt-oss-120b'].find(m => service.models.includes(m)) ?? service.models[0];
+  // A model that reads pictures, so the first message can carry one.
+  const model = ['deepseek-v4-1-flash', 'kimi-k3'].find(m => service.models.includes(m));
+  if (!model) throw new Error('No model that reads pictures is available.');
   const t = () => service.workspace.threads.find(x => x.id === id);
   await command({ type: 'thread.settings', id, settings: { ...t().settings, model, maxTokens: 64, compare: false, visualTools: false, webSearch: false } });
-  const send = async text => { await command({ type: 'send', id, text, attachments: [] }); await until('the reply', () => !service.busyThreadId, 180_000); return t().turns.at(-1).replies[0].status; };
-  stage = 'first message'; const first = await send('Reply with the single word OK.');
-  log('sent', { model, replyStatus: first, replyFailed: !!t().turns.at(-1).replies[0].error });
+  const send = async (text, attachments = []) => { await command({ type: 'send', id, text, attachments }); await until('the reply', () => !service.busyThreadId, 180_000); return t().turns.at(-1).replies[0].status; };
+  const png = testPicture(), local = 'img-cloudlive' + Date.now().toString(36);
+  await command({ type: 'image.add', id: local, mime: 'image/png', data: png });
+  const attached = { name: 'test-picture.png', content: '', kind: 'image', image: { id: local, mime: 'image/png', width: 16, height: 16, thumb: 'data:image/png;base64,' + png } };
+  stage = 'first message'; const first = await send('Reply with the single word OK.', [attached]);
+  log('sent', { model, replyStatus: first, replyFailed: !!t().turns.at(-1).replies[0].error, withPicture: true });
   stage = 'upload'; await command({ type: 'thread.cloud.upload', id });
   let row = await pullRow(t().cloud.id), plain = decode(row);
   log('uploaded', { replyStatus: first, linked: !!t().cloud, version: row.etag, messages: plain.messages.length, titleMatches: plain.title === t().title, writer: plain.writer === service.workspace.cloud.writer });
+  // The picture: stored before the chat was written, held in the message as Tinfoil Chat keeps it, readable back as sent.
+  stage = 'picture'; const part = plain.messages[0]?.attachments?.[0], stored = t().turns[0].attachments[0].image.id;
+  if (part?.encryptionKey) secrets.add(part.encryptionKey);
+  const back = part?.id && part.encryptionKey ? await cloud().client.attachmentGet(part.id, part.encryptionKey) : null;
+  log('picture-stored', { type: part?.type ?? null, hasKey: !!part?.encryptionKey, hasThumbnail: typeof part?.thumbnailBase64 === 'string' && part.thumbnailBase64.length > 0, carriesPicture: part ? 'base64' in part : null,
+    turnTookStorageId: stored === 'img-c' + part?.id, readsBackSame: back === png });
   stage = 'rename'; await command({ type: 'thread.rename', id, title: `Workbench cloud sync test ${stamp} (renamed)` });
   await until('the rename to be written', () => !t().cloud.dirty && !cloud().writes.size, 60_000);
   row = await pullRow(t().cloud.id); plain = decode(row);
   log('renamed', { version: row.etag, titleMatches: plain.title === t().title, titleState: plain.titleState, messages: plain.messages.length });
+  // Without its local copy, the picture is fetched again before the chat is continued, as for a chat from Tinfoil Chat.
+  delete service.workspace.images[stored];
   stage = 'second message'; const second = await send('Reply with the single word DONE.');
   await until('the turn to be written', () => !t().cloud.dirty && !cloud().writes.size, 60_000);
   row = await pullRow(t().cloud.id); plain = decode(row);
-  log('continued', { replyStatus: second, version: row.etag, messages: plain.messages.length, roles: plain.messages.map(m => m.role).join(','), linkedVersionMatches: row.etag === t().cloud.etag });
+  log('continued', { replyStatus: second, version: row.etag, messages: plain.messages.length, roles: plain.messages.map(m => m.role).join(','), linkedVersionMatches: row.etag === t().cloud.etag,
+    pictureFetchedAgain: service.workspace.images?.[stored]?.data === png, pictureKeptInFirstMessage: plain.messages[0]?.attachments?.[0]?.id === part?.id });
   const cloudId = t().cloud.id; stage = 'delete';
-  await command({ type: 'thread.delete', id });
+  const deleting = command({ type: 'thread.delete', id }); await answerConfirmation(`Delete “${t().title}” from Tinfoil cloud?`); await deleting;
   row = await pullRow(cloudId);
   log('deleted', { goneFromCloud: !row?.ok, code: row?.code ?? null, goneLocally: !service.workspace.threads.some(x => x.id === id) });
   return finish();
@@ -123,7 +166,8 @@ async function finish() {
   let plaintextKeyFiles = 0;
   const visit = dir => { for (const entry of readdirSync(dir, { withFileTypes: true })) { const path = join(dir, entry.name); if (entry.isDirectory()) { visit(path); continue; } try { const text = readFileSync(path).toString('latin1'); for (const s of secrets) if (s && text.includes(s)) { plaintextKeyFiles++; break; } } catch {} } };
   visit(profile);
-  await command({ type: 'account.signout' }); await until('sign-out', () => account().snapshot().status === 'signed-out', 30_000);
+  const signout = command({ type: 'account.signout' }); await answerConfirmation('Sign out of Tinfoil Chat?'); await signout;
+  await until('sign-out', () => account().snapshot().status === 'signed-out', 30_000);
   log('finished', { snapshotHasKey: workspaceHasKey, profileFilesWithASecretInPlaintext: plaintextKeyFiles, confirmations: confirmations.length, signedOut: true });
 }
 app.whenReady().then(() => run()).catch(error => log('failed', { stage, message: String(error?.message ?? error).slice(0, 300), status: error?.status ?? null, code: error?.code ?? null })).finally(() => setTimeout(() => app.quit(), 1500));

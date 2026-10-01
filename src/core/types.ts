@@ -35,6 +35,8 @@ export interface Attachment { name: string; content: string; kind?: 'image' | 'f
 export interface ImageAttachment { id: string; mime: string; width: number; height: number; thumb: string }
 /** A picture attached to a message or draft, base64 without its data: prefix. Never in snapshots. */
 export interface StoredImage { mime: string; data: string; added: number }
+/** Where a picture of a Tinfoil cloud chat is kept in Tinfoil's attachment storage; `key` is base64 (32 bytes). */
+export interface CloudPicture { chat: string; id: string; key: string }
 export interface Usage { input: number; output: number }
 export interface Artifact { id: string; name: string; mime: string; data: string; kind?: 'html' | 'svg' | 'markdown' | 'text' | 'json' | 'pdf' | 'chart' | 'table' | 'diagram' | 'timeline' | 'stats'; title?: string; source?: string; description?: string; version?: number; parentId?: string; rootId?: string }
 export interface DelegateRun {
@@ -123,6 +125,9 @@ export interface Workspace {
   agentRoot?: string;
   /** Pictures attached to messages and drafts, by ImageAttachment id. Never in snapshots. */
   images?: Record<string, StoredImage>;
+  /** Pictures of Tinfoil cloud chats, by ImageAttachment id: the cloud chat, the sync enclave's ID for the picture and
+   * the picture's own key, which the chat's messages also hold (docs/CLOUD.md). Never in snapshots. */
+  cloudImages?: Record<string, CloudPicture>;
   /** The picture behind the conversation (Settings → Chat background), base64. Never in snapshots: they carry its id. */
   backgroundPicture?: { id: string; mime: string; data: string };
 }
