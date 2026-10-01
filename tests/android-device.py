@@ -354,7 +354,7 @@ else:
     record('export writes the file chosen in the system picker', 'Exported from Tinfoil Workbench' in adb('shell', 'cat', '/sdcard/Download/conversation.md', check=False))
     note = Path(os.environ.get('TEMP', '/tmp'), 'workbench-notes.md'); note.write_text('# Field notes\n\nUTF-8: 中文 ✓\n', encoding='utf-8')
     adb('push', str(note), '/sdcard/Download/notes.md')
-    tap('Attach text or code files')
+    tap('Attach files:', exact=False)
     if find('notes.md', 5) is None: tap('Show roots'); tap('Downloads', exact=False)
     record('a text file picked in the system picker becomes an attachment', tap('notes.md', 15) and find('notes.md', 10) is not None)
     tap('Conversation menu'); tap('Export JSON'); tap('Export plaintext'); tap('SAVE', 15) or tap('Save', 5); time.sleep(2)
