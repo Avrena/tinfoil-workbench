@@ -1,124 +1,231 @@
 # Tinfoil Workbench
 
-An unofficial, private client for [Tinfoil](https://tinfoil.sh) confidential AI on **Windows 11** and **Android**. Every connection verifies the Tinfoil enclave before a request is sent. The conversation-first interface has inline charts, tables, diagrams, timelines, stat cards and versioned documents, model-aware thinking controls, branching and editing, and an encrypted local workspace.
+An unofficial, private client for [Tinfoil](https://tinfoil.sh) confidential AI on **Windows 11 (Electron)** and **Android (Capacitor)**. Workbench is not affiliated with or endorsed by Tinfoil. Every connection verifies the Tinfoil enclave before a request is sent, and there is no unverified fallback.
 
-**The custom system prompt is optional and not required.** Leave system instructions at None, the default, for ordinary chat. None sends no instructions of yours; it does not remove the provider's own defaults. When tools are on, Workbench's short guide to them is still sent (see below).
+Chat supports model-aware thinking controls, comparison, editing, versions, branching, projects and inline visual artifacts, in an encrypted local workspace. On Windows, a workspace agent can work in a folder with your approval, and Tinfoil cloud chats sync both ways, pictures included. Both platforms take pictures and PDFs as attachments and offer themes and a chat background. See the [changelog](CHANGELOG.md) for what changed in each release.
+
+[Install](#install) · [Platforms](#platforms) · [Build from source](#build-from-source) · [Known limitations](#known-limitations) · [Verification](#verification)
 
 ![Windows renderer with synthetic demonstration data](docs/preview.png)
 
 ## Install
 
-Releases are published on this private repository's **Releases** page. Each release has a `SHA256SUMS` file; compare it with the files you download.
+Download the latest release from this private repository's **Releases** page. Compare each download's SHA-256 checksum with the release's `SHA256SUMS` before running it.
 
 | File | Platform | Notes |
 |---|---|---|
 | `Tinfoil-Workbench-<version>-x64-Setup.exe` | Windows 11 x64 | Per-user installer; no administrator rights needed |
 | `Tinfoil-Workbench-<version>-x64-Portable.exe` | Windows 11 x64 | Runs without installing |
-| `Tinfoil-Workbench-<version>-android.apk` | Android 7.0+ | Install manually ("install unknown apps"); needs a current Android System WebView |
+| `Tinfoil-Workbench-<version>-android.apk` | Android 7.0+ | Install manually using Android's “install unknown apps” permission; needs a current Android System WebView |
 
-The Windows executables are **not code-signed**, so SmartScreen shows a warning the first time you run them. The Android APK is signed with the project's release key (certificate SHA-256 `63:95:EA:D7:97:A5:20:C6:32:15:6A:BC:D9:EE:27:31:86:9C:64:ED:0E:E5:10:AD:5B:52:E8:87:18:54:94:CB`). Later updates install over it only if they are signed with the same key.
+The Windows builds are **unsigned**, so SmartScreen warns when you first run them. The Android APK uses the project's release signing certificate:
 
-On first launch choose **Set up connection**. You can use a developer API key or sign in with a Tinfoil Chat account on Tinfoil's own sign-in page. On Android, sign-in uses your email and password; Google sign-in is not available there.
+```text
+SHA-256: 63:95:EA:D7:97:A5:20:C6:32:15:6A:BC:D9:EE:27:31:86:9C:64:ED:0E:E5:10:AD:5B:52:E8:87:18:54:94:CB
+```
+
+Android updates must use the same signing key to install over the existing app. Export conversations before upgrading and keep original attachments separately. Do not open an updated workspace in an older build; see [data and backups](#data-and-backups).
+
+On first launch, choose **Set up connection**. Use a developer API key or a Tinfoil Chat account. Android Chat sign-in uses email and password; Google and Apple sign-in are unavailable there. See [accounts](docs/ACCOUNT.md) and [Android sign-in](docs/ANDROID-ACCOUNT.md).
 
 ## Platforms
 
-| | Windows 11 (Electron) | Android (Capacitor) |
-|---|---|---|
-| Attested chat, reasoning, comparison, versions and editing, branching, projects | ✓ | ✓ |
-| Inline visual artifacts, HTML previews, local PDF viewing | ✓ | ✓ |
-| Optional system instructions: picker, saved library, starters | ✓ | ✓ |
-| Tinfoil web search, text-only delegation | ✓ | ✓ |
-| Developer API key | ✓ | ✓ |
-| Tinfoil Chat sign-in (website session) | ✓ | email and password |
-| Local Python execution (not a sandbox) | ✓ | — |
-| Export artifacts as PDF | ✓ | existing PDFs only |
-| Encrypted workspace key protection | DPAPI (Windows user) | Android Keystore (device) |
+“Yes” describes an implemented feature, not the scope of release testing. See [verification](#verification) for what was exercised.
 
-Android details, including the security model and its differences from desktop, are in [docs/ANDROID.md](docs/ANDROID.md).
+| Feature | Windows 11 (Electron) | Android (Capacitor) |
+|---|---|---|
+| Attested chat, reasoning controls and comparison | Yes | Yes |
+| Editing, versions, branching and local projects | Yes | Yes |
+| System instructions picker, saved library and starters | Yes | Yes |
+| Inline visual artifacts and HTML previews | Yes | Yes |
+| Local PDF viewing | Yes | WebView 125 or newer |
+| Attach with the picker: text, code, pictures and PDF text | Yes | Yes |
+| Drop files on the window; paste files or screenshots | Yes | Not checked |
+| Attach a folder as a path for the agent | Yes, by drop or paste | No |
+| Workspace agent | Yes | No |
+| Model-requested Python and automatic interpreter discovery | Yes | No |
+| Tinfoil cloud chats, including pictures in both directions | Yes | No |
+| System, Light and Dark themes; Workbench and 29 Codex presets | Yes | Yes |
+| Chat texture or picture background; blur, greyscale and dim | Yes | Yes |
+| Tinfoil web search and text-only delegation | Yes | Yes |
+| Developer API key | Yes | Yes |
+| Tinfoil Chat website-session connection | Yes | Email and password; requires a supported WebView |
+| Export artifacts as PDF | Yes | Save existing PDFs only |
+| Encrypted workspace key protection | Windows user protection (DPAPI) | Android Keystore |
+
+See [Android requirements and differences](docs/ANDROID.md).
 
 <img src="docs/android-start.png" alt="Android start screen" width="270"> <img src="docs/android-instructions.png" alt="Android system instructions picker" width="270"> <img src="docs/android-attachment.png" alt="Android composer with an attached file" width="270">
 
+## Accounts, responses and tools
+
+### Connections and cloud chats
+
+**Account & connection** keeps the Tinfoil Chat website-session connection separate from developer API-key access. Both use the verified inference adapter; neither silently falls back to the other. Workbench verifies the enclave and loads the model list by itself at launch, when a sign-in completes or is restored, and after you switch the connection; **Verify & refresh models** checks again on demand. Chat sign-in opens Tinfoil's own sign-in page with no bridge to Workbench. With **Stay signed in** (on by default), the website session is saved encrypted on the device, for the Windows user on a PC and with an Android Keystore key on a phone, so restarts and updates keep you signed in; signing out ends it and deletes it. Changing the account or connection mode requires approval before existing history can be sent through it; that approval does not send a message. See [account behaviour](docs/ACCOUNT.md).
+
+On Windows, connecting a chat key under **Tinfoil cloud chats** lets Workbench read and update Tinfoil Chat's cloud conversations, including fetching their pictures when you continue them. Pictures attached in Workbench are uploaded through the attested sync enclave before the cloud chat is written, so Tinfoil Chat can show them too; conversations that exist only in Workbench stay local ([cloud chats](docs/CLOUD.md)).
+
+### Instructions, responses and versions
+
+**A custom system prompt is optional and not required.** **None** is the default and sends no instructions of yours; it does not remove provider defaults or Workbench's guide for enabled tools. The instructions picker beside the model selects saved instructions or a starter to customise. Selecting an entry copies it into the conversation, so later library edits do not alter that conversation. Instruction names are display-only. See [system instructions](docs/ARCHITECTURE.md#system-instructions-selection-012).
+
+The model picker shows the available models and their reported capabilities. Thinking controls follow those capabilities rather than offering unsupported settings. Markdown, LaTeX, source text and provider-returned reasoning have separate reading controls.
+
+Editing a message or answer, editing thinking text, and Retry create versions inside the conversation. The version arrows choose the path used for later messages; **Branch** copies that path into a new conversation. Edited thinking is a local annotation, not model reasoning. **Advanced → Editing** can add assistant and system messages without asking a model (not in Tinfoil cloud chats). Local projects organise conversations but add no shared instructions or memory. See [editing and versions](docs/EDITING-AND-MOBILE.md).
+
+### Attachments
+
+Use **Attach** for text and code files, pictures or a PDF's extracted text on either platform; Windows also accepts files dropped anywhere on the window or pasted, including screenshots. A folder dropped or pasted on Windows is attached as its path, not uploaded, and the enabled workspace agent can read inside it without a separate approval ([attachment changes](CHANGELOG.md), [folder access](docs/WORKSPACE-AGENT.md#tools)).
+
+| Attachment | What the model receives |
+|---|---|
+| Text and code | File text; other file types are accepted when they contain UTF-8 text |
+| PNG, JPEG, GIF, WebP or BMP | A redrawn picture for an image-capable model; the conversation shows a thumbnail |
+| PDF | Text extracted page by page with bundled PDF.js, not the original page layout |
+| Folder, Windows only | Its path; the agent's read tools can access files inside it |
+
+A model whose catalogue entry says it cannot read pictures cannot receive a newly attached picture. Earlier pictures become notes when continuing with such a model. Scanned PDFs without text are refused; attach their pages as pictures instead. Word, PowerPoint and Excel files must first be saved as PDF or text. Opening a file only for local preview does not send it to a model.
+
+### Workspace agent
+
+On Windows, turn on **Advanced → Workspace agent** (off by default, per conversation) and choose once where new conversation folders are made, or select an existing project folder. The agent reads, lists and searches within the permitted folders without asking, and can propose file changes and run Windows PowerShell or Git Bash commands ([workspace agent](docs/WORKSPACE-AGENT.md#the-mode)).
+
+| Approval level | File-tool changes inside the workspace folder | Commands |
+|---|---|---|
+| **Ask** — default | Ask for each change | Ask for each command |
+| **Auto-edit** | Apply without asking | Ask for each command |
+| **Auto-run** | Apply without asking | Run without asking unless the command triggers an approval check |
+
+At **Auto-run**, a command still asks when the text checks identify an outside path, deletion, Git history or remote operations, system changes or elevation, network transfers, or package installation. These checks inspect words, not effects; they do not prove that another command is safe. Raising the level needs confirmation. New conversations and branches start at Ask, and turning the agent off resets the level. Automatically approved calls are marked as such.
+
+When a call needs approval, Workbench opens a separate approval window showing the exact command or Python code, or the file diff. The main process owns this window; the conversation page cannot answer it, and closing it declines. File-tool changes are written only if the file has not changed since the proposal. See [approval and execution](docs/WORKSPACE-AGENT.md#approval-and-execution).
+
+**The workspace agent is not a sandbox. An approved command runs with your Windows permissions and is not confined to the workspace folder.** It can read, change or send anything your account can access. Confinement applies to the file tools, not commands; attached folders extend read access, not the file tools' write scope. See [security](SECURITY.md).
+
+### Python
+
+On Windows, **Advanced → Model-requested Python** finds installed interpreters automatically, preferring those on `PATH`, and shows the selected interpreter and version. Choose another from the list or use the native picker; discovery does not run Python ([Python execution](SECURITY.md#python-is-not-a-sandbox)).
+
+Python runs with your Windows file and network permissions, **not in a sandbox**. Model-requested runs need exact-code approval in Workbench's approval window, except when the conversation's workspace agent is at Auto-run, where enabled Python runs without asking.
+
+### Visual tools and activity
+
+Visual tools put charts, tables, diagrams, timelines, stat cards and versioned documents inside answers. HTML previews are static by default. Interaction must be enabled for each preview and stays in a network-restricted frame without native privileges. See [architecture](docs/ARCHITECTURE.md) and [security](SECURITY.md).
+
+Tool batches run sequentially. Tinfoil-managed MCP entries display provider-reported activity; they cannot invoke local tools. Hosted search and text-only delegation are opt-in, and delegation asks before sending a separate task. See [activity and tools](docs/ACTIVITY.md).
+
+### Themes and chat background
+
+**Settings → Appearance** offers System, Light and Dark modes, Workbench's own look and 29 Codex app presets, with colour and contrast controls. Not every preset has both light and dark variants ([themes](docs/ARCHITECTURE.md#themes-13)).
+
+**Settings → Chat background** adds a grid, dots, grain or your own picture, with texture strength or picture blur, greyscale and dim controls. The picture stays in the encrypted workspace and is not sent to a model ([background settings](docs/ARCHITECTURE.md#themes-13)).
+
+### Keyboard shortcuts (Windows)
+
+Ctrl+N new thread · Ctrl+K commands · Ctrl+F search the conversation · Ctrl+B sidebar · Ctrl+Shift+F focus · Ctrl+Shift+A artifacts · Ctrl+, Settings. Enter sends and Shift+Enter inserts a newline; on touch layouts Enter inserts a newline and Send submits.
+
+## Data and backups
+
+The encrypted local workspace holds conversations, drafts and attachments. Windows cloud chats also have remote copies when cloud sync is connected; signing in alone does not enable sync or hide local conversations.
+
+| Platform | Storage and removal |
+|---|---|
+| Windows | The workspace key is protected for the Windows user. Copying `workspace.vault` alone is not a portable backup. Uninstalling keeps the workspace in `%APPDATA%\Tinfoil Workbench`; delete that folder to remove it. |
+| Android | The data key is protected by Android Keystore. Android backup and device transfer are disabled. Uninstalling deletes local conversations. |
+
+**Export** creates an unencrypted copy. Keep exports private and retain original attached files separately. Conversation exports do not include the full stored attachment pictures. Agent work folders are separate from the encrypted conversation store, and Workbench does not delete them.
+
+Do not open a workspace in an older version after an update. For example, 1.2.0 drops pictures and cannot open workspaces containing agent replies beyond its older tool-history limits. See [compatibility](docs/WORKSPACE-AGENT.md#compatibility) and the [changelog](CHANGELOG.md).
+
+Encryption does not protect an open workspace or its files from software running with your account's permissions. Deleting a conversation is not secure erasure. See [security boundaries](SECURITY.md).
+
 ## Build from source
 
-Both platforms build from the same checkout with Node.js 22.12 or newer. Run the commands in the folder containing `package.json`.
+Both platforms build from the same checkout with **Node.js 22.12 or newer**. Run these commands from the folder containing `package.json`. Read [AGENTS.md](AGENTS.md) before changing the source, and keep the pinned dependencies and reviewed lockfile.
 
 ### Windows
 
 ```powershell
-npm run bootstrap      # npm ci from the reviewed lockfile, plus the checksum-verified Electron binary
-npm run doctor         # every entry must pass
-npm test               # strict TypeScript build and the Node test suites
-npm run smoke:desktop  # native DPAPI storage, bridge, PDF print and PDF.js round trip
+npm run bootstrap      # Install from the reviewed lockfile and verify the Electron download
+npm run doctor         # Every entry must pass
+npm test               # Strict TypeScript build and Node tests
+npm run smoke:desktop  # Native storage, bridge, PDF print and PDF.js checks
 npm start
-npm run dist:win       # reruns doctor, tests and smoke, then builds release\*.exe (x64, unsigned)
+npm run dist:win       # Repeat doctor, tests and smoke; build unsigned x64 files in release\
 ```
 
-A successful smoke test prints `DESKTOP_SMOKE_OK`. It uses a temporary profile and never signs in or calls a model. `dist:arm64` exists but has not been validated. The direct dependencies are pinned exactly (Electron 44.4.5, electron-builder 26.17.0, TypeScript 7.0.2, tinfoil 1.2.1, pdfjs-dist 6.3.289). Do not replace them with `latest` or run `npm audit fix --force`.
+A successful native smoke test prints `DESKTOP_SMOKE_OK`. It uses a temporary profile and does not sign in or call a model. Packaging does not publish a release.
 
-In the VS Code integrated terminal, clear `ELECTRON_RUN_AS_NODE` before starting Electron (`Remove-Item Env:ELECTRON_RUN_AS_NODE`). The editor sets it for its own processes, and Electron would otherwise start as plain Node.
+In the VS Code integrated terminal, clear `ELECTRON_RUN_AS_NODE` before starting Electron:
+
+```powershell
+Remove-Item Env:ELECTRON_RUN_AS_NODE -ErrorAction SilentlyContinue
+```
+
+If PowerShell blocks `npm.ps1`, use `npm.cmd` in place of `npm`; the build does not require changing your execution policy. Do not replace dependency pins with `latest` or run `npm audit fix --force`.
 
 ### Android
 
-Additionally install JDK 21 and an Android SDK with `platforms;android-36` and `build-tools;36.0.0`, then:
+Install **JDK 21** and an Android SDK with `platforms;android-36` and `build-tools;36.0.0`:
 
 ```powershell
-$env:JAVA_HOME = '<JDK 21>'; $env:ANDROID_HOME = '<Android SDK>'
-npm run android:apk    # release APK in release\ (signed when TINFOIL_ANDROID_SIGNING is set)
+$env:JAVA_HOME = '<JDK 21>'
+$env:ANDROID_HOME = '<Android SDK>'
+npm run bootstrap
+npm test
+npm run android:apk    # Release APK in release\; signed when signing is configured
 ```
 
-Signing, device tests and the toolchain versions are described in [docs/ANDROID.md](docs/ANDROID.md). The release process for both platforms is in [docs/RELEASING.md](docs/RELEASING.md).
+Set `TINFOIL_ANDROID_SIGNING` to the signing properties file before building a signed APK. Without signing configuration, the release APK is unsigned and Android will not install it. Keep signing keys outside the repository. See [Android build and signing](docs/ANDROID.md#build) and [releasing](docs/RELEASING.md).
 
-## Accounts, responses and tools
+For a renderer-only demonstration:
 
-Open Account & connection to choose the connection: the Tinfoil Chat website-session flow or the separate developer API-key mode. Both feed the official verified SDK/EHBP inference adapter, and neither silently falls back to the other. Workbench verifies the enclave and loads the model list by itself at launch when an API key is saved, when a Chat sign-in completes or is restored, and after you switch the connection, using only that connection's credential; *Verify & refresh models* checks again on demand.
+```powershell
+npm run preview:build
+```
 
-On Windows, Chat sign-in opens Tinfoil's own sign-in page in a temporary window with no Workbench preload or Node bridge. Chat access renews automatically while that website session lasts. With *Stay signed in on this PC* (on by default), the session is saved on the PC, encrypted with your Windows account, so restarts and updates keep you signed in; signing out ends it and deletes it. It has been tested on Windows; additional sign-in methods have not. On Android, Tinfoil's sign-in page opens on a separate screen with no bridge to the app and a WebView storage profile of its own. Sign in with your email and password (Google and Apple are refused there, since Google does not allow sign-in in embedded views). With *Stay signed in on this phone* (on by default) the website session is saved on the phone, sealed with an Android Keystore key, so updates and restarts keep you signed in; otherwise it is deleted when the app next starts. Chat access renews the same way. Signing in alone does not sync conversations or conceal the locally stored ones. On Windows, adding your Tinfoil chat key under Account → Tinfoil cloud chats shows your Tinfoil Chat cloud chats and projects in Workbench and writes changes made to them back to your account; conversations that exist only in Workbench stay local ([Tinfoil cloud chats](docs/CLOUD.md)). Existing history requires explicit approval before crossing Chat identities or Chat/API modes. [Account behavior and limitations](docs/ACCOUNT.md) describes the integration.
-
-Choose model in the composer lists Tinfoil's chat models with each maker's logo, the model's name and description, marks for reasoning, image input and tool calling, and the context size. The list comes from Tinfoil's public model catalog, fetched without credentials when the picker opens, and from the verified endpoint once a connection is verified. Search matches names, IDs and makers, and any other model ID can still be entered. An empty conversation shows the chosen model's maker logo in place of the Tinfoil mark.
-
-System instructions are optional and not required. The instructions button next to the model in the composer chooses them per conversation: None (the default, which sends no instructions of yours), your saved instructions, or read-only starters you can customize as a copy: Concise, Explainer, Visual explainer (a visual whenever the answer involves numbers, change over time, comparisons, dated events or a process, with the tool that fits each), Editor and Code assistant. A choice applies from the next message, and each answer ends with a quiet line naming the model and the instructions it was sent with. Saved instructions stay in the encrypted workspace. Selecting one copies it into the conversation, so later edits or deletion never change an existing conversation. Instruction names are never sent to a model.
-
-Markdown, LaTeX, source viewing and provider-returned reasoning have separate reading controls. Thinking effort follows each model's reported capabilities, and unsupported models get no controls; in the composer it is a gauge, filled up to the chosen level and highlighted unless the provider default is used, which opens a slider over the model's levels that follows a drag and settles on the nearest level. An edited message, Retry and an edited answer or thinking text become versions inside the conversation, with ‹ 2/3 › arrows on the message or the reply; Branch copies the path shown into a new conversation. Answers are edited in place, messages in the composer. Edited thinking is a local annotation, not model reasoning. The Advanced panel can also turn on adding assistant and system messages without asking a model (not in Tinfoil cloud chats). Projects organize local threads; they add no shared instructions or model memory.
-
-Visual tools create charts, tables, diagrams, timelines, stat cards and versioned documents inside the answer. Charts can be line, area, bar (grouped or stacked), scatter or pie (one total in up to six parts), with units on their values; hovering or the arrow keys read every series at a point, and the Data tab lists every value. Bar series that never share a label, such as reported values and a projection, are drawn as whole bars centred on their labels. Timelines list dated events and mark tentative ones; stat cards show a few headline figures with their change and recent values. Both take the names and arguments of the Tinfoil Chat widgets of the same name. The model learns when to use these tools from a short guide at the start of the system message, sent only while the tools are offered and written in XML sections as Tinfoil Chat's own prompt is; your instructions follow it and take precedence. HTML is static by default; interaction you explicitly enable runs in an opaque, network-restricted frame without native privileges. Local files opened for preview are not sent to a model. See [architecture](docs/ARCHITECTURE.md), [editing and mobile layout](docs/EDITING-AND-MOBILE.md) and [security](SECURITY.md).
-
-Tool batches execute sequentially with per-action approvals. Tinfoil-managed MCP records show provider-reported activity and cannot invoke a local tool. Hosted search and text-only delegation are opt-in; see [activity](docs/ACTIVITY.md). On Windows, Python runs locally with the current user's file and network permissions: **it is not a security sandbox**. Each run needs exact-code approval and a native confirmation.
-
-On Windows, the workspace agent (Advanced, off by default, per conversation) lets a model work in a folder: a new one for each conversation under a place you choose once, or a project folder you choose. It lists, searches and reads files there without asking, and runs Windows PowerShell or Git Bash commands (git included) and changes files only after you approve each one in a native dialog that shows the command, or the change as a diff. It is not a sandbox either: an approved command runs with your Windows account's permissions. See [workspace agent](docs/WORKSPACE-AGENT.md).
-
-## Data and backups
-
-Conversations are stored only on the device, in an encrypted workspace:
-
-- **Windows:** the key is protected for the Windows user, so copying `workspace.vault` alone is not a portable backup. Uninstalling keeps the workspace in `%APPDATA%\Tinfoil Workbench`; delete that folder to remove it.
-- **Android:** the key never leaves the device's Keystore, and Android backup and device transfer are disabled for the app. Uninstalling the app deletes its conversations.
-
-Use **Export** for plaintext copies, and store exports privately. Back up before upgrading, and avoid opening an updated workspace in an older build.
-
-Keyboard shortcuts on Windows: Ctrl+N new thread; Ctrl+K commands; Ctrl+F conversation search; Ctrl+B sidebar; Ctrl+Shift+F focus; Ctrl+Shift+A artifacts; Ctrl+, Settings. Enter sends and Shift+Enter inserts a newline. On touch layouts Enter inserts a newline and Send submits.
+The generated `preview/index.html` uses labelled synthetic responses and cannot authenticate. It is not a native acceptance test.
 
 ## Known limitations
 
-- **Windows:** the executables are not code-signed, so SmartScreen warns when a new version first runs. Only x64 builds are published; `dist:arm64` has not been validated.
-- **Other platforms:** there are no iOS, macOS or Linux builds.
-- **Android:** no Tinfoil cloud chats. Chat sign-in takes email and password only: Google and Apple refuse sign-in in an embedded view, and the provider integration they need does not exist yet. No local Python, PDF export only for artifacts that already are PDFs, and PDF preview needs Android System WebView 125 or newer.
-- **Tinfoil cloud chats (Windows):** Workbench lists your 300 most recent cloud chats. Their pictures are fetched when you continue a chat, and a picture Tinfoil no longer has reaches the model as a note. Folders cannot be attached to cloud chats. Of Tinfoil Chat's widgets, charts, timelines and stat cards are drawn; the others are listed as not displayed. Visuals made in Workbench are not written back, so Tinfoil Chat shows those answers as text. Cloud projects are managed in Tinfoil Chat.
-- **Sign-in methods:** Chat sign-in has been checked on Windows and Android. Additional sign-in methods have not been tried.
-- **Python** (Windows) runs with your user account's permissions. It is not a sandbox.
-- **Workspace agent** (Windows): approved commands run with your account's permissions and are not confined to the folder; there is no sandbox and no interactive or long-running commands. Not in Tinfoil cloud chats or on Android.
-- **Android, replies in progress:** Android can pause the app in the background, and a reply being written then stops; the reply says so. Ask again with Retry.
-- **Models:** a model can fail to follow the tool guide. When one writes a chart, table, diagram, timeline or stat-card call into its answer as text instead of making it (GLM-5.3 Flash has), Workbench draws it and marks it as written as text; other calls written as text stay text.
+| Area | Limitation |
+|---|---|
+| Platforms | Published Windows builds are x64. `dist:arm64` exists but is unvalidated. There are no iOS, macOS or Linux builds. |
+| Android | No workspace agent, folder attachments, Python or Tinfoil cloud chats. PDF export can only save an existing PDF. PDF viewing needs WebView 125 or newer. |
+| Sign-in | Not every sign-in method that Tinfoil offers has been tried with Workbench. On Android, Google and Apple refuse sign-in in an embedded view, so only email and password work there. |
+| Android backgrounding | Android can stop an in-progress reply when the app leaves the screen. Interrupted replies are marked; use Retry to ask again. |
+| Local execution | Neither the agent nor Python is a sandbox. Agent commands are not folder-confined. Interactive programs and long-running servers are unsupported; Stop and timeout termination are best effort. |
+| Agent conversations | A conversation that has used the agent stays on this computer and cannot move to Tinfoil cloud chats. |
+| Cloud chats | The list is limited to the 300 most recent chats. Folder attachments are refused. Cloud projects are managed in Tinfoil Chat. |
+| Cloud pictures and widgets | A picture Tinfoil no longer has reaches the model as a note; other fetch failures can block sending. Charts, timelines and stat cards are rendered; other Tinfoil widgets are listed as not displayed. Workbench visuals are not written back, so Tinfoil Chat shows those answers as text. |
+| Models | Models may ignore the tool guide. Recognised visual calls written as text can be displayed and labelled as such; other calls remain text. |
+| Security assurance | Workbench is not an independently audited security product. Local encryption and enclave verification do not make local execution safe. |
 
 ## Verification
 
-[docs/VALIDATION.md](docs/VALIDATION.md) records what ran for the current release and what did not: the Node tests, the browser suites, native smoke tests of the source tree and the packaged app, live verification of the inference and cloud sync enclaves, upgrades over the previous release on Windows and Android, device checks on Android emulators, and checks on a physical Android phone with a real account. Records of earlier releases are in [docs/history](docs/history). [docs/HANDOFF.md](docs/HANDOFF.md) is the manual acceptance checklist for what automated checks cannot establish.
+The [1.3.0 validation record](docs/VALIDATION.md), recorded on 1 October 2026, is the source for these results. It separates automated checks, review builds, installed-release checks and work that was not run.
 
-`preview/index.html` (built by `npm run preview:build`) is a standalone renderer demonstration with labelled synthetic responses; it cannot authenticate. [Rendering measurements](docs/RENDERING.md) describe a synthetic workload.
+| Recorded scope | Result |
+|---|---|
+| Strict build and Node tests | 561 passed, 0 failed, 1 skipped |
+| Production-renderer browser tests | 526 checks across 12 suites passed |
+| Windows build and native smoke | Packaging gates passed; source, packaged and installed-app checks covered native storage, PDF handling, the agent runner and the approval window |
+| Packaged and installed Windows app | Live inference and sync enclave verification passed; installation over an existing review build was checked |
+| Live agent checks | Small-project tasks with three models, plus greeting checks with two models |
+| Cloud pictures | Manual checks fetched a web chat's picture into Workbench and showed a Workbench upload in Tinfoil Chat |
+| Android | Debug/live and release checks on Android 14 and 16 emulators; an in-place update from 1.2.0 preserved a draft |
+| Physical Android hardware | Only preservation of a saved session across the update was checked for 1.3.0 |
+
+The record also documents failed checks and their fixes. Drop and paste were checked with scratch scripts and manual runs, not a committed browser test. Browser viewport and touch emulation do not establish native-device support.
+
+**Not checked for this release:** a repeated clean Windows installation, a standard-user Windows account, running the portable executable, Android picture/PDF picking on a device, long agent tasks, Git Bash or approval levels with a real model, and the updated live cloud test script. A real model's answer about a fetched cloud picture and missing-picture or unfetched-copy cases also remain unverified. Earlier open checks remain open unless the record says otherwise; see [not executed](docs/VALIDATION.md#not-executed).
+
+The [manual acceptance checklist](docs/HANDOFF.md) covers work beyond automated tests. [Rendering measurements](docs/RENDERING.md) describe a synthetic workload, not general performance claims. Earlier records are in [docs/history](docs/history).
 
 ## Documentation
 
-- [Android app](docs/ANDROID.md) · [Android sign-in](docs/ANDROID-ACCOUNT.md) · [Tinfoil cloud chats](docs/CLOUD.md) · [Releasing](docs/RELEASING.md) · [Validation](docs/VALIDATION.md) · [Manual acceptance](docs/HANDOFF.md)
-- [Architecture](docs/ARCHITECTURE.md) · [Security](SECURITY.md) · [Accounts](docs/ACCOUNT.md) · [Activity and tools](docs/ACTIVITY.md) · [Editing and mobile layout](docs/EDITING-AND-MOBILE.md) · [Workspace agent](docs/WORKSPACE-AGENT.md) · [Spacing](docs/SPACING.md) · [Rendering](docs/RENDERING.md)
-- [Changelog](CHANGELOG.md) · [Notices](NOTICE.md) · Earlier records in [docs/history](docs/history)
+- **Using Workbench:** [Accounts](docs/ACCOUNT.md) · [Cloud chats](docs/CLOUD.md) · [Workspace agent](docs/WORKSPACE-AGENT.md) · [Activity and tools](docs/ACTIVITY.md) · [Editing and mobile layout](docs/EDITING-AND-MOBILE.md)
+- **Platforms and builds:** [Android](docs/ANDROID.md) · [Android sign-in](docs/ANDROID-ACCOUNT.md) · [Releasing](docs/RELEASING.md) · [Validation](docs/VALIDATION.md) · [Manual acceptance](docs/HANDOFF.md)
+- **Design and changes:** [Architecture](docs/ARCHITECTURE.md) · [Security](SECURITY.md) · [Spacing](docs/SPACING.md) · [Rendering](docs/RENDERING.md) · [Changelog](CHANGELOG.md) · [Notices](NOTICE.md)
 
-Original application code is private and UNLICENSED; third-party notices are in [NOTICE.md](NOTICE.md). This is an unofficial client, not endorsed by Tinfoil.
+Original application code is private and UNLICENSED. Third-party notices are in [NOTICE.md](NOTICE.md).

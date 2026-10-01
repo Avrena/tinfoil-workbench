@@ -4,7 +4,7 @@ A release is built and verified on a maintainer machine from a clean, tagged com
 
 ## Version
 
-`package.json` is the only version source. The Windows installers take their file names from it, and the Android build derives `versionName` and `versionCode` from it (`major·1,000,000 + minor·1,000 + patch`; 0.11.0 → 11000). Add a `CHANGELOG.md` entry and a validation record in `docs/VALIDATION.md` (move the previous record to `docs/history/`).
+`package.json` is the only version source. The Windows installers take their file names from it, and the Android build derives `versionName` and `versionCode` from it (`major·1,000,000 + minor·1,000 + patch`; 0.11.0 → 11000). Add a `CHANGELOG.md` entry and a validation record in `docs/VALIDATION.md` (move the previous record to `docs/history/`), and update the README's Verification section from the new record.
 
 ## Gates
 
