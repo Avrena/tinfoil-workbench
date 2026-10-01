@@ -246,11 +246,11 @@ The [1.4.0 validation record](docs/VALIDATION.md), recorded on 1 October 2026, i
 | Live tagging checks | Six runs with seven Tinfoil chat models on sets of 13 and 18 conversations; titles and tags judged by reading each conversation |
 | Cloud chats | A test chat's extra field survived a rename in Tinfoil Chat on the web; tags of cloud chats were checked against an in-memory enclave |
 | Android | Debug/live and release checks on Android 14 and 16 emulators; an in-place update from 1.3.0 preserved a draft |
-| Physical Android hardware | Only opening signed in after the update was checked for 1.4.0 |
+| Physical Android hardware | Opening signed in after the update, and tags and titles, were checked by hand on one phone for 1.4.0 |
 
 The record also documents failed checks and their fixes. Drop and paste were checked with scratch scripts and manual runs, not a committed browser test. Browser viewport and touch emulation do not establish native-device support.
 
-**Not checked for this release:** tags travelling between two Workbench installs with a real account, tags on a physical Android phone, a repeated clean Windows installation, a standard-user Windows account and running the portable executable. Earlier open checks remain open unless the record says otherwise; see [not executed](docs/VALIDATION.md#not-executed).
+**Not checked for this release:** tags travelling between two Workbench installs with a real account, a repeated clean Windows installation, a standard-user Windows account and running the portable executable. Earlier open checks remain open unless the record says otherwise; see [not executed](docs/VALIDATION.md#not-executed).
 
 The [manual acceptance checklist](docs/HANDOFF.md) covers work beyond automated tests. [Rendering measurements](docs/RENDERING.md) describe a synthetic workload, not general performance claims. Earlier records are in [docs/history](docs/history).
 

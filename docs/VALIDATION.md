@@ -34,7 +34,7 @@ A tagging request took about 500–700 input and 20–30 output tokens; the six 
 
 Tags of cloud chats themselves (8d39365) were checked with the in-memory enclave below, not between two installs with a real account.
 
-**Phone.** The release-signed 1.4.0 APK, installed over the release-signed 1.3.0 holding a saved sign-in, opened without Tinfoil's sign-in page and showed the enclave verified.
+**Phone.** The release-signed 1.4.0 APK, installed over the release-signed 1.3.0 holding a saved sign-in, opened without Tinfoil's sign-in page and showed the enclave verified. After the release, tags and model-written titles were checked by hand on that phone with the same APK, and worked.
 
 ## What changed and how it was checked
 
@@ -71,7 +71,7 @@ The twelve production-renderer browser suites passed **533 checks** with no Java
 ## Not executed
 
 - **Tags between two installs:** a cloud chat's tags were not checked between two Workbench installs with a real account; the sync engine's handling of them was checked against the in-memory enclave. Tinfoil Chat on the web was checked to keep an extra field when it renames a chat, not when it continues one.
-- **A phone:** tags were checked neither on real Android hardware nor by the emulator checks; their phone layout was checked in the browser suites at phone width.
+- **A phone:** tags and titles were checked by hand on one phone after the release (above); the emulator checks do not cover tags.
 - **A clean Windows:** not repeated, since the installer configuration is unchanged; see the [1.0.0 record](history/v1.0.0/VALIDATION.md#a-clean-windows). A standard-user Windows account was not used, and the portable executable was not run.
 - Everything listed as not executed for [1.3.0](history/v1.3.0/VALIDATION.md#not-executed) and not checked above remains open.
 
