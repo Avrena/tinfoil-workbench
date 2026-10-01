@@ -1,6 +1,6 @@
 # Tinfoil Workbench 0.10 — local-build handoff
 
-An unofficial private Windows 11 client in TypeScript and Electron. The conversation-first interface uses neutral grey surfaces, inline visualizations, versioned artifacts and progressive disclosure. This package is source and a synthetic offline preview, not an installed, signed or live-provider-certified Windows release.
+An unofficial Windows 11 client in TypeScript and Electron. The conversation-first interface uses neutral grey surfaces, inline visualizations, versioned artifacts and progressive disclosure. This package is source and a synthetic offline preview, not an installed, signed or live-provider-certified Windows release.
 
 **The custom system prompt is optional and not required.** Leave Advanced instructions blank for ordinary chat. Blank instructions do not inject a custom system message; they do not remove the provider’s own defaults.
 

@@ -1,6 +1,6 @@
 # Tinfoil Workbench 0.9
 
-A private Windows 11 chat client in TypeScript and Electron, with a restrained editor-inspired interface, model-aware thinking controls, optional local Python, and versioned visual artifacts.
+A Windows 11 chat client in TypeScript and Electron, with a restrained editor-inspired interface, model-aware thinking controls, optional local Python, and versioned visual artifacts.
 
 This is a source implementation. No Windows executable, verified live-provider result, GitHub repository, or green remote CI run is supplied. See [the validation record](../../VALIDATION.md) for exactly what ran.
 
