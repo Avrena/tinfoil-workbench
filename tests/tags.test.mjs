@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import { WorkbenchService } from '../desktop/service.mjs';
 import { newWorkspace, newThread, beginTurn, forkThread, exportThread, importThread } from '../dist/core/workspace.js';
 import { validateWorkspace, tagging as taggingSettings } from '../dist/core/validation.js';
-import { PRESET_TAGS, TAG_COLORS, defaultTagging, tagMessages, parseTagAnswer, cleanTitle, titleFromMessage, messageTitle, taggable, untagged, tagEstimate, tagAllQuestion, threadTags, tagSearch } from '../dist/core/tags.js';
+import { PRESET_TAGS, TAG_COLORS, TAG_ICONS, tagLetter, defaultTagging, tagMessages, parseTagAnswer, cleanTitle, titleFromMessage, messageTitle, taggable, untagged, tagEstimate, tagAllQuestion, threadTags, tagSearch } from '../dist/core/tags.js';
 import { themeTokens, THEME_PRESETS } from '../dist/core/themes.js';
 const wait = ms => new Promise(r => setTimeout(r, ms));
 const CLASSIFIER = /^You file conversations/;
@@ -21,7 +21,12 @@ test('a workspace from before tags gets the presets with tagging off, and tags l
   const ws = newWorkspace(); delete ws.tagging;
   const old = validateWorkspace(structuredClone(ws));
   assert.deepEqual(old.tagging, defaultTagging()); assert.equal(old.tagging.enabled, false);
-  assert.ok(old.tagging.tags.every(t => t.style === 'fill') && old.tagging.tags.length === PRESET_TAGS.length);
+  assert.equal(old.tagging.tags.length, PRESET_TAGS.length);
+  // Every preset looks like no other, and each has a hint for the model.
+  assert.equal(new Set(PRESET_TAGS.map(t => `${t.color}/${t.style}`)).size, PRESET_TAGS.length);
+  assert.ok(PRESET_TAGS.every(t => t.hint) && new Set(PRESET_TAGS.map(t => t.id)).size === PRESET_TAGS.length);
+  assert.deepEqual(PRESET_TAGS.slice(9).map(t => t.name), ['Travel', 'Legal', 'Cyber', 'NSFW', 'Ambiguous']);
+  assert.ok(PRESET_TAGS.every(t => TAG_ICONS.includes(t.icon)) && new Set(PRESET_TAGS.map(t => t.icon)).size === PRESET_TAGS.length);
   const t = old.threads[0]; t.tags = ['preset-coding', 'preset-work']; t.tagged = { at: 1, model: 'm' };
   old.tagging.tags = old.tagging.tags.filter(tag => tag.id !== 'preset-work');
   const again = validateWorkspace(structuredClone(old));
@@ -36,6 +41,10 @@ test('the tag list refuses two tags with one name, unknown colours and styles, a
   assert.throws(() => taggingSettings({ ...base, tags: [{ id: 'x', name: 'Two\nlines', color: 'red', hint: '' }] }), /single line/);
   const ok = taggingSettings({ ...base, tags: [{ id: 'x', name: ' #Travel ', color: 'aqua', hint: 'Trips' }] });
   assert.deepEqual(ok.tags, [{ id: 'x', name: 'Travel', color: 'aqua', style: 'fill', hint: 'Trips' }]);
+  // A known icon is kept; one from a later version is left out, and the first letter stands in.
+  const icons = taggingSettings({ ...base, tags: [{ id: 'a', name: 'A', color: 'red', hint: '', icon: 'plane' }, { id: 'b', name: 'B', color: 'red', hint: '', icon: 'rocket' }] });
+  assert.equal(icons.tags[0].icon, 'plane'); assert.ok(!('icon' in icons.tags[1]));
+  assert.deepEqual(['coding', 'éclair', '中文', '3D', ' ünter', '👩‍💻 Dev', ''].map(tagLetter), ['C', 'É', '中', '3', 'Ü', '👩‍💻', '']);
   assert.throws(() => taggingSettings({ ...base, tags: Array.from({ length: 41 }, (_, i) => ({ id: `t${i}`, name: `T${i}`, color: 'red', hint: '' })) }), /oversized/);
 });
 test('the classifier reads only the first message, its file names and the start of the answer', () => {

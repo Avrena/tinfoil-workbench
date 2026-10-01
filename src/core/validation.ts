@@ -1,7 +1,7 @@
 import { viewPreferences } from './preferences.js';
-import type { ReplyEdit, ApiMessage, Artifact, Attachment, CloudConfig, CloudPicture, GenerationSettings, ImageAttachment, InstructionPreset, Reply, StoredImage, TagColor, TagDef, TagStyle, Tagging, Thread, ToolRun, Turn, TurnVersion, Workspace } from './types.js';
+import type { ReplyEdit, ApiMessage, Artifact, Attachment, CloudConfig, CloudPicture, GenerationSettings, ImageAttachment, InstructionPreset, Reply, StoredImage, TagColor, TagDef, TagIcon, TagStyle, Tagging, Thread, ToolRun, Turn, TurnVersion, Workspace } from './types.js';
 import { CLOUD_PICTURE_ID, IMAGE_ID, IMAGE_LIMITS, STORED_IMAGE_TYPES } from './attachments.js';
-import { TAG_COLORS, TAG_LIMITS, TAG_STYLES, defaultTagging } from './tags.js';
+import { TAG_COLORS, TAG_ICONS, TAG_LIMITS, TAG_STYLES, defaultTagging } from './tags.js';
 import type { CloudChatLink, CloudProjectLink } from './cloud.js';
 export const LIMITS = Object.freeze({
   prompt: 160_000, attachment: 200_000, attachments: 8,
@@ -270,7 +270,9 @@ function tagDef(value: unknown): TagDef {
   // A leading # is how a search names a tag, not part of the name.
   const name = line(v.name, 'Tag name', TAG_LIMITS.name, true).replace(/^#+/, '').trim();
   if (!name) throw new InputError('A tag name needs more than #.');
-  return { id: identifier(v.id), name, color: v.color as TagColor, style: (v.style ?? 'fill') as TagStyle, hint: line(v.hint ?? '', 'Tag hint', TAG_LIMITS.hint) };
+  // An icon this version does not know (from a later one) is left out, and the first letter stands in.
+  const icon = TAG_ICONS.includes(v.icon as TagIcon) ? v.icon as TagIcon : undefined;
+  return { id: identifier(v.id), name, color: v.color as TagColor, style: (v.style ?? 'fill') as TagStyle, hint: line(v.hint ?? '', 'Tag hint', TAG_LIMITS.hint), ...(icon ? { icon } : {}) };
 }
 /** Settings → Tags: at most 40 tags with different names (ignoring case) and ids; the model is a catalog id or '' for
  * the conversation's own model. */

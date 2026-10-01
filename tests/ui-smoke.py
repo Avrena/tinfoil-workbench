@@ -17,7 +17,9 @@ html=(root/'preview/index.html').read_text(encoding='utf-8')
 marker='const pause = (ms) => new Promise((r) => setTimeout(r, ms));'
 assert marker in html
 fixture="""window.__fixture = patch => { const t=workspace.threads.find(t=>t.id===workspace.activeId); Object.assign(t.turns[0].replies[0],patch); emit(); };
-window.__active = () => structuredClone(workspace.threads.find(t=>t.id===workspace.activeId));"""
+window.__active = () => structuredClone(workspace.threads.find(t=>t.id===workspace.activeId));
+window.__titled = title => structuredClone(workspace.threads.find(t=>t.title===title));
+window.__tagging = () => structuredClone(workspace.tagging);"""
 html=html.replace(marker,marker+fixture,1)
 with sync_playwright() as p:
  options={'headless':True}
@@ -268,19 +270,19 @@ with sync_playwright() as p:
  # sidebar's tag row, #search and grouping by tag, and each style's shape.
  tags=b.new_page(viewport={'width':1400,'height':900});tags.on('pageerror',lambda e:errors.append(str(e)));tags.set_content(html)
  tags.locator('[data-action=settings]').first.click();expect(tags.locator('#tagging-options')).to_be_hidden()
- expect(tags.locator('#tag-list [data-tag]')).to_have_count(9);tags.locator('#tagging-on').check();expect(tags.locator('#tagging-options')).to_be_visible()
+ expect(tags.locator('#tag-list [data-tag]')).to_have_count(14);tags.locator('#tagging-on').check();expect(tags.locator('#tagging-options')).to_be_visible()
  expect(tags.locator('#tagging-model')).to_have_value('')
  coding=tags.locator('[data-tag=preset-coding]');coding.locator('.tag-look').click();expect(coding.locator('.tag-styles [role=radio]')).to_have_count(5)
  coding.locator('[data-pick-style=stripe]').click();expect(coding.locator('.tag-look .tag-chip')).to_have_attribute('data-style','stripe')
  expect(coding.locator('[data-pick-style=stripe]')).to_be_focused();coding.locator('[data-pick-color=green]').click()
  expect(coding.locator('.tag-look .tag-chip')).to_have_attribute('data-color','green');coding.locator('.tag-look').click();expect(coding.locator('.tag-looks')).to_have_count(0)
  tags.locator('#tag-add').click();new=tags.locator('#tag-list [data-tag]').last;expect(new.locator('.tag-name-input')).to_be_focused();expect(new.locator('.tag-name-input')).to_have_value('New tag')
- new.locator('.tag-name-input').fill('#Travel');new.locator('.tag-name-input').press('Enter');expect(new.locator('.tag-name-input')).to_have_value('Travel')
- tags.locator('[data-tag=preset-personal] .tag-name-input').fill('travel');tags.locator('[data-tag=preset-personal] .tag-name-input').press('Enter')
+ new.locator('.tag-name-input').fill('#Gardening');new.locator('.tag-name-input').press('Enter');expect(new.locator('.tag-name-input')).to_have_value('Gardening')
+ tags.locator('[data-tag=preset-personal] .tag-name-input').fill('gardening');tags.locator('[data-tag=preset-personal] .tag-name-input').press('Enter')
  expect(tags.locator('#toast')).to_contain_text('Two tags are called');expect(tags.locator('[data-tag=preset-personal] .tag-name-input')).to_have_value('Personal')
  new.locator('[data-tag-action=remove]').click();expect(new.locator('[data-tag-action=remove-cancel]')).to_be_focused();new.locator('[data-tag-action=remove-confirm]').click()
  tags.locator('[data-tag=preset-health] [data-tag-action=remove]').click();tags.locator('[data-tag=preset-health] [data-tag-action=remove-confirm]').click()
- expect(tags.locator('#tag-list [data-tag]')).to_have_count(8);tags.locator('#tag-presets').click();expect(tags.locator('#tag-list [data-tag]')).to_have_count(9);expect(tags.locator('#tag-presets')).to_be_disabled()
+ expect(tags.locator('#tag-list [data-tag]')).to_have_count(13);tags.locator('#tag-presets').click();expect(tags.locator('#tag-list [data-tag]')).to_have_count(14);expect(tags.locator('#tag-presets')).to_be_disabled()
  checks.append('Settings → Tags turns tagging on, picks each tag’s colour and style, adds, renames, refuses a duplicate name, removes and restores presets')
  tags.keyboard.press('Escape');tags.locator('#prompt').fill('Help with debugging this programming error in my scripts');tags.locator('#send').click()
  row=tags.locator('#thread-list .thread').first;expect(row.locator('.row-tags .tag-chip')).to_have_text(['Coding'],timeout=15000)
@@ -324,6 +326,38 @@ with sync_playwright() as p:
  assert work.locator('[data-pick-style=fill] .tag-chip').evaluate('c=>getComputedStyle(c).backgroundColor')!=dark
  tags.keyboard.press('Escape')
  checks.append('tags have small corners in five styles (filled, outline, both, stripe, dot), drawn from the theme’s tokens in light and dark')
+ # A conversation's tags from its sidebar row, without opening it: a new name becomes a tag in a look no other tag has
+ # and is switched on, a listed name is switched on, and Remove all clears them as the person's choice.
+ other=tags.locator('#thread-list .thread-row').filter(has_text='Help with debugging');other.hover();other.locator('[data-action=row-tags]').click()
+ expect(tags.locator('#tags-dialog')).to_be_visible();expect(tags.locator('#tags-for')).to_have_text('Help with debugging this programming error')
+ expect(tags.locator('[data-tag-toggle=preset-coding]')).to_have_attribute('aria-pressed','true');expect(tags.locator('#tags-clear')).to_be_enabled()
+ tags.locator('#tag-new-name').fill('#Garden plans');tags.locator('#tag-new-name').press('Enter');expect(tags.locator('#tag-new-name')).to_have_value('')
+ expect(tags.locator('.tag-option').filter(has_text='Garden plans')).to_have_attribute('aria-pressed','true')
+ looks=tags.locator('#tag-options .tag-chip').evaluate_all("cs=>cs.map(c=>c.dataset.color+'/'+c.dataset.style)");assert len(looks)==15 and len(set(looks))==15,looks
+ tags.locator('#tag-new-name').fill('LEGAL');tags.locator('#tag-new-add').click();expect(tags.locator('[data-tag-toggle=preset-legal]')).to_have_attribute('aria-pressed','true')
+ expect(tags.locator('#tag-options .tag-option')).to_have_count(15)
+ mine=tags.evaluate("window.__titled('Help with debugging this programming error').tags");assert len(mine)==4 and 'preset-legal' in mine,mine
+ assert tags.evaluate("window.__active().title")=='Drafting and editing a short letter'
+ tags.locator('#tags-clear').click();expect(tags.locator('#tag-options [aria-pressed=true]')).to_have_count(0);expect(tags.locator('#tags-clear')).to_be_disabled()
+ expect(tags.locator('#tag-note')).to_have_text('Chosen by you.');tags.keyboard.press('Escape')
+ expect(other.locator('.row-tags')).to_have_count(0);assert tags.evaluate("window.__titled('Help with debugging this programming error').tags") in (None,[])
+ checks.append('a sidebar row opens the tags of its conversation; the dialog makes and switches on new or listed tags, and Remove all clears them')
+ # Each tag has an icon, picked in Settings, or else its first letter. On a phone, the title bar and the sidebar show
+ # these in place of names, which stay for screen readers; wider windows show names.
+ tags.locator('[data-action=settings]').first.click();personal=tags.locator('[data-tag=preset-personal]');personal.locator('.tag-look').click()
+ expect(personal.locator('.tag-icons [role=radio]')).to_have_count(19);expect(personal.locator('[data-pick-icon=person]')).to_have_attribute('aria-checked','true')
+ personal.locator('[data-pick-icon=home]').click();expect(personal.locator('[data-pick-icon=home]')).to_have_attribute('aria-checked','true');expect(personal.locator('[data-pick-icon=home]')).to_be_focused()
+ expect(personal.locator('.tag-look .tag-glyph svg')).to_have_count(1);expect(personal.locator('.tag-look')).to_have_attribute('aria-label','Look of Personal: Grey, filled, house icon')
+ personal.locator('[data-pick-icon=""]').click();expect(personal.locator('.tag-look .tag-glyph')).to_have_text('P');tags.keyboard.press('Escape')
+ assert 'icon' not in tags.evaluate("window.__tagging().tags.find(t=>t.id==='preset-personal')")
+ tags.locator('#thread-tags').click();tags.locator('.tag-option').filter(has_text='Garden plans').click();tags.keyboard.press('Escape')
+ glyphs="cs=>cs.map(c=>{const g=c.querySelector('.tag-glyph'),n=c.querySelector('.tag-name');return [getComputedStyle(g).display!=='none',g.querySelector('svg')?'icon':g.textContent,Math.round(n.getBoundingClientRect().width),n.textContent]})"
+ tags.set_viewport_size({'width':360,'height':800});tags.wait_for_timeout(300)
+ chips=tags.locator('#thread-tags .tag-chip').evaluate_all(glyphs);assert chips==[[True,'icon',1,'Writing'],[True,'G',1,'Garden plans']],chips
+ rows=tags.locator('#thread-list .row-tags .tag-chip').evaluate_all(glyphs);assert [[c[0],c[1],c[3]] for c in rows]==[[c[0],c[1],c[3]] for c in chips],rows
+ tags.set_viewport_size({'width':1400,'height':900});tags.wait_for_timeout(300)
+ wide=tags.locator('#thread-tags .tag-chip').evaluate_all(glyphs);assert [c[0] for c in wide]==[False,False] and all(c[2]>20 for c in wide),wide
+ checks.append('tags show their icon or first letter in place of names in the title bar and the sidebar on a phone, and Settings picks each tag’s icon')
  tags.close()
  assert not errors,errors;assert len(blocked_styles)<=1,blocked_styles;assert not [r for r in requests if r.startswith(('http:','https:'))],requests
  checks.append('no JavaScript errors or external requests; CSP remains enforced during inert parsing')

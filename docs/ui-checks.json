@@ -1,5 +1,5 @@
 {
-  "checks": 42,
+  "checks": 49,
   "passed": [
     "default layout hides advanced controls and labels offline data",
     "the title search is centred on the window at 40% of its width, and the idle status bar shows only the connection",
@@ -42,6 +42,13 @@
     "None turns custom instructions off for new requests without relabelling earlier replies",
     "double-clicks choose at most one entry and never reach the controls the closing picker uncovers",
     "a second Escape keeps unsaved instructions behind the discard question",
+    "Settings \u2192 Tags turns tagging on, picks each tag\u2019s colour and style, adds, renames, refuses a duplicate name, removes and restores presets",
+    "with tagging on, the first answer is tagged and the first-message title replaced; the title bar and the sidebar show the tags",
+    "the tags dialog shows who chose the tags and switches each tag; the person\u2019s choice is recorded as theirs; Manage tags\u2026 opens Settings at Tags",
+    "the sidebar\u2019s tag row narrows the list to conversations with every chosen tag, #name finds tags, words match tag names, and threads group under their first tag",
+    "tags have small corners in five styles (filled, outline, both, stripe, dot), drawn from the theme\u2019s tokens in light and dark",
+    "a sidebar row opens the tags of its conversation; the dialog makes and switches on new or listed tags, and Remove all clears them",
+    "tags show their icon or first letter in place of names in the title bar and the sidebar on a phone, and Settings picks each tag\u2019s icon",
     "no JavaScript errors or external requests; CSP remains enforced during inert parsing"
   ],
   "javascript_errors": [],

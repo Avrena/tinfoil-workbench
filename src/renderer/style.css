@@ -966,7 +966,8 @@ dialog[open]{transform:translateZ(0);isolation:isolate}
 .thread-tags{color:var(--n62)}
 .thread-tags:hover{background:var(--o-08);color:var(--n98)}
 .tags-for{color:var(--n77)}
-.tag-look,.tag-swatch,.tag-style{border:1px solid var(--n17)}
-.tag-look:hover,.tag-swatch:hover,.tag-style:hover{background:var(--o-08)}
-.tag-swatch[aria-checked=true],.tag-style[aria-checked=true]{box-shadow:inset 0 0 0 2px var(--n60)}
+.tag-look,.tag-swatch,.tag-style,.tag-icon{border:1px solid var(--n17)}
+.tag-look:hover,.tag-swatch:hover,.tag-style:hover,.tag-icon:hover{background:var(--o-08)}
+.tag-swatch[aria-checked=true],.tag-style[aria-checked=true],.tag-icon[aria-checked=true]{box-shadow:inset 0 0 0 2px var(--n60)}
+.tag-icon{color:var(--n87)}
 .tag-remove-confirm{background:var(--n4);border:1px solid var(--n17);color:var(--n87)}

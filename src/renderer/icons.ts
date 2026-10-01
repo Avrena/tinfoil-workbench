@@ -20,6 +20,14 @@ const paths: Record<string,string> = {
   grid:'M4 4h16v16H4zM4 9.33h16M4 14.67h16M9.33 4v16M14.67 4v16', dots:'M7 7h.01M12 7h.01M17 7h.01M7 12h.01M12 12h.01M17 12h.01M7 17h.01M12 17h.01M17 17h.01',
   grain:'M5 6h.01M10 4h.01M15 7h.01M20 5h.01M7 11h.01M12 10h.01M17 12h.01M4 16h.01M9 15h.01M14 18h.01M19 17h.01M11 20h.01',
   sun:'M12 8a4 4 0 1 0 0 8 4 4 0 0 0 0-8M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4', moon:'M20 14.5A8 8 0 1 1 9.5 4a6.5 6.5 0 0 0 10.5 10.5z', tools:'M9 4H8a2 2 0 0 0-2 2v4l-2 2 2 2v4a2 2 0 0 0 2 2h1M15 4h1a2 2 0 0 1 2 2v4l2 2-2 2v4a2 2 0 0 1-2 2h-1',
+  // Tag icons (core/tags.ts TAG_ICONS); code, write, search, spark, person, shield, chat and image are above.
+  book:'M12 6.5C10 5 7 4.5 4 4.5v14c3 0 6 .5 8 2 2-1.5 5-2 8-2v-14c-3 0-6 .5-8 2zM12 6.5v14',
+  heart:'M12 20s-8-4.8-8-10.5A4.3 4.3 0 0 1 12 7a4.3 4.3 0 0 1 8 2.5C20 15.2 12 20 12 20z',
+  briefcase:'M3 8h18v12H3zM9 8V5h6v3M3 13h18', coin:'M12 3a9 9 0 1 0 0 18 9 9 0 0 0 0-18M14.5 9H11a2 2 0 0 0 0 4h2a2 2 0 0 1 0 4H9.5M12 7v2M12 17v2',
+  plane:'M12 3c-.8 0-1.5.7-1.5 1.5V10L3 14v2l7.5-2v4.5L8 20v1.5l4-1 4 1V20l-2.5-1.5V14l7.5 2v-2l-7.5-4V4.5C13.5 3.7 12.8 3 12 3z',
+  scale:'M12 4v16M8 20h8M5 7h14M7 7l-3 7a3 3 0 0 0 6 0zM17 7l-3 7a3 3 0 0 0 6 0z', alert:'M12 3 2 20h20zM12 9v5M12 17h.01',
+  help:'M12 3a9 9 0 1 0 0 18 9 9 0 0 0 0-18M9.5 9.5a2.5 2.5 0 1 1 3.5 2.3c-.6.3-1 .9-1 1.6v.4M12 17h.01',
+  home:'M3 11 12 4l9 7M5.5 9.5V20h4.5v-6h4v6h4.5V9.5', star:'m12 3 2.7 5.6 6.3.9-4.5 4.4 1 6.1L12 17l-5.5 3 1-6.1L3 9.5l6.3-.9z'
 };
 export const icon = (name:string):string => `<svg viewBox="0 0 24 24" aria-hidden="true"><path d="${paths[name] ?? paths.chat}"/></svg>`;
 /** A dashboard gauge for the thinking effort: one segment per level the model offers, filled up to `level` (0 is the

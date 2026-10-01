@@ -50,7 +50,7 @@ Check versions: edit a message in the composer and send it, Retry an answer, edi
 
 Check tags with a real model. First state a token budget: each request is about 1,000 tokens.
 
-1. Turn on **Tag and title new conversations** in Settings → Tags and choose a model. Send a first message: after the answer, the conversation gets up to three listed tags and a short title, and Settings shows the tokens used.
+1. Turn on **Tag and title new conversations** in Settings → Tags and choose a model. Send a first message: after the answer, the conversation gets one listed tag (up to three when it is mainly about more than one) and a short title, and Settings shows the tokens used.
 2. Rename a conversation and use **Suggest tags**: the name must stay.
 3. Set tags by hand while a suggestion is running: yours must stay.
 4. Try a model that thinks before answering. It must either answer within its output limit or report that it reached the limit.

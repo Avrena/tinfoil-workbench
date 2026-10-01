@@ -118,16 +118,17 @@ Tool batches run sequentially. Tinfoil-managed MCP entries display provider-repo
 
 ### Tags and titles
 
-A new conversation is titled with the first 70 characters of its first message. **Settings → Tags** holds your tag list. It starts with nine presets: Coding, Writing, Research, Learning, Creative, Health, Work, Money and Personal. Each tag has:
+A new conversation is titled with the first 70 characters of its first message. **Settings → Tags** holds your tag list. It starts with fourteen presets: Coding, Writing, Research, Learning, Creative, Health, Work, Money, Personal, Travel, Legal, Cyber, NSFW and Ambiguous. Each tag has:
 
 - a name;
 - a colour;
 - a style: filled, outline, filled with outline, a stripe or a dot;
-- a hint that tells the model what belongs under it.
+- a hint that tells the model what belongs under it;
+- an icon. On a phone, the title bar and the sidebar show each tag's icon in place of its name, or its first letter when it has no icon.
 
-To tag a conversation yourself, use the tag mark beside its title or **Tags…** in the conversation menu.
+To tag a conversation yourself, use the tag mark beside its title, **Tags…** in the conversation menu, or the tag button on its row in the sidebar. The tags dialog switches each tag on or off, makes a new tag from a name you type, and **Remove all** clears them.
 
-**Tag and title new conversations** is off by default. When it is on, Workbench sends one short request after a conversation's first answer, to the model you choose or to the conversation's own. The request contains the first message, the names of its files, the start of the answer and your tag list. The model picks up to three of your tags and, with **Also write titles**, a short title. That title replaces the first-message title unless you renamed the conversation.
+**Tag and title new conversations** is off by default. When it is on, Workbench sends one short request after a conversation's first answer, to the model you choose or to the conversation's own. The request contains the first message, the names of its files, the start of the answer and your tag list. The model picks the tag that fits best, and up to two more only when the conversation is mainly about them too, and, with **Also write titles**, a short title. That title replaces the first-message title unless you renamed the conversation.
 
 Workbench turns thinking off for the request where the model allows it, and never retries it. The classifier never changes tags you chose yourself. **Tag untagged conversations** tags older conversations the same way. It first asks for confirmation and says how many requests it will send and roughly how many tokens they use.
 

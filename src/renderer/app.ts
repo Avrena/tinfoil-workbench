@@ -27,8 +27,8 @@ import { STARTER_INSTRUCTIONS, activeInstructions } from '../core/instructions.j
 import { instructionsListMarkup, instructionsSummary } from './instructions-view.js';
 import { prepareFile, pickedFile } from './attach.js';
 import { AppearanceSettings } from './appearance.js';
-import { TagSettings, tagChip, tagChips, tagOptionsMarkup, tagNote } from './tags-view.js';
-import { threadTags, tagSearch, tagNameMatches } from '../core/tags.js';
+import { TagSettings, tagChip, tagChips, tagOptionsMarkup, tagNote, newTag } from './tags-view.js';
+import { TAG_LIMITS, threadTags, tagSearch, tagNameMatches } from '../core/tags.js';
 import { paintBackdrop, backgroundPicture } from './backdrop.js';
 import { BACKGROUND_RANGES, type BackgroundPreferences } from '../core/preferences.js';
 const app = document.querySelector<HTMLDivElement>('#app')!;
@@ -71,7 +71,7 @@ app.innerHTML = `<div class="shell no-inspector" id="shell">
 <div class="modal-actions"><button type="button" id="instructions-delete" data-action="instructions-delete" class="danger" hidden>Delete…</button><span class="spacer"></span><button type="button" data-action="instructions-back">Back</button><button type="button" id="instructions-save" data-action="instructions-save">Save for reuse</button><button type="submit" class="primary" id="instructions-use">Use in this conversation</button></div></form>
 </div></dialog>
 <dialog id="rename-dialog"><div class="modal-head"><h2>Rename conversation</h2>${button('dismiss','Close rename dialog','close','class="icon-button"')}</div><form id="rename-form" class="modal-body"><label for="rename-input">Conversation name</label><input id="rename-input" maxlength="120" required><div class="modal-actions"><button type="button" data-action="dismiss">Cancel</button><button type="submit" class="primary">Save name</button></div></form></dialog>
-<dialog id="tags-dialog" aria-labelledby="tags-title"><div class="modal-head"><h2 id="tags-title">Tags</h2>${button('dismiss','Close tags','close','class="icon-button"')}</div><div class="modal-body"><p class="tags-for" id="tags-for"></p><div class="tag-options" id="tag-options" role="group" aria-labelledby="tags-title"></div><p class="muted small tag-note" id="tag-note" role="status"></p><div class="modal-actions"><button type="button" data-action="tags-manage">Manage tags…</button><span class="spacer"></span><button type="button" data-action="tags-suggest" id="tags-suggest">${icon('spark')}Suggest tags</button><button type="button" class="primary" data-action="dismiss">Done</button></div></div></dialog>
+<dialog id="tags-dialog" aria-labelledby="tags-title"><div class="modal-head"><h2 id="tags-title">Tags</h2>${button('dismiss','Close tags','close','class="icon-button"')}</div><div class="modal-body"><p class="tags-for" id="tags-for"></p><div class="tag-options" id="tag-options" role="group" aria-labelledby="tags-title"></div><form class="tag-new" id="tag-new-form"><input id="tag-new-name" maxlength="${TAG_LIMITS.name}" placeholder="New tag" aria-label="New tag for this conversation" autocomplete="off" spellcheck="false"><button type="submit" id="tag-new-add">${icon('plus')}Add</button></form><p class="muted small tag-note" id="tag-note" role="status"></p><div class="modal-actions"><button type="button" data-action="tags-manage">Manage tags…</button><button type="button" data-action="tags-clear" id="tags-clear">Remove all</button><span class="spacer"></span><button type="button" data-action="tags-suggest" id="tags-suggest">${icon('spark')}Suggest tags</button><button type="button" class="primary" data-action="dismiss">Done</button></div></div></dialog>
 <dialog id="palette-dialog"><input class="palette-input" id="palette-search" placeholder="Type a command…" aria-label="Find a command"><div class="palette-items" id="palette-items"></div></dialog>
 
 <dialog id="project-dialog" aria-labelledby="project-dialog-title"><div class="modal-head"><h2 id="project-dialog-title">New project</h2>${button('dismiss','Close project settings','close','class="icon-button"')}</div><form id="project-form" class="modal-body"><label for="project-name">Project name</label><input id="project-name" maxlength="80" required autocomplete="off"><p class="muted small">Projects organize threads locally. They do not add shared instructions or send extra context.</p><div class="modal-actions"><button type="button" id="remove-project" data-action="project-remove" class="danger hidden">Remove project…</button><span class="spacer"></span><button type="button" data-action="dismiss">Cancel</button><button type="submit" class="primary">Save project</button></div><div id="project-delete-confirm" class="hidden"><p>Remove this project? Its threads will move to Unfiled, not be deleted.</p><button type="button" data-action="project-confirm-remove" class="danger">Remove and keep threads</button></div></form></dialog>
@@ -255,7 +255,7 @@ function renderSidebar():void {
   const narrowed=!!filter||tagFilter.size>0;
   const cloudOn=cloudConnected(),tab=state.workspace.view.threadTab,syncing=state.cloud?.state==='syncing';
   // Hover actions sit beside the row's button, not inside it: a button cannot contain buttons.
-  const actions=(t:Thread)=>`<span class="thread-actions">${cloudOn&&!t.cloud&&!t.cloudPending&&!t.projectId&&t.turns.length?button('row-cloud-upload',`Move “${e(t.title)}” to Tinfoil cloud`,'upload',`class="icon-button" data-row="${e(t.id)}"${state.busyThreadId?' disabled':''}`):''}${button('row-delete',`Delete “${e(t.title)}”`,'trash',`class="icon-button" data-row="${e(t.id)}"`)}</span>`;
+  const actions=(t:Thread)=>`<span class="thread-actions">${cloudOn&&!t.cloud&&!t.cloudPending&&!t.projectId&&t.turns.length?button('row-cloud-upload',`Move “${e(t.title)}” to Tinfoil cloud`,'upload',`class="icon-button" data-row="${e(t.id)}"${state.busyThreadId?' disabled':''}`):''}${button('row-tags',`Tags of “${e(t.title)}”`,'tag',`class="icon-button" data-row="${e(t.id)}"`)}${button('row-delete',`Delete “${e(t.title)}”`,'trash',`class="icon-button" data-row="${e(t.id)}"`)}</span>`;
   // A tagged conversation shows its tags where an untagged one shows its turn count.
   const item=(t:Thread)=>{
     const chips=tagChips(t,tagging),detail=t.cloud&&!t.cloud.loaded?(state.cloudLoading?.includes(t.id)?'Loading from Tinfoil cloud':'Tinfoil cloud'):`${t.turns.length} ${t.turns.length===1?'turn':'turns'}`;
@@ -302,12 +302,31 @@ function showTagSettings():void {
   const dialog=$('settings-dialog'),head=dialog.querySelector('.modal-head')!;
   dialog.scrollTop+=$('tag-settings-title').getBoundingClientRect().top-head.getBoundingClientRect().bottom-8;
 }
+/** The conversation the tags dialog was opened for: the open one, or a row's in the sidebar. */
+let tagDialogId:string|null=null;
+const tagDialogThread=():Thread=>state.workspace.threads.find(t=>t.id===tagDialogId)??current();
+function openTagDialog(id:string):void { tagDialogId=id;$<HTMLInputElement>('tag-new-name').value='';renderTagDialog();showDialog('tags-dialog'); }
 function renderTagDialog():void {
-  const thread=current(),tagging=state.workspace.tagging,status=state.tagStatus;
+  const thread=tagDialogThread(),tagging=state.workspace.tagging,status=state.tagStatus;
   $('tags-for').textContent=thread.title;
   setMarkup($('tag-options'),tagOptionsMarkup(thread,tagging));
   $('tag-note').textContent=tagNote(thread,tagging,status,modelName);
+  $<HTMLButtonElement>('tags-clear').disabled=!threadTags(thread,tagging).length;
   const suggest=$<HTMLButtonElement>('tags-suggest');suggest.hidden=!tagging.enabled;suggest.disabled=status?.running===thread.id;
+}
+/** The tags dialog's New tag field: a name already in the list is switched on; another becomes a new tag (in the first
+ * colour and style no tag has) and is switched on. */
+async function addDialogTag():Promise<void> {
+  const input=$<HTMLInputElement>('tag-new-name'),name=input.value.trim().replace(/^#+\s*/,''),thread=tagDialogThread(),tagging=state.workspace.tagging;
+  if(!name)return;
+  let id=tagging.tags.find(t=>t.name.toLocaleLowerCase()===name.toLocaleLowerCase())?.id;
+  if(!id){
+    const tag=newTag(tagging,name);
+    if(!await dispatch({type:'tagging.set',tagging:{...tagging,tags:[...tagging.tags,tag]}}))return;
+    id=tag.id;
+  }
+  const mine=thread.tags??[];
+  if(mine.includes(id)||await dispatch({type:'thread.tags',id:thread.id,tags:[...mine,id]}))input.value='';
 }
 function welcomeModel():PickerModel|null { const id=current().settings.model; return id?pickerModel(id,state.capabilities):null; }
 function welcome():string {
@@ -1062,8 +1081,10 @@ async function action(name:string, target?:HTMLElement):Promise<void> {
     case 'row-delete':if(target?.dataset.row)await dispatch({type:'thread.delete',id:target.dataset.row});break;
     case 'thread-tab':if(target?.dataset.tab==='cloud'||target?.dataset.tab==='local')await setView({threadTab:target.dataset.tab});break;
     case 'thread-group':await setView({threadGroup:view.threadGroup==='tag'?'date':'tag'});break;
-    case 'thread-tags':renderTagDialog();showDialog('tags-dialog');break;
-    case 'tags-suggest':await dispatch({type:'thread.classify',id:thread.id});break;
+    case 'thread-tags':openTagDialog(thread.id);break;
+    case 'row-tags':if(target?.dataset.row)openTagDialog(target.dataset.row);break;
+    case 'tags-suggest':await dispatch({type:'thread.classify',id:tagDialogThread().id});break;
+    case 'tags-clear':await dispatch({type:'thread.tags',id:tagDialogThread().id,tags:[]});break;
     case 'tags-manage':dismiss();$('key-feedback').textContent='';renderAppearance();showDialog('settings-dialog');showTagSettings();break;
     case 'account-remember':await dispatch({type:'account.remember',enabled:state.rememberAccount===false});break;
     case 'account-mode-chat':await dispatch({type:'connection.mode',mode:'chat-account'});break;
@@ -1204,7 +1225,7 @@ document.addEventListener('click',event=>{
   if(target.dataset.instructions){void chooseInstructions(target);return;}
   if(target.dataset.quickModel){chooseModel(target.dataset.quickModel);return;}
   if(target.dataset.action) { void action(target.dataset.action,target); return; }
-  if(target.dataset.tagToggle){const t=current(),id=target.dataset.tagToggle,mine=t.tags??[];void dispatch({type:'thread.tags',id:t.id,tags:mine.includes(id)?mine.filter(x=>x!==id):[...mine,id]});return;}
+  if(target.dataset.tagToggle){const t=tagDialogThread(),id=target.dataset.tagToggle,mine=t.tags??[];void dispatch({type:'thread.tags',id:t.id,tags:mine.includes(id)?mine.filter(x=>x!==id):[...mine,id]});return;}
   if(target.dataset.tagFilter){const id=target.dataset.tagFilter;if(!tagFilter.delete(id))tagFilter.add(id);renderSidebar();return;}
   if(target.dataset.thread) { void (async()=>{if(!await flushDraft())return; await dispatch({type:'thread.select',id:target.dataset.thread!});if(responsive.compact)responsive.close();})(); return; }
   if(target.dataset.prompt!==undefined) { $<HTMLTextAreaElement>('prompt').value=target.dataset.prompt.replace(/\\n/g,'\n'); sizeComposer(); saveDraft(); $('prompt').focus(); return; }
@@ -1449,6 +1470,7 @@ $('key-form').addEventListener('submit',event=>{
 $('project-form').addEventListener('submit',event=>{event.preventDefault();const name=$<HTMLInputElement>('project-name').value;void dispatch(projectEditingId?{type:'project.rename',id:projectEditingId,name}:{type:'project.create',name}).then(ok=>{if(ok)dismiss();});});
 $('move-form').addEventListener('submit',event=>{event.preventDefault();void dispatch({type:'thread.move',id:current().id,projectId:$<HTMLSelectElement>('move-project').value||null}).then(ok=>{if(ok)dismiss();});});
 $('rename-form').addEventListener('submit',event=>{event.preventDefault();void dispatch({type:'thread.rename',id:current().id,title:$<HTMLInputElement>('rename-input').value}).then(ok=>{if(ok)dismiss();});});
+$('tag-new-form').addEventListener('submit',event=>{event.preventDefault();void addDialogTag();});
 document.addEventListener('keydown',event=>{
   if(event.isComposing||document.querySelector('dialog[open]'))return;
   if(event.ctrlKey||event.metaKey){if(event.shiftKey&&event.key.toLowerCase()==='a'){event.preventDefault();void action('artifacts');return;}if(event.key.toLowerCase()==='f'){event.preventDefault();void action(event.shiftKey?'focus':'find');return;}if(event.key.toLowerCase()==='b'){event.preventDefault();void action('sidebar');return;}if(event.key.toLowerCase()==='n'){event.preventDefault();void action('new');}else if(event.key.toLowerCase()==='k'){event.preventDefault();palette();}else if(event.key===','){event.preventDefault();void action('settings');}}

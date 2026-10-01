@@ -140,8 +140,12 @@ export interface Workspace {
 export type TagColor = 'blue' | 'orange' | 'aqua' | 'yellow' | 'magenta' | 'green' | 'violet' | 'red' | 'grey';
 /** How a tag is drawn: its colour as a fill, an outline, both, a stripe on its left edge, or a dot before its name. */
 export type TagStyle = 'fill' | 'outline' | 'both' | 'stripe' | 'dot';
-/** A tag: its name, colour, style and a hint that tells the classifier what belongs under it. */
-export interface TagDef { id: string; name: string; color: TagColor; style: TagStyle; hint: string }
+/** A tag's icon (renderer/icons.ts), shown in its place where there is no room for names, as on a phone. */
+export type TagIcon = 'code' | 'write' | 'search' | 'book' | 'spark' | 'heart' | 'briefcase' | 'coin' | 'person' | 'plane' | 'scale'
+  | 'shield' | 'alert' | 'help' | 'chat' | 'image' | 'home' | 'star';
+/** A tag: its name, colour, style, a hint that tells the classifier what belongs under it, and an icon; without one, the
+ * first letter of its name stands in. */
+export interface TagDef { id: string; name: string; color: TagColor; style: TagStyle; hint: string; icon?: TagIcon }
 /** `model` '' asks the conversation's own model. `titles` lets the same request replace a title made from the first
  * message. */
 export interface Tagging { enabled: boolean; titles: boolean; model: string; tags: TagDef[] }

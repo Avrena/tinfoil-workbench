@@ -1,19 +1,29 @@
-import type { Command, TagColor, TagDef, TagStyle, Tagging, TaggingStatus, Thread } from '../core/types.js';
-import { PRESET_TAGS, TAG_COLORS, TAG_COLOR_NAMES, TAG_LIMITS, TAG_STYLES, TAG_STYLE_NAMES, taggable, threadTags, untagged } from '../core/tags.js';
+import type { Command, TagColor, TagDef, TagIcon, TagStyle, Tagging, TaggingStatus, Thread } from '../core/types.js';
+import { PRESET_TAGS, TAG_COLORS, TAG_COLOR_NAMES, TAG_ICONS, TAG_ICON_NAMES, TAG_LIMITS, TAG_STYLES, TAG_STYLE_NAMES, tagLetter, taggable, threadTags, untagged } from '../core/tags.js';
 import type { PickerModel } from '../core/model-list.js';
 import { escapeHtml as e } from '../core/markdown.js';
 import { icon } from './icons.js';
 
+/** A tag's icon, or the first letter of its name when it has none. */
+const tagGlyph = (tag: Pick<TagDef, 'name' | 'icon'>): string => tag.icon ? icon(tag.icon) : e(tagLetter(tag.name));
 /** A tag as a chip in its colour and style (style.css draws them by `data-color` and `data-style`; the dot shows only
- * in the dot style). `label` replaces the name, for a sample. */
-export function tagChip(tag: Pick<TagDef, 'name' | 'color' | 'style'>, label = tag.name): string {
-  return `<span class="tag-chip" data-color="${tag.color}" data-style="${tag.style}"><span class="tag-dot" aria-hidden="true"></span><span class="tag-name">${e(label)}</span></span>`;
+ * in the dot style). Its glyph takes the name's place where names do not fit, as in the title bar and the sidebar on a
+ * phone (spacing.css), and in a `glyph` chip; the name stays for screen readers. */
+export function tagChip(tag: Pick<TagDef, 'name' | 'color' | 'style' | 'icon'>, glyph = false): string {
+  return `<span class="tag-chip${glyph ? ' glyph' : ''}" data-color="${tag.color}" data-style="${tag.style}"><span class="tag-dot" aria-hidden="true"></span>`
+    + `<span class="tag-glyph" aria-hidden="true">${tagGlyph(tag)}</span><span class="tag-name">${e(tag.name)}</span></span>`;
 }
 /** A conversation's tags in the list's order: the first `max` as chips, then how many more there are. */
 export function tagChips(thread: Thread, tagging: Tagging, max = 2): string {
   const tags = threadTags(thread, tagging), more = tags.length - max;
   return tags.slice(0, max).map(tag => tagChip(tag)).join('')
     + (more > 0 ? `<span class="tag-more" title="${e(tags.slice(max).map(t => t.name).join(', '))}">+${more}</span>` : '');
+}
+/** A new tag in the first colour and style that no tag in the list has (filled first), so that it looks like no other. */
+export function newTag(tagging: Tagging, name: string): TagDef {
+  let look: Pick<TagDef, 'color' | 'style'> = { color: TAG_COLORS[tagging.tags.length % TAG_COLORS.length]!, style: 'fill' };
+  found: for (const style of TAG_STYLES) for (const color of TAG_COLORS) if (!tagging.tags.some(t => t.color === color && t.style === style)) { look = { color, style }; break found; }
+  return { id: `tag-${crypto.randomUUID()}`, name, ...look, hint: '' };
 }
 const count = (n: number, one: string, many = `${one}s`): string => `${n.toLocaleString()} ${n === 1 ? one : many}`;
 /** What the classifier is doing, for Settings → Tags. */
@@ -45,7 +55,7 @@ export class TagSettings {
   private focusNext: { id: string; field: 'name' | 'hint' | 'color' } | null = null;
   constructor(private readonly root: HTMLElement, private readonly host: TagSettingsHost) {
     root.innerHTML = `<label class="toggle-row"><span>Tag and title new conversations</span><input type="checkbox" id="tagging-on"></label>
-<p class="muted small" id="tagging-about">After a conversation’s first answer, a model files it under up to three of these tags and gives it a short title, unless you renamed it. It reads the first message, the names of its files and the start of the answer: one short request each. Tags stay on this device, also for Tinfoil cloud chats.</p>
+<p class="muted small" id="tagging-about">After a conversation’s first answer, a model files it under the tag that fits best (up to three when it is mainly about more than one) and gives it a short title, unless you renamed it. It reads the first message, the names of its files and the start of the answer: one short request each. Tags stay on this device, also for Tinfoil cloud chats.</p>
 <div class="tagging-options" id="tagging-options" hidden><label for="tagging-model">Model</label><select id="tagging-model"></select>
 <label class="toggle-row"><span>Also write titles</span><input type="checkbox" id="tagging-titles"></label>
 <div class="tagging-run"><button type="button" data-tag-action="all" id="tagging-all">Tag untagged conversations</button><button type="button" data-tag-action="stop" id="tagging-stop" hidden>Stop</button></div></div>
@@ -89,12 +99,13 @@ export class TagSettings {
     const id = e(tag.id), open = this.colorOpen === tag.id;
     const used = this.threads.filter(t => t.tags?.includes(tag.id)).length;
     return `<div class="tag-row" role="listitem" data-tag="${id}" data-color="${tag.color}">
-<button type="button" class="tag-look" data-tag-field="color" aria-expanded="${open}" aria-label="Look of ${e(tag.name)}: ${TAG_COLOR_NAMES[tag.color]}, ${TAG_STYLE_NAMES[tag.style].toLowerCase()}" title="Colour and style">${tagChip(tag, 'Aa')}</button>
+<button type="button" class="tag-look" data-tag-field="color" aria-expanded="${open}" aria-label="Look of ${e(tag.name)}: ${TAG_COLOR_NAMES[tag.color]}, ${TAG_STYLE_NAMES[tag.style].toLowerCase()}, ${tag.icon ? `${TAG_ICON_NAMES[tag.icon].toLowerCase()} icon` : 'first letter'}" title="Colour, style and icon">${tagChip(tag, true)}</button>
 <input class="tag-name-input" data-tag-field="name" value="${e(tag.name)}" maxlength="${TAG_LIMITS.name}" aria-label="Tag name" autocomplete="off" spellcheck="false">
 <input class="tag-hint-input" data-tag-field="hint" value="${e(tag.hint)}" maxlength="${TAG_LIMITS.hint}" aria-label="What belongs under ${e(tag.name)}" placeholder="What belongs here (for the model)" autocomplete="off">
 <button type="button" class="icon-button" data-tag-action="remove" aria-label="Remove ${e(tag.name)}" title="Remove">${icon('trash')}</button>
 ${open ? `<div class="tag-looks"><div class="tag-swatches" role="radiogroup" aria-label="Colour of ${e(tag.name)}">${TAG_COLORS.map(color => `<button type="button" role="radio" class="tag-swatch" data-color="${color}" data-pick-color="${color}" aria-checked="${color === tag.color}" aria-label="${TAG_COLOR_NAMES[color]}" title="${TAG_COLOR_NAMES[color]}"><span class="tag-dot"></span></button>`).join('')}</div>
-<div class="tag-styles" role="radiogroup" aria-label="Style of ${e(tag.name)}">${TAG_STYLES.map(style => `<button type="button" role="radio" class="tag-style" data-pick-style="${style}" aria-checked="${style === tag.style}" aria-label="${TAG_STYLE_NAMES[style]}" title="${TAG_STYLE_NAMES[style]}">${tagChip({ ...tag, style })}</button>`).join('')}</div></div>` : ''}
+<div class="tag-styles" role="radiogroup" aria-label="Style of ${e(tag.name)}">${TAG_STYLES.map(style => `<button type="button" role="radio" class="tag-style" data-pick-style="${style}" aria-checked="${style === tag.style}" aria-label="${TAG_STYLE_NAMES[style]}" title="${TAG_STYLE_NAMES[style]}">${tagChip({ ...tag, style })}</button>`).join('')}</div>
+<div class="tag-icons" role="radiogroup" aria-label="Icon of ${e(tag.name)}, shown on a phone"><button type="button" role="radio" class="tag-icon" data-pick-icon="" aria-checked="${!tag.icon}" aria-label="First letter" title="First letter"><span class="tag-icon-letter">${e(tagLetter(tag.name))}</span></button>${TAG_ICONS.map(name => `<button type="button" role="radio" class="tag-icon" data-pick-icon="${name}" aria-checked="${tag.icon === name}" aria-label="${TAG_ICON_NAMES[name]}" title="${TAG_ICON_NAMES[name]}">${icon(name)}</button>`).join('')}</div></div>` : ''}
 ${this.removing === tag.id ? `<div class="tag-remove-confirm" role="alert"><span>${used ? `${count(used, 'conversation')} lose${used === 1 ? 's' : ''} this tag.` : 'Remove this tag?'}</span><button type="button" data-tag-action="remove-cancel">Keep</button><button type="button" class="danger" data-tag-action="remove-confirm">Remove</button></div>` : ''}
 </div>`;
   }
@@ -117,8 +128,12 @@ ${this.removing === tag.id ? `<div class="tag-remove-confirm" role="alert"><span
   private async clicked(target: HTMLElement): Promise<void> {
     const tagging = this.tagging; if (!tagging) return;
     const id = target.closest<HTMLElement>('[data-tag]')?.dataset.tag ?? null;
-    // Picking a colour or a style keeps the picker open, so both can be chosen in turn.
-    const swatch = target.closest<HTMLElement>('[data-pick-color]'), look = target.closest<HTMLElement>('[data-pick-style]');
+    // Picking a colour, a style or an icon keeps the picker open, so all three can be chosen in turn.
+    const swatch = target.closest<HTMLElement>('[data-pick-color]'), look = target.closest<HTMLElement>('[data-pick-style]'), glyph = target.closest<HTMLElement>('[data-pick-icon]');
+    if (glyph && id) {
+      const name = glyph.dataset.pickIcon as TagIcon | '';
+      return this.store({ tags: this.replace(id, { icon: name || undefined }) }).then(() => this.refocus(id, `[data-pick-icon="${name}"]`));
+    }
     if (swatch && id) return this.store({ tags: this.replace(id, { color: swatch.dataset.pickColor as TagColor }) }).then(() => this.refocus(id, `[data-pick-color="${swatch.dataset.pickColor}"]`));
     if (look && id) return this.store({ tags: this.replace(id, { style: look.dataset.pickStyle as TagStyle }) }).then(() => this.refocus(id, `[data-pick-style="${look.dataset.pickStyle}"]`));
     if (target.closest('[data-tag-field="color"]') && id) { this.colorOpen = this.colorOpen === id ? null : id; this.focusNext = { id, field: 'color' }; return this.renderList(); }
@@ -128,8 +143,7 @@ ${this.removing === tag.id ? `<div class="tag-remove-confirm" role="alert"><span
         if (tagging.tags.length >= TAG_LIMITS.tags) return;
         const names = new Set(tagging.tags.map(t => t.name.toLocaleLowerCase()));
         let name = 'New tag'; for (let n = 2; names.has(name.toLocaleLowerCase()); n++) name = `New tag ${n}`;
-        const color = TAG_COLORS.find(c => !tagging.tags.some(t => t.color === c)) ?? TAG_COLORS[tagging.tags.length % TAG_COLORS.length]!;
-        const tag: TagDef = { id: `tag-${crypto.randomUUID()}`, name, color, style: 'fill', hint: '' };
+        const tag = newTag(tagging, name);
         this.focusNext = { id: tag.id, field: 'name' };
         await this.store({ tags: [...tagging.tags, tag] });
         this.root.querySelector<HTMLInputElement>(`[data-tag="${CSS.escape(tag.id)}"] .tag-name-input`)?.select();

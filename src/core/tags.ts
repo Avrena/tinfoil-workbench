@@ -2,7 +2,7 @@
  * on, one short request after the first reply asks a model to file the conversation under up to three tags from the
  * person's list and, unless the person renamed it, to give it a better title. The request carries only the first
  * message, the names of its files and the start of the reply; tags stay on this device. */
-import type { ApiMessage, Reply, TagColor, TagDef, TagStyle, Tagging, Thread, Turn } from './types.js';
+import type { ApiMessage, Reply, TagColor, TagDef, TagIcon, TagStyle, Tagging, Thread, Turn } from './types.js';
 
 /** The categorical hues of the chart palette (core/visual-tools.ts), in its order, and a grey. Each theme gives every
  * hue a step for its light or dark variant (core/themes.ts); a tag always shows its name, so colour never carries it
@@ -13,22 +13,42 @@ export const TAG_COLOR_NAMES: Readonly<Record<TagColor, string>> = { blue: 'Blue
 /** How a tag shows its colour (style.css draws each by `data-style`). */
 export const TAG_STYLES: readonly TagStyle[] = ['fill', 'outline', 'both', 'stripe', 'dot'];
 export const TAG_STYLE_NAMES: Readonly<Record<TagStyle, string>> = { fill: 'Filled', outline: 'Outline', both: 'Filled with outline', stripe: 'Stripe', dot: 'Dot' };
+/** The icons a tag can have, in the picker's order. */
+export const TAG_ICONS: readonly TagIcon[] = ['code', 'write', 'search', 'book', 'spark', 'heart', 'briefcase', 'coin', 'person', 'plane', 'scale',
+  'shield', 'alert', 'help', 'chat', 'image', 'home', 'star'];
+export const TAG_ICON_NAMES: Readonly<Record<TagIcon, string>> = { code: 'Code', write: 'Pen', search: 'Magnifier', book: 'Book', spark: 'Spark',
+  heart: 'Heart', briefcase: 'Briefcase', coin: 'Coin', person: 'Person', plane: 'Plane', scale: 'Scales', shield: 'Shield', alert: 'Warning',
+  help: 'Question mark', chat: 'Speech bubble', image: 'Picture', home: 'House', star: 'Star' };
+/** What stands for a tag without an icon: the first character of its name (a whole letter with its accents, or a whole
+ * emoji), as a capital where the script has them. */
+export function tagLetter(name: string): string {
+  const first = typeof Intl.Segmenter === 'function' ? new Intl.Segmenter(undefined, { granularity: 'grapheme' }).segment(name.trim())[Symbol.iterator]().next().value?.segment
+    : [...name.trim()][0];
+  return (first ?? '').toLocaleUpperCase();
+}
 export const TAG_LIMITS = Object.freeze({
   tags: 40, name: 32, hint: 160, perThread: 8,
   /** What the classifier may choose, and what it is shown: the first message and the start of the reply. */
   suggested: 3, title: 50, message: 2000, reply: 1000, answer: 4000,
 });
-/** The list a workspace starts with, filled. Their ids stay fixed, so "Restore presets" brings back a removed one. */
+/** The list a workspace starts with. Their ids stay fixed, so "Restore presets" brings back a removed one, or adds one
+ * that a list made before it existed lacks. */
 export const PRESET_TAGS: readonly TagDef[] = Object.freeze([
-  { id: 'preset-coding', name: 'Coding', color: 'blue', style: 'fill', hint: 'Programming, debugging, scripts and software tools' },
-  { id: 'preset-writing', name: 'Writing', color: 'orange', style: 'fill', hint: 'Drafting, editing, rewriting and translating text' },
-  { id: 'preset-research', name: 'Research', color: 'aqua', style: 'fill', hint: 'Looking into a topic, facts, comparisons and sources' },
-  { id: 'preset-learning', name: 'Learning', color: 'yellow', style: 'fill', hint: 'Studying, homework and understanding how something works' },
-  { id: 'preset-creative', name: 'Creative', color: 'magenta', style: 'fill', hint: 'Stories, art, music, games and brainstorming' },
-  { id: 'preset-health', name: 'Health', color: 'green', style: 'fill', hint: 'Health, fitness, food and wellbeing' },
-  { id: 'preset-work', name: 'Work', color: 'violet', style: 'fill', hint: 'Jobs, business, meetings, plans and professional tasks' },
-  { id: 'preset-money', name: 'Money', color: 'red', style: 'fill', hint: 'Budgets, prices, shopping, investing and taxes' },
-  { id: 'preset-personal', name: 'Personal', color: 'grey', style: 'fill', hint: 'Daily life, travel, home, relationships and personal decisions' },
+  { id: 'preset-coding', name: 'Coding', color: 'blue', style: 'fill', icon: 'code', hint: 'Programming, debugging, scripts and software tools' },
+  { id: 'preset-writing', name: 'Writing', color: 'orange', style: 'fill', icon: 'write', hint: 'Drafting, editing, rewriting and translating text' },
+  { id: 'preset-research', name: 'Research', color: 'aqua', style: 'fill', icon: 'search', hint: 'Looking into a topic, facts, comparisons and sources' },
+  { id: 'preset-learning', name: 'Learning', color: 'yellow', style: 'fill', icon: 'book', hint: 'Studying, homework and understanding how something works' },
+  { id: 'preset-creative', name: 'Creative', color: 'magenta', style: 'fill', icon: 'spark', hint: 'Stories, art, music, games and brainstorming' },
+  { id: 'preset-health', name: 'Health', color: 'green', style: 'fill', icon: 'heart', hint: 'Health, fitness, food and wellbeing' },
+  { id: 'preset-work', name: 'Work', color: 'violet', style: 'fill', icon: 'briefcase', hint: 'Jobs, business, meetings, plans and professional tasks' },
+  { id: 'preset-money', name: 'Money', color: 'red', style: 'fill', icon: 'coin', hint: 'Budgets, prices, shopping, investing and taxes' },
+  { id: 'preset-personal', name: 'Personal', color: 'grey', style: 'fill', icon: 'person', hint: 'Daily life, home, relationships and personal decisions' },
+  // Added later, in outline (NSFW filled with outline) so that they stay apart from the filled tags of the same colour.
+  { id: 'preset-travel', name: 'Travel', color: 'green', style: 'outline', icon: 'plane', hint: 'Trips, places to visit, transport and places to stay' },
+  { id: 'preset-legal', name: 'Legal', color: 'violet', style: 'outline', icon: 'scale', hint: 'Laws, contracts, rights, disputes and official rules' },
+  { id: 'preset-cyber', name: 'Cyber', color: 'blue', style: 'outline', icon: 'shield', hint: 'Cybersecurity, privacy, hacking, malware and staying safe online' },
+  { id: 'preset-nsfw', name: 'NSFW', color: 'red', style: 'both', icon: 'alert', hint: 'Sexual or explicit adult content' },
+  { id: 'preset-ambiguous', name: 'Ambiguous', color: 'grey', style: 'outline', icon: 'help', hint: 'Small talk, tests and messages whose purpose is unclear' },
 ].map(tag => Object.freeze(tag as TagDef)));
 export const presetTags = (): TagDef[] => PRESET_TAGS.map(tag => ({ ...tag }));
 export const defaultTagging = (): Tagging => ({ enabled: false, titles: true, model: '', tags: presetTags() });

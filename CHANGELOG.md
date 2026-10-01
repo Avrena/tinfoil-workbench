@@ -2,15 +2,17 @@
 
 ## Unreleased — conversation tags
 
-- Settings → Tags holds a list of tags, starting with nine presets (Coding, Writing, Research, Learning, Creative, Health, Work, Money and Personal).
+- Settings → Tags holds a list of tags, starting with fourteen presets (Coding, Writing, Research, Learning, Creative, Health, Work, Money, Personal, Travel, Legal, Cyber, NSFW and Ambiguous).
   - Each tag has a name, one of nine colours, a hint for the model, and a style: filled, outline, filled with outline, a stripe on its left edge, or a dot before its name.
+  - Each tag can have one of eighteen icons; every preset has one. On a phone, the title bar and the sidebar show the icon in place of the name, or the name's first letter when a tag has no icon.
   - Chips have small corners, and every colour follows the theme in light and dark.
   - Tags can be added, renamed and removed (with a confirmation that says how many conversations lose the tag), and **Restore presets** brings back removed presets.
-- You can tag a conversation yourself, from the tag mark beside its title or **Tags…** in the conversation menu.
+  - Each preset looks like no other, and a new tag gets the first colour and style that no tag has.
+- You can tag a conversation yourself, from the tag mark beside its title, **Tags…** in the conversation menu or the tag button on its sidebar row. The tags dialog switches each tag on or off, makes a new tag from a name you type, and **Remove all** clears them.
 - **Tag and title new conversations** (off by default) sends one short request after a conversation's first answer.
   - The request goes to the model chosen in Settings → Tags, or to the conversation's own.
   - It contains the first message, the names of its files, the start of the answer and the tag list.
-  - The model files the conversation under up to three of your tags and gives it a short title, unless you renamed it.
+  - The model files the conversation under the tag that fits best, adding up to two more only when the conversation is mainly about them too, and gives it a short title, unless you renamed it.
   - The request offers no tools, turns thinking off where the model allows it and is never retried. Tags you chose are never changed by it.
 - **Tag untagged conversations** tags older conversations the same way, one at a time, after a confirmation that states the number of requests and about how many tokens they use. It can be stopped, and Settings shows its progress and the tokens tagging has used since Workbench started.
 - The sidebar shows each conversation's tags under its title.
