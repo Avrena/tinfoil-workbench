@@ -50,8 +50,12 @@ wrap(WorkbenchService.prototype, 'connect', async function (original, args) {
   const client = await original.apply(this, args);
   if (client && !observed.has(client)) {
     observed.add(client);
-    const completions = client.chat.completions, create = completions.create.bind(completions);
-    completions.create = async (body, options) => {
+    // The SDK's `chat` is a getter that returns a new proxy each time, so the client gets its own `chat` in front of it.
+    let owner = Object.getPrototypeOf(client), getter;
+    while (owner && !(getter = Object.getOwnPropertyDescriptor(owner, 'chat')?.get)) owner = Object.getPrototypeOf(owner);
+    const chat = () => getter ? getter.call(client) : client.chat;
+    const create = (body, options) => chat().completions.create(body, options);
+    Object.defineProperty(client, 'chat', { configurable: true, value: { completions: { create: async (body, options) => {
       const stream = await create(body, options);
       if (!/^You file conversations/.test(body?.messages?.[0]?.content ?? '')) return stream;
       const { model, messages: _messages, stream: _stream, stream_options: _options, max_tokens, ...parameters } = body;
@@ -66,7 +70,7 @@ wrap(WorkbenchService.prototype, 'connect', async function (original, args) {
           yield chunk;
         }
       })();
-    };
+    } } } });
   }
   return client;
 });

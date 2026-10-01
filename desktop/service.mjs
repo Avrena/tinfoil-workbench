@@ -960,9 +960,12 @@ export class WorkbenchService {
     const owner = this.activeOwner();
     if (this.needsAuthorization(threadId)) throw new InputError('Review and allow this conversation for the selected account first. Nothing was sent.');
     const model = s.model || thread.settings.model, quiet = quietReasoning(capabilityFor(model, this.capabilities));
-    const body = { model, messages: tagMessages(s, thread), stream: true, max_tokens: quiet.thinks ? 4096 : 512, stream_options: { include_usage: true }, ...quiet.parameters };
+    // Without thinking, temperature 0 keeps the answer to the instructions: at the provider's default, titles came back in
+    // other languages than the message's. A model that thinks keeps its own temperature, which some require.
+    const body = { model, messages: tagMessages(s, thread), stream: true, max_tokens: quiet.thinks ? 4096 : 512, stream_options: { include_usage: true },
+      ...quiet.parameters, ...(quiet.thinks ? {} : { temperature: 0 }) };
     const stop = () => { controller.timedOut = true; controller.abort(); };
-    let timer = setTimeout(stop, this.options.tagTimeoutMs ?? 90000), idle, client = null, answer = '', finish = null;
+    let timer = setTimeout(stop, this.options.tagTimeoutMs ?? 90000), idle, client = null, answer = '', finish = null, usage = null;
     try {
       client = this.bound(await abortable(this.connect(), controller.signal), owner);
       const stream = await abortable(client.chat.completions.create(body, { signal: controller.signal }), controller.signal);
@@ -972,18 +975,22 @@ export class WorkbenchService {
           clearTimeout(idle); idle = setTimeout(stop, 45000);
           const next = await abortable(iterator.next(), controller.signal);
           if (next.done) { drained = true; break; }
-          const choice = next.value.choices?.[0], delta = choice?.delta ?? {}, usage = next.value.usage;
+          const choice = next.value.choices?.[0], delta = choice?.delta ?? {};
           if (delta.tool_calls?.length) throw new InputError('The tagging model asked for a tool. Nothing was changed.');
           if (typeof delta.content === 'string') answer += delta.content;
           if (answer.length > TAG_LIMITS.answer) throw new InputError('The tagging model wrote more than a short answer. Nothing was changed.');
-          if (usage) { this.tagUsage.input += finite(usage.prompt_tokens); this.tagUsage.output += finite(usage.completion_tokens); }
+          // Some providers repeat the running usage on every chunk: the last one counts, once.
+          if (next.value.usage) usage = next.value.usage;
           if (typeof choice?.finish_reason === 'string') finish = choice.finish_reason;
         }
       } finally { if (!drained && iterator.return) Promise.resolve(iterator.return()).catch(() => {}); }
     } catch (error) {
       if (controller.signal.aborted) throw new InputError(controller.timedOut ? 'The tagging request timed out. Nothing was changed.' : 'Tagging stopped.');
       throw this.connectionError(error, client);
-    } finally { clearTimeout(timer); clearTimeout(idle); }
+    } finally {
+      clearTimeout(timer); clearTimeout(idle);
+      if (usage) { this.tagUsage.input += finite(usage.prompt_tokens); this.tagUsage.output += finite(usage.completion_tokens); }
+    }
     // The list may have changed during the request; names are matched against the list as it is now.
     const result = parseTagAnswer(answer, this.workspace.tagging);
     if (!result) throw new InputError(finish === 'length' ? 'The tagging model reached its output limit before it answered. Choose another model in Settings → Tags.'

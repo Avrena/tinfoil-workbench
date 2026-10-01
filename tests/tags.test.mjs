@@ -69,7 +69,11 @@ test('answers are read leniently but only listed tags and a short single-line ti
   assert.equal(parseTagAnswer('Coding, Work', s), null); assert.equal(parseTagAnswer('{"title":"x"}', s), null); assert.equal(parseTagAnswer('{tags:[1]', s), null);
   assert.equal(parseTagAnswer('{"tags":["Coding"],"title":"T"}', { ...s, titles: false }).title, null);
   assert.equal(cleanTitle('A very long title that keeps going on and on beyond fifty characters'), 'A very long title that keeps going on and on');
-  assert.equal(cleanTitle('Line\nbreak   title.'), 'Line break title'); assert.equal(cleanTitle('  "" '), null); assert.equal(cleanTitle(7), null);
+  assert.equal(cleanTitle('Line\nbreak   title.'), 'Line break title'); assert.equal(cleanTitle('  "" '), null); assert.equal(cleanTitle(7), null); assert.equal(cleanTitle('…'), null);
+  // Prose around the answer, the example written first, and an object that is not JSON: the last object with tags counts.
+  assert.deepEqual(parseTagAnswer('Here is the format: {"tags": ["…"], "title": "…"}\nMy answer: {"tags": ["Work"], "title": "Team agenda"} {not json}', s), { tags: ['preset-work'], title: 'Team agenda' });
+  assert.deepEqual(parseTagAnswer('{"tags": ["Coding"], "title": "Braces } and \\" quotes {"}', s), { tags: ['preset-coding'], title: 'Braces } and " quotes {' });
+  assert.deepEqual(parseTagAnswer('{"tags": ["…"], "title": "…"}', s), { tags: [], title: null });
 });
 test('only a title still made from the first message may be replaced', () => {
   const t = answered('  Plan a   trip to Kyoto  ');
@@ -118,7 +122,8 @@ async function setup(t, answer = '{"tags":["Coding"],"title":"KeyError in a Pyth
         if (classify && options.slow) await options.slow();
         if (!classify && options.reply) await options.reply();
         const text = classify ? (typeof answer === 'function' ? answer(calls.length) : answer) : 'The dictionary has no such key.';
-        yield { choices: [{ delta: { content: text } }] };
+        // Usage repeated on every chunk, as some providers send it: it is counted once.
+        yield { choices: [{ delta: { content: text } }], usage: { prompt_tokens: classify ? 300 : 7, completion_tokens: classify ? 10 : 1 } };
         yield { choices: [{ delta: {}, finish_reason: 'stop' }], usage: { prompt_tokens: classify ? 300 : 7, completion_tokens: classify ? 20 : 3 } };
       })();
     } } } };
@@ -135,7 +140,7 @@ test('with tagging on, the first answer is tagged and titled by one short reques
   await send(s); await settled(s);
   const thread = s.workspace.threads[0], [body] = classified();
   assert.equal(classified().length, 1);
-  assert.equal(body.model, 'chat-model'); assert.equal(body.max_tokens, 512); assert.ok(!('tools' in body) && !('tool_choice' in body));
+  assert.equal(body.model, 'chat-model'); assert.equal(body.max_tokens, 512); assert.equal(body.temperature, 0); assert.ok(!('tools' in body) && !('tool_choice' in body));
   assert.equal(body.messages.length, 2);
   assert.deepEqual(thread.tags, ['preset-coding']); assert.equal(thread.tagged.model, 'chat-model');
   assert.equal(thread.title, 'KeyError in a Python script');
