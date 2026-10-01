@@ -177,3 +177,47 @@ export function tagSearch(query: string): string | null {
   return q.startsWith('#') ? fold(q) : null;
 }
 export const tagNameMatches = (tag: TagDef, query: string): boolean => fold(tag.name).startsWith(query);
+
+/** Where a Tinfoil cloud chat keeps its tags: a field of its encrypted plaintext that Tinfoil Chat on the web keeps but
+ * does not show, so every Workbench with the chat key sees them. Each tag carries its id, name and look, so a device
+ * whose list lacks it can add it; `tagged` says when and by whom they were chosen. */
+export const CLOUD_TAGS_FIELD = 'workbenchTags';
+export interface CloudTags {
+  version: 1;
+  tags: { id: string; name: string; color: TagColor; style: TagStyle; icon?: TagIcon }[];
+  tagged: { at: number; model?: string };
+}
+/** A conversation's tags as a cloud chat keeps them; null for one that was never tagged. */
+export function cloudTagsValue(thread: Thread, tagging: Tagging): CloudTags | null {
+  if (!thread.tagged) return null;
+  return { version: 1, tags: threadTags(thread, tagging).map(t => ({ id: t.id, name: t.name, color: t.color, style: t.style, ...(t.icon ? { icon: t.icon } : {}) })),
+    tagged: { at: thread.tagged.at, ...(thread.tagged.model ? { model: thread.tagged.model } : {}) } };
+}
+const TAG_ID = /^[A-Za-z0-9_.:-]{1,100}$/;
+/** A cloud chat's tags read against this device's list: each is matched by id, then by name ignoring case; one the list
+ * lacks is added with its look while the list has room (`added`). Null when the value is missing or unreadable, or
+ * written by a later version of this format. */
+export function readCloudTags(value: unknown, tagging: Tagging): { tags: string[]; tagged: { at: number; model?: string }; added: TagDef[] } | null {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) return null;
+  const v = value as { version?: unknown; tags?: unknown; tagged?: unknown };
+  const tagged = v.tagged as { at?: unknown; model?: unknown } | undefined;
+  if (v.version !== 1 || !Array.isArray(v.tags) || !tagged || typeof tagged !== 'object' || typeof tagged.at !== 'number' || !Number.isFinite(tagged.at) || tagged.at <= 0) return null;
+  const byId = new Map(tagging.tags.map(t => [t.id, t])), byName = new Map(tagging.tags.map(t => [fold(t.name), t]));
+  const added: TagDef[] = [], ids: string[] = [];
+  for (const entry of v.tags.slice(0, TAG_LIMITS.perThread)) {
+    if (!entry || typeof entry !== 'object') continue;
+    const e = entry as Record<string, unknown>;
+    const name = typeof e.name === 'string' ? e.name.replace(/^#+/, '').trim() : '';
+    const id = typeof e.id === 'string' && TAG_ID.test(e.id) ? e.id : null;
+    let tag = (id ? byId.get(id) : undefined) ?? (name ? byName.get(fold(name)) : undefined);
+    if (!tag && name && name.length <= TAG_LIMITS.name && !/[\x00-\x1f\x7f]/.test(name) && tagging.tags.length + added.length < TAG_LIMITS.tags) {
+      tag = { id: id ?? `tag-${globalThis.crypto.randomUUID()}`, name, hint: '',
+        color: TAG_COLORS.includes(e.color as TagColor) ? e.color as TagColor : 'grey', style: TAG_STYLES.includes(e.style as TagStyle) ? e.style as TagStyle : 'fill',
+        ...(TAG_ICONS.includes(e.icon as TagIcon) ? { icon: e.icon as TagIcon } : {}) };
+      added.push(tag); byId.set(tag.id, tag); byName.set(fold(name), tag);
+    }
+    if (tag && !ids.includes(tag.id)) ids.push(tag.id);
+  }
+  const model = typeof tagged.model === 'string' && tagged.model.trim() ? tagged.model.trim().slice(0, 200) : undefined;
+  return { tags: ids, tagged: { at: tagged.at, ...(model ? { model } : {}) }, added };
+}

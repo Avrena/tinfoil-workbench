@@ -1,5 +1,6 @@
 import { createHash, randomUUID } from 'node:crypto';
-import { parseCloudKey, threadFromCloud, cloudPatch, cloudPictures, knownTurns, newCloudChat, projectFromCloud, CLOUD_FORMAT } from '../dist/core/cloud.js';
+import { parseCloudKey, threadFromCloud, cloudPatch, cloudTagsPatch, cloudPictures, knownTurns, newCloudChat, projectFromCloud, CLOUD_FORMAT } from '../dist/core/cloud.js';
+import { CLOUD_TAGS_FIELD, cloudTagsValue, readCloudTags } from '../dist/core/tags.js';
 import { IMAGE_LIMITS, cloudImageId, pictureType } from '../dist/core/attachments.js';
 import { InputError, LIMITS } from '../dist/core/validation.js';
 import { findThread } from '../dist/core/workspace.js';
@@ -21,7 +22,7 @@ export class CloudSync {
   constructor({ client, host, account, now = Date.now }) {
     this.client = client; this.host = host; this.account = account; this.now = now;
     this.status = { state: 'off', keyId: null, user: null, lastSyncAt: null, message: null, chats: 0, projects: 0, older: 0 };
-    this.flight = null; this.writes = new Map(); this.loading = new Set();
+    this.flight = null; this.writes = new Map(); this.loading = new Set(); this.tagEdits = new Map();
   }
   get ws() { return this.host.workspace(); }
   key() {
@@ -85,6 +86,8 @@ export class CloudSync {
       const older = await this.syncChats(key);
       this.host.ensureActive(); await this.host.save();
       this.set({ state: 'ready', lastSyncAt: this.now(), message: null, older });
+      // Chats tagged here whose cloud version has no tags (tagged before tags were synced) get them written.
+      for (const t of this.ws.threads) if (t.cloud && t.tagged && !t.cloud.tagsKnown && !t.cloud.tagsDirty) void this.changedTags(t.id);
     } catch (error) {
       this.set({ state: 'error', message: error instanceof InputError || error instanceof CloudError ? error.message : 'Cloud sync failed. Check your connection and try again.' });
       throw error instanceof InputError || error instanceof CloudError ? error : new InputError('Cloud sync failed. Check your connection and try again.');
@@ -148,9 +151,10 @@ export class CloudSync {
       const row = listed.get(id), etag = String(item.etag ?? row.etag), project = typeof (item.project_id ?? row.project_id) === 'string' ? item.project_id ?? row.project_id : null;
       const link = { id, etag, project }, projectId = localProjectOf(ws, project), existing = local.get(id);
       if (existing?.cloud.dirty) this.keepCopy(existing);
-      const next = this.owned(threadFromCloud(plain, link, projectId, now, existing, existing ? existing.cloud.loaded : false));
-      if (existing) Object.assign(existing, next);
-      else if (ws.threads.length < LIMITS.threads) ws.threads.push(next);
+      const pending = existing?.cloud.tagsDirty, next = this.owned(threadFromCloud(plain, link, projectId, now, existing, existing ? existing.cloud.loaded : false));
+      // Tags apply to the conversation itself: merging cannot remove the tags the cloud no longer has.
+      if (existing) this.applyTags(Object.assign(existing, next), plain, pending);
+      else if (ws.threads.length < LIMITS.threads) { this.applyTags(next, plain, false); ws.threads.push(next); }
       if (next.cloud.loaded) this.notePictures(plain, id);
     }
     // Deleted in Tinfoil: explicit deletions, and, when the listing is complete, chats that are no longer listed.
@@ -158,6 +162,25 @@ export class CloudSync {
     if (!more) for (const id of local.keys()) if (!listed.has(id)) removed.add(id);
     for (const id of removed) { const t = local.get(id); if (!t) continue; if (t.cloud.dirty) this.keepCopy(t, true); else ws.threads = ws.threads.filter(x => x !== t); }
     return more ? 1 : 0;
+  }
+  /** Takes a cloud chat's tags (core/tags.ts) into its conversation, just given the cloud version; tags this device's
+   * list lacks are added to it. `pending`: tags changed here and not written yet stay, to be written onto this version.
+   * A chat without tags in the cloud keeps those it has here, and `tagsKnown` records whether the cloud version has
+   * them, so a sync can write tags chosen before they were synced. */
+  applyTags(thread, plain, pending) {
+    if (CLOUD_TAGS_FIELD in plain) thread.cloud.tagsKnown = true;
+    if (pending) { thread.cloud.tagsDirty = true; return; }
+    const read = readCloudTags(plain[CLOUD_TAGS_FIELD], this.ws.tagging);
+    if (!read) return;
+    if (read.added.length) this.ws.tagging = { ...this.ws.tagging, tags: [...this.ws.tagging.tags, ...read.added] };
+    if (read.tags.length) thread.tags = read.tags; else delete thread.tags;
+    thread.tagged = read.tagged;
+  }
+  /** Takes the cloud version of a chat into its conversation, with its tags unless tags changed here wait to be written. */
+  adopt(thread, plain, etag, loaded) {
+    const pending = thread.cloud.tagsDirty;
+    Object.assign(thread, threadFromCloud(plain, { id: thread.cloud.id, etag, project: thread.cloud.project }, localProjectOf(this.ws, thread.cloud.project), this.now(), thread, loaded));
+    this.applyTags(thread, plain, pending);
   }
   /** Cloud chats belong to the Chat account they came from: continuing one with that account needs no approval, while
    * the API key or another account still asks before sending its history (see needsAuthorization in service.mjs). */
@@ -180,8 +203,7 @@ export class CloudSync {
       const [item] = await this.client.pull('chat', [t.cloud.id], this.key()), plain = item?.ok ? decode(item) : null;
       if (!plainObject(plain)) throw new InputError('This chat could not be loaded from Tinfoil cloud. Sync and try again.');
       const current = this.ws.threads.find(x => x.id === id); if (!current?.cloud) return;
-      Object.assign(current, threadFromCloud(plain, { id: current.cloud.id, etag: String(item.etag ?? current.cloud.etag), project: current.cloud.project },
-        localProjectOf(this.ws, current.cloud.project), this.now(), current, true));
+      this.adopt(current, plain, String(item.etag ?? current.cloud.etag), true);
       this.notePictures(plain, current.cloud.id);
       await this.host.save();
     } finally { this.loading.delete(id); this.host.emit(); }
@@ -191,6 +213,15 @@ export class CloudSync {
     const t = this.ws.threads.find(x => x.id === id); if (!t?.cloud) return;
     // Saved at once, so a quit before the write finishes still knows the chat has changes to write.
     t.cloud.dirty = true; void this.host.save().catch(() => {});
+    return this.schedule(id);
+  }
+  /** Marks a cloud chat's tags changed and writes them shortly after: alone, unless the chat has other changes too. */
+  changedTags(id) {
+    const t = this.ws.threads.find(x => x.id === id); if (!t?.cloud) return;
+    t.cloud.tagsDirty = true; this.tagEdits.set(id, (this.tagEdits.get(id) ?? 0) + 1); void this.host.save().catch(() => {});
+    return this.schedule(id);
+  }
+  schedule(id) {
     const previous = this.writes.get(id) ?? Promise.resolve();
     const next = previous.catch(() => {}).then(() => this.write(id)).catch(error => { this.set({ message: error.message }); });
     this.writes.set(id, next); void next.finally(() => { if (this.writes.get(id) === next) this.writes.delete(id); });
@@ -200,8 +231,15 @@ export class CloudSync {
     const cfg = this.ws.cloud, v = Math.min(Math.max(cfg.clock, Number.isSafeInteger(observed) ? observed : 0) + 1, Number.MAX_SAFE_INTEGER);
     cfg.clock = v; return { v, w: cfg.writer };
   }
+  /** The tags to write into a cloud chat: none for a conversation never tagged, or while a later version of the format
+   * holds them. */
+  tagsFor(t, plain) {
+    const remote = plain[CLOUD_TAGS_FIELD];
+    if (plainObject(remote) && typeof remote.version === 'number' && remote.version > 1) return null;
+    return cloudTagsValue(t, this.ws.tagging);
+  }
   async write(id) {
-    const t = this.ws.threads.find(x => x.id === id); if (!t?.cloud?.dirty || !this.ws.cloud) return;
+    const t = this.ws.threads.find(x => x.id === id); if (!(t?.cloud?.dirty || t?.cloud?.tagsDirty) || !this.ws.cloud) return;
     await this.assertAccount();
     const key = this.key(), [item] = await this.client.pull('chat', [t.cloud.id], key);
     if (!item?.ok) {
@@ -211,25 +249,50 @@ export class CloudSync {
     const plain = decode(item); if (!plainObject(plain)) throw new InputError('This cloud chat could not be read. It was not changed.');
     // A pull can re-seal an old row under the current key: a new version whose previous one is ours is not a change.
     if (String(item.etag) !== t.cloud.etag && String(item.previous_etag ?? '') === t.cloud.etag) t.cloud.etag = String(item.etag);
-    if (String(item.etag) !== t.cloud.etag) return this.resolve(t, plain, String(item.etag));
-    await this.sendPictures(t, t.cloud.id, knownTurns(plain, t));
-    const clock = this.nextClock(plain.clock), body = cloudPatch(plain, t, { ...clock, version: Number(item.etag) + 1 }, this.now(), this.ws.cloudImages);
-    // A move between cloud projects is part of the chat and of the row's metadata.
-    const moved = (plain.projectId ?? null) !== t.cloud.project;
-    if (moved) body.projectId = t.cloud.project;
+    if (String(item.etag) !== t.cloud.etag) {
+      if (t.cloud.dirty) return this.resolve(t, plain, String(item.etag));
+      // Only the tags changed here: the newer cloud version is taken, and the tags are written onto it.
+      this.adopt(t, plain, String(item.etag), t.cloud.loaded);
+    }
+    const content = t.cloud.dirty, edits = this.tagEdits.get(id) ?? 0, tags = this.tagsFor(t, plain);
+    const clock = this.nextClock(plain.clock), version = Number(item.etag) + 1;
+    let body, moved = false;
+    if (content) {
+      await this.sendPictures(t, t.cloud.id, knownTurns(plain, t));
+      body = cloudPatch(plain, t, { ...clock, version }, this.now(), this.ws.cloudImages);
+      // A move between cloud projects is part of the chat and of the row's metadata.
+      moved = (plain.projectId ?? null) !== t.cloud.project;
+      if (moved) body.projectId = t.cloud.project;
+      if (tags) body[CLOUD_TAGS_FIELD] = tags;
+    } else if (tags) body = cloudTagsPatch(plain, tags, { ...clock, version });
+    else { delete t.cloud.tagsDirty; await this.host.save(); return; }
     let etag;
     try { etag = await this.client.push('chat', t.cloud.id, key, body, t.cloud.etag, { messageCount: body.messages.length, ...(moved ? { projectId: t.cloud.project } : {}) }); }
-    catch (error) { if (!conflict(error)) throw error; const [again] = await this.client.pull('chat', [t.cloud.id], key); const fresh = again?.ok ? decode(again) : null; if (plainObject(fresh)) return this.resolve(t, fresh, String(again.etag)); throw error; }
+    catch (error) {
+      if (!conflict(error)) throw error;
+      const [again] = await this.client.pull('chat', [t.cloud.id], key), fresh = again?.ok ? decode(again) : null;
+      if (!plainObject(fresh)) throw error;
+      if (content) return this.resolve(t, fresh, String(again.etag));
+      // Tags alone lost a race: they are written again onto the version that won.
+      this.adopt(t, fresh, String(again.etag), t.cloud.loaded); return this.write(id);
+    }
     const current = this.ws.threads.find(x => x.id === id);
-    if (current?.cloud) { const { rewritten: _written, ...link } = current.cloud; current.cloud = { ...link, etag, turns: current.turns.length, dirty: false, syncedAt: this.now() }; }
+    if (current?.cloud) {
+      // Tags changed again while this write was on its way stay marked, for the write that follows.
+      const { rewritten: _written, tagsDirty, ...link } = current.cloud, again = tagsDirty && (this.tagEdits.get(id) ?? 0) !== edits;
+      current.cloud = { ...link, etag, turns: content ? current.turns.length : link.turns, dirty: false, syncedAt: this.now(),
+        ...(tags || CLOUD_TAGS_FIELD in plain ? { tagsKnown: true } : {}), ...(again ? { tagsDirty: true } : {}) };
+    }
     await this.host.save(); this.host.emit();
   }
-  /** The chat changed in Tinfoil since Workbench last synced it: keep Workbench's version as a copy and load the cloud one. */
+  /** The chat changed in Tinfoil since Workbench last synced it: keep Workbench's version as a copy and load the cloud one.
+   * Tags changed here and not written yet are written onto it. */
   async resolve(thread, plain, etag) {
     this.keepCopy(thread);
-    Object.assign(thread, threadFromCloud(plain, { id: thread.cloud.id, etag, project: thread.cloud.project }, localProjectOf(this.ws, thread.cloud.project), this.now(), thread, true));
+    this.adopt(thread, plain, etag, true);
     this.notePictures(plain, thread.cloud.id);
     await this.host.save(); this.host.emit();
+    if (thread.cloud.tagsDirty) void this.schedule(thread.id);
   }
   /** Keeps where the pictures of a loaded cloud chat's messages are stored, so they can be fetched when the chat is
    * continued. The references, with each picture's key, stay in the encrypted workspace and never reach snapshots; the
@@ -307,10 +370,11 @@ export class CloudSync {
     await this.assertAccount();
     const key = this.key(), project = cloudProjectOf(this.ws, t.projectId), chatId = await this.client.newChatId(t.createdAt);
     await this.sendPictures(t, chatId, 0);
-    const clock = this.nextClock(0), body = newCloudChat(t, project, { ...clock, version: 1 }, this.now(), this.ws.cloudImages);
+    const clock = this.nextClock(0), body = newCloudChat(t, project, { ...clock, version: 1 }, this.now(), this.ws.cloudImages), tags = cloudTagsValue(t, this.ws.tagging);
+    if (tags) body[CLOUD_TAGS_FIELD] = tags;
     const etag = await this.client.push('chat', chatId, key, body, '0', { messageCount: body.messages.length, projectId: project });
     const current = this.ws.threads.find(x => x.id === id);
-    if (current) { current.cloud = { id: chatId, etag, project, turns: current.turns.length, loaded: true, dirty: false, syncedAt: this.now() }; delete current.cloudPending; }
+    if (current) { current.cloud = { id: chatId, etag, project, turns: current.turns.length, loaded: true, dirty: false, syncedAt: this.now(), ...(tags ? { tagsKnown: true } : {}) }; delete current.cloudPending; }
     await this.host.save(); this.host.emit();
   }
   /** Deletes a cloud chat in Tinfoil, then here. */

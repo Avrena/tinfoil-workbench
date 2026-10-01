@@ -265,6 +265,69 @@ test('a push that loses a race is resolved the same way, and a rewrap is not a c
   assert.equal(server.rows.chat.get('c1').plain.title, 'Once more'); assert.equal(ws.threads.filter(t => /Workbench copy/.test(t.title)).length, 1);
 });
 
+const TAGGED = { version: 1, tagged: { at: 10, model: 'm' }, tags: [{ id: 'preset-travel', name: 'Travel', color: 'green', style: 'outline', icon: 'plane' },
+  { id: 'tag-kyoto', name: 'Kyoto', color: 'orange', style: 'fill' }] };
+const cloudTagIds = (server, id) => server.rows.chat.get(id).plain.workbenchTags?.tags.map(t => t.id);
+test('a cloud chat\'s tags are read from the cloud, and tags changed here are written alone, keeping its messages and place', async () => {
+  const server = enclave(); server.seed('chat', 'c1', chat('Trip', 1, { workbenchTags: TAGGED }));
+  const { sync, ws } = setup({ server });
+  await sync.connect(KEY);
+  const trip = byCloud(ws, 'c1');
+  assert.deepEqual(trip.tags, ['preset-travel', 'tag-kyoto']); assert.deepEqual(trip.tagged, { at: 10, model: 'm' });
+  assert.deepEqual(ws.tagging.tags.at(-1), { id: 'tag-kyoto', name: 'Kyoto', color: 'orange', style: 'fill', hint: '' }, 'a tag the list lacked was added');
+  // Tags changed on a chat that was never opened: only the tags and the edit clock change in the cloud.
+  trip.tags = ['preset-legal']; trip.tagged = { at: 20 };
+  await sync.changedTags(trip.id);
+  const stored = server.rows.chat.get('c1').plain;
+  assert.equal(server.rows.chat.get('c1').etag, 2); assert.deepEqual(cloudTagIds(server, 'c1'), ['preset-legal']); assert.deepEqual(stored.workbenchTags.tagged, { at: 20 });
+  assert.deepEqual(stored.messages, chat('Trip', 1).messages); assert.equal(stored.updatedAt, chat('Trip', 1).updatedAt, 'the chat keeps its place in the list');
+  assert.deepEqual([stored.unknownTop, stored.clockVersion, stored.writer], [1, 2, ws.cloud.writer]);
+  assert.deepEqual([trip.cloud.etag, trip.cloud.tagsDirty, trip.cloud.loaded, trip.turns.length], ['2', undefined, false, 0]);
+  // A rename writes the chat, which carries tags changed here at the same time.
+  await sync.load(trip.id); trip.tags = ['preset-health']; trip.tagged = { at: 25 }; trip.cloud.tagsDirty = true;
+  trip.title = 'Kyoto'; await sync.changed(trip.id);
+  assert.equal(server.rows.chat.get('c1').plain.title, 'Kyoto'); assert.deepEqual(cloudTagIds(server, 'c1'), ['preset-health']); assert.equal(trip.cloud.tagsDirty, undefined);
+});
+test('tags changed here meet a newer cloud version without a copy, and stay until they are written', async () => {
+  const server = enclave(); server.seed('chat', 'c1', chat('Trip', 1, { workbenchTags: TAGGED }));
+  const { sync, ws, notices } = setup({ server });
+  await sync.connect(KEY); const trip = byCloud(ws, 'c1'); await sync.load(trip.id);
+  server.edit('chat', 'c1', plain => { plain.messages.push({ role: 'user', content: 'from the phone' }); });
+  trip.tags = ['preset-work']; trip.tagged = { at: 30 };
+  await sync.changedTags(trip.id);
+  const row = server.rows.chat.get('c1');
+  assert.equal(row.etag, 3); assert.deepEqual(cloudTagIds(server, 'c1'), ['preset-work']); assert.equal(row.plain.messages.at(-1).content, 'from the phone');
+  assert.ok(trip.turns.some(t => t.prompt === 'from the phone'), 'the newer version was taken here');
+  assert.ok(!ws.threads.some(t => /Workbench copy/.test(t.title)) && !notices.length, 'no copy for a tag change');
+  // While tags wait to be written, a sync keeps them over the cloud's.
+  server.edit('chat', 'c1', plain => { plain.workbenchTags = { version: 1, tags: [{ id: 'preset-money', name: 'Money', color: 'red', style: 'fill' }], tagged: { at: 40 } }; });
+  trip.cloud.tagsDirty = true; trip.tags = ['preset-health']; trip.tagged = { at: 50 };
+  await sync.sync();
+  assert.deepEqual(trip.tags, ['preset-health']); assert.equal(trip.cloud.tagsDirty, true);
+  await sync.changedTags(trip.id);
+  assert.deepEqual(cloudTagIds(server, 'c1'), ['preset-health']); assert.equal(trip.cloud.tagsDirty, undefined);
+  // Without changes waiting here, the cloud's tags apply; an empty choice is a choice too.
+  server.edit('chat', 'c1', plain => { plain.workbenchTags = { version: 1, tags: [], tagged: { at: 60 } }; });
+  await sync.sync();
+  assert.equal(trip.tags, undefined); assert.deepEqual(trip.tagged, { at: 60 });
+});
+test('chats tagged before tags were synced get them written at the next sync, and a new cloud chat carries its tags', async () => {
+  const server = enclave(); server.seed('chat', 'c1', chat('Trip', 1));
+  const { sync, ws } = setup({ server });
+  await sync.connect(KEY);
+  const trip = byCloud(ws, 'c1'); trip.tags = ['preset-coding']; trip.tagged = { at: 5 };
+  await sync.sync(); await Promise.all([...sync.writes.values()]);
+  assert.deepEqual(cloudTagIds(server, 'c1'), ['preset-coding']); assert.deepEqual(server.rows.chat.get('c1').plain.messages, chat('Trip', 1).messages);
+  const t = ws.threads.find(x => !x.cloud); t.title = 'Local'; t.settings.model = 'gemma4-31b'; t.tags = ['preset-work']; t.tagged = { at: 7, model: 'gemma4-31b' };
+  const answer = reply('Hello.');
+  t.turns.push({ id: 'n1', prompt: 'Hi', attachments: [], createdAt: 1, selectedReplyId: answer.id, replies: [answer] });
+  await sync.upload(t.id);
+  assert.deepEqual(server.rows.chat.get(t.cloud.id).plain.workbenchTags.tags.map(x => x.name), ['Work']); assert.equal(t.cloud.tagsKnown, true);
+  // A later version of the format is left as it is.
+  server.edit('chat', 'c1', plain => { plain.workbenchTags = { version: 2, future: true }; });
+  await sync.sync(); trip.tags = ['preset-health']; await sync.changedTags(trip.id);
+  assert.deepEqual(server.rows.chat.get('c1').plain.workbenchTags, { version: 2, future: true }); assert.equal(trip.cloud.tagsDirty, undefined);
+});
 test('chats deleted in Tinfoil leave this device, unless they hold unsynced changes', async () => {
   const server = enclave(); server.seed('chat', 'c1', chat('Gone', 1)); server.seed('chat', 'c2', chat('Kept', 1));
   const { sync, ws } = setup({ server });
@@ -428,6 +491,11 @@ test('the service opens, writes back, moves and exports cloud chats through its 
   assert.equal(server.rows.chat.get('c1').plain.projectId, 'p1');
   await assert.rejects(s.execute({ type: 'project.rename', id: research.id, name: 'x' }), /in Tinfoil Chat/);
   assert.equal('cloud' in JSON.parse(exportThread(s.workspace.threads.find(t => t.id === trip.id))).conversation, false);
+  // Tags chosen for a cloud chat reach the cloud, and a tag that leaves the list leaves the cloud chat too.
+  await s.execute({ type: 'thread.tags', id: trip.id, tags: ['preset-work', 'preset-legal'] });
+  await until(() => cloudTagIds(server, 'c1')?.join() === 'preset-work,preset-legal');
+  await s.execute({ type: 'tagging.set', tagging: { ...s.workspace.tagging, tags: s.workspace.tagging.tags.filter(t => t.id !== 'preset-legal') } });
+  await until(() => cloudTagIds(server, 'c1')?.join() === 'preset-work');
   await s.shutdown();
 });
 const until = async (ready, ms = 2000) => { const end = Date.now() + ms; while (Date.now() < end) { if (ready()) return; await new Promise(r => setTimeout(r, 5)); } assert.fail('timed out'); };

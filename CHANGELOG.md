@@ -19,7 +19,7 @@
   - A tag row under the search shows only conversations that have every tag you pick.
   - Search also matches tag names, and `#name` finds conversations by tag.
   - The tag button beside Threads groups conversations under their first tag instead of by day.
-- Tags are kept in the encrypted workspace on this device, also for Tinfoil cloud chats, and exports leave them out. A conversation that becomes a cloud chat after its first answer waits briefly for its new title, so Tinfoil Chat gets that title too.
+- Tags are kept in the encrypted workspace, and exports leave them out. A Tinfoil cloud chat also carries its tags in its encrypted cloud data, so Workbench on another device shows them and adds tags its list lacks; a tag change is written on its own, without touching the chat's messages or its place in Tinfoil Chat's list. Tinfoil Chat on the web keeps the tags when it edits the chat but does not show them. A conversation that becomes a cloud chat after its first answer waits briefly for its new title, so Tinfoil Chat gets that title too.
 - Workspaces from 1.3.0 get the presets with tagging off. 1.3.0 can open a workspace saved by this version, but it drops the tags and the tag list.
 
 ## 1.3.0 — workspace agent, files and pictures, themes

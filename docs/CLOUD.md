@@ -48,7 +48,7 @@ Deleting a cloud chat deletes its pictures in Tinfoil too. A "Workbench copy" of
 - The chat key, its key ID and the Tinfoil user it belongs to are kept in the encrypted workspace, like a saved API key. Snapshots, logs and exports never contain the key.
 - Cloud chats and projects are kept in the encrypted workspace like local conversations. Exports and imports drop the cloud link, so an import is always a new local conversation.
 - Where each picture of a cloud chat is kept (its ID and own key) is in the encrypted workspace, never in snapshots, logs or exports, and is forgotten once no message uses the picture. Fetched pictures are stored like attached ones.
-- Tags of cloud chats (Settings → Tags) are kept only in the encrypted workspace on this device; Tinfoil Chat never receives them. A title the classifier writes for a chat that Workbench made is written to the cloud chat like a rename.
+- Tags of cloud chats (Settings → Tags) are kept in the encrypted workspace and in the chat's encrypted plaintext, as `workbenchTags`: `{version: 1, tags: [{id, name, color, style, icon?}], tagged: {at, model?}}`. Tinfoil Chat on the web keeps this field when it edits a chat (its chat schema passes unknown fields through, and its saves copy the whole chat; checked with a test chat renamed on the web) but does not show it, and its backups leave it out. Another Workbench matches each tag by id, then by name ignoring case, and adds a tag its list lacks. A title the classifier writes for a chat that Workbench made is written to the cloud chat like a rename.
 - Cloud data belongs to the account whose key was added. If another account signs in, sync stops until that account signs in again or the key is removed.
 
 ## Checks

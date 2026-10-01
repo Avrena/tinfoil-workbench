@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import { WorkbenchService } from '../desktop/service.mjs';
 import { newWorkspace, newThread, beginTurn, forkThread, exportThread, importThread } from '../dist/core/workspace.js';
 import { validateWorkspace, tagging as taggingSettings } from '../dist/core/validation.js';
-import { PRESET_TAGS, TAG_COLORS, TAG_ICONS, tagLetter, defaultTagging, tagMessages, parseTagAnswer, cleanTitle, titleFromMessage, messageTitle, taggable, untagged, tagEstimate, tagAllQuestion, threadTags, tagSearch } from '../dist/core/tags.js';
+import { PRESET_TAGS, TAG_COLORS, TAG_ICONS, tagLetter, cloudTagsValue, readCloudTags, defaultTagging, tagMessages, parseTagAnswer, cleanTitle, titleFromMessage, messageTitle, taggable, untagged, tagEstimate, tagAllQuestion, threadTags, tagSearch } from '../dist/core/tags.js';
 import { themeTokens, THEME_PRESETS } from '../dist/core/themes.js';
 const wait = ms => new Promise(r => setTimeout(r, ms));
 const CLASSIFIER = /^You file conversations/;
@@ -114,6 +114,26 @@ test('tags are listed in the list’s order and found with #', () => {
   const t = answered(); t.tags = ['preset-work', 'preset-coding', 'gone'];
   assert.deepEqual(threadTags(t, listed()).map(x => x.name), ['Coding', 'Work']);
   assert.equal(tagSearch(' #Cod'), 'cod'); assert.equal(tagSearch('code'), null);
+});
+test('a cloud chat carries its tags by id, name and look, and another device reads them against its own list', () => {
+  const s = listed(), t = answered();
+  assert.equal(cloudTagsValue(t, s), null, 'a conversation never tagged carries nothing');
+  t.tags = ['preset-work', 'preset-coding']; t.tagged = { at: 5, model: 'm' };
+  const value = cloudTagsValue(t, s);
+  assert.deepEqual(value, { version: 1, tagged: { at: 5, model: 'm' }, tags: [
+    { id: 'preset-coding', name: 'Coding', color: 'blue', style: 'fill', icon: 'code' }, { id: 'preset-work', name: 'Work', color: 'violet', style: 'fill', icon: 'briefcase' }] });
+  // Another device renamed Work (same id), removed Coding and made its own "coding" (another id), and lacks Garden.
+  const other = { ...s, tags: [...s.tags.filter(x => x.id !== 'preset-coding').map(x => x.id === 'preset-work' ? { ...x, name: 'Job' } : x), { id: 'tag-mine', name: 'coding', color: 'red', style: 'dot', hint: '' }] };
+  const garden = { id: 'tag-garden', name: 'Garden', color: 'green', style: 'stripe', icon: 'home' };
+  const read = readCloudTags({ ...value, tags: [...value.tags, garden, { id: 'not an id!', name: 'garden' }, { name: '' }, 7] }, other);
+  assert.deepEqual(read.tags, ['tag-mine', 'preset-work', 'tag-garden'], 'matched by id, then by name; a tag the list lacks is added once');
+  assert.deepEqual(read.added, [{ ...garden, hint: '' }]); assert.deepEqual(read.tagged, { at: 5, model: 'm' });
+  const odd = readCloudTags({ version: 1, tags: [{ id: 'tag-odd', name: '#Odd', color: 'pink', style: 'glow', icon: 'rocket' }], tagged: { at: 1 } }, s);
+  assert.deepEqual(odd.added, [{ id: 'tag-odd', name: 'Odd', color: 'grey', style: 'fill', hint: '' }], 'an unknown colour, style or icon falls back');
+  for (const bad of [undefined, null, [], { version: 2, tags: [], tagged: { at: 1 } }, { version: 1, tags: [], tagged: { at: 0 } }, { version: 1, tags: 'x', tagged: { at: 1 } }, { version: 1, tags: [] }])
+    assert.equal(readCloudTags(bad, s), null);
+  const full = { ...s, tags: Array.from({ length: 40 }, (_, i) => ({ id: `t${i}`, name: `T${i}`, color: 'red', style: 'fill', hint: '' })) };
+  assert.deepEqual(readCloudTags({ version: 1, tags: [garden], tagged: { at: 1 } }, full), { tags: [], tagged: { at: 1 }, added: [] }, 'a full list takes no more');
 });
 test('every theme has each tag colour and its fill', () => {
   for (const preset of THEME_PRESETS) for (const variant of ['dark', 'light']) if (preset[variant]) {

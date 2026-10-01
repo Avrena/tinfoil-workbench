@@ -6,13 +6,19 @@ import { CLOUD_PICTURE_ID, IMAGE_LIMITS, STORED_IMAGE_TYPES, base64Bytes, cloudI
 import { defaults, uid } from './workspace.js';
 import { escapePromptContent } from './prompt.js';
 import { RENDER_KINDS, artifactFileName, structuredVisual, visualArguments } from './visual-tools.js';
+import { CLOUD_TAGS_FIELD, type CloudTags } from './tags.js';
 
 /** A conversation that is also a Tinfoil cloud chat. `turns` is how many turns came from the cloud at the last sync:
  * later turns are Workbench's own until they are written back. `loaded` is false for a listed chat whose messages
  * have not been fetched yet. `format` is the CLOUD_FORMAT its messages were read with; absent before 2. */
 export interface CloudChatLink { id: string; etag: string; project: string | null; turns: number; loaded: boolean; dirty: boolean; syncedAt: number; format?: number;
   /** The path changed at `turns` (another version was made or shown): the cloud chat's messages after it are replaced. */
-  rewritten?: true }
+  rewritten?: true;
+  /** Its tags changed here and are not written yet (core/tags.ts CLOUD_TAGS_FIELD). Alone, they are written without the
+   * messages (cloudTagsPatch); a newer cloud version then keeps them instead of its own. */
+  tagsDirty?: true;
+  /** The cloud version has its tags, or a later format's: a conversation tagged here without it has them written. */
+  tagsKnown?: true }
 /** How much of a cloud chat's messages Workbench reads: 2 added Tinfoil Chat's widgets, 3 its pictures. A loaded chat
  * read with an older format is read again at the next sync. */
 export const CLOUD_FORMAT = 3;
@@ -232,6 +238,12 @@ export function cloudPatch(remote: Json, thread: Thread, clock: { v: number; w: 
   }
   return { ...remote, title: thread.title, ...(thread.title !== remote.title ? { titleState: 'manual' } : {}), messages: out,
     updatedAt: new Date(now).toISOString(), clock: clock.v, writer: clock.w, clockVersion: clock.version };
+}
+/** A write of a cloud chat's tags alone: its plaintext as it is, with `tags` (core/tags.ts CLOUD_TAGS_FIELD) and a new
+ * edit clock. Its messages and `updatedAt` stay, so a tag change neither touches the conversation nor moves it up
+ * Tinfoil Chat's list. */
+export function cloudTagsPatch(remote: Json, tags: CloudTags, clock: { v: number; w: string; version: number }): Json {
+  return { ...remote, [CLOUD_TAGS_FIELD]: tags, clock: clock.v, writer: clock.w, clockVersion: clock.version };
 }
 /** How many of a conversation's turns the cloud chat `remote` already has; cloudPatch writes the turns after them. */
 export const knownTurns = (remote: Json, thread: Thread): number =>

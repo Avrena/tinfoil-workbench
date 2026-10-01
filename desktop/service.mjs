@@ -486,9 +486,11 @@ export class WorkbenchService {
       // Tags (core/tags.ts). The list and its settings: a tag that leaves the list leaves every conversation, and turning
       // tagging off empties the classifier's queue.
       case 'tagging.set': {
-        const next = tagging(c.tagging);
+        const next = tagging(c.tagging), before = new Map(this.workspace.threads.map(t => [t.id, (t.tags ?? []).join()]));
         keepListedTags(this.workspace.threads, next); this.workspace.tagging = next;
         if (!next.enabled) this.stopTagging();
+        // A cloud chat that lost a tag with it has its tags written again.
+        for (const t of this.workspace.threads) if (t.cloud && before.get(t.id) !== (t.tags ?? []).join()) void this.cloud?.changedTags(t.id);
         break;
       }
       // Tags the person chose. The classifier never changes them by itself afterwards.
@@ -496,7 +498,9 @@ export class WorkbenchService {
         const t = findThread(this.workspace, identifier(c.id)), ids = threadTagIds(c.tags);
         if (ids.some(id => !this.workspace.tagging.tags.some(tag => tag.id === id))) throw new InputError('That tag is no longer in your list.');
         if (ids.length) t.tags = ids; else delete t.tags;
-        t.tagged = { at: Date.now() }; break;
+        t.tagged = { at: Date.now() };
+        if (t.cloud) void this.cloud?.changedTags(t.id);
+        break;
       }
       case 'thread.classify': { const t = findThread(this.workspace, identifier(c.id)); this.checkTagging(t); void this.queueTags([t.id], true); return this.snapshot(); }
       // The host has confirmed the requests (tagPlan).
@@ -993,7 +997,8 @@ export class WorkbenchService {
     const title = this.workspace.tagging.titles && result.title && titleFromMessage(current) && current.title !== result.title ? result.title : null;
     if (title) current.title = title;
     await this.save(); this.emit();
-    if (title && current.cloud) void this.cloud?.changed(current.id);
+    // A new title is written with the chat, which carries its tags; tags alone are written on their own.
+    if (current.cloud) void (title ? this.cloud?.changed(current.id) : this.cloud?.changedTags(current.id));
   }
   newTool(call, origin) {
     return { id: randomUUID(), callId: call.id, name: call.function.name, arguments: call.function.arguments,

@@ -83,7 +83,9 @@ It goes to the tagging model, or to the conversation's own, through `service.bou
 
 Requests run one at a time from a queue. A first answer goes ahead of a running batch. Failures are reported in `Snapshot.tagStatus` and never retried. A sign-out, a change of connection or API key, or turning tagging off empties the queue and stops the request that is running.
 
-**Cloud chats.** A conversation that becomes a cloud chat after its first answer waits up to 30 seconds for its title before the upload. An existing cloud chat is written again when its title changes. Tags themselves never leave the device.
+**Cloud chats.** A conversation that becomes a cloud chat after its first answer waits up to 30 seconds for its title before the upload. An existing cloud chat is written again when its title changes.
+
+**Tags of cloud chats.** A cloud chat carries its tags in its plaintext (`CLOUD_TAGS_FIELD`, `cloudTagsValue`): each tag's id, name and look, and who chose them when. A pull reads them against this device's list (`readCloudTags`: by id, then by name ignoring case; a tag the list lacks is added while it has room). A tag change marks the chat's link `tagsDirty` and is written on its own (`cloudTagsPatch`: the plaintext as it is, with the tags and a new edit clock, so the messages and `updatedAt` stay); a newer cloud version is then taken and the tags written onto it, never a Workbench copy, and until they are written they win over the cloud's. Any other write of the chat carries its tags. `tagsKnown` records that the cloud version has tags, so a sync writes those of chats tagged before tags were synced. A later version of the field (`version` above 1) is left as it is.
 
 The sidebar can filter by tag, where a conversation must have every chosen tag; the selection is kept for the session only. It can also group conversations under their first tag (`ViewPreferences.threadGroup`). Search matches tag names, and `#name` matches only tags.
 

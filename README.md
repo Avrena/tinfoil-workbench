@@ -139,7 +139,7 @@ In the sidebar:
 - `#name` in the search finds conversations by tag;
 - the tag button beside **Threads** groups conversations under their first tag.
 
-Tags are stored in the encrypted workspace on this device only, Tinfoil cloud chats included. Exports leave them out.
+Tags are stored in the encrypted workspace. A Tinfoil cloud chat also carries its tags in its encrypted cloud data, so Workbench on your other devices shows them; Tinfoil Chat on the web keeps them but does not show them. A tag a device does not have yet is added to its list. Exports leave tags out.
 
 <img src="docs/tags.png" alt="Synthetic conversations grouped by tag in the sidebar, with the tag row under the search and tags beside the title" width="62%"> <img src="docs/settings-tags.png" alt="Settings → Tags with tagging on and the colour and style picker of one tag open" width="34%">
 

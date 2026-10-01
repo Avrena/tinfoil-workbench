@@ -55,7 +55,7 @@ export class TagSettings {
   private focusNext: { id: string; field: 'name' | 'hint' | 'color' } | null = null;
   constructor(private readonly root: HTMLElement, private readonly host: TagSettingsHost) {
     root.innerHTML = `<label class="toggle-row"><span>Tag and title new conversations</span><input type="checkbox" id="tagging-on"></label>
-<p class="muted small" id="tagging-about">After a conversation’s first answer, a model files it under the tag that fits best (up to three when it is mainly about more than one) and gives it a short title, unless you renamed it. It reads the first message, the names of its files and the start of the answer: one short request each. Tags stay on this device, also for Tinfoil cloud chats.</p>
+<p class="muted small" id="tagging-about">After a conversation’s first answer, a model files it under the tag that fits best (up to three when it is mainly about more than one) and gives it a short title, unless you renamed it. It reads the first message, the names of its files and the start of the answer: one short request each. A Tinfoil cloud chat carries its tags, encrypted, to your other Workbench devices; other conversations’ tags stay on this device.</p>
 <div class="tagging-options" id="tagging-options" hidden><label for="tagging-model">Model</label><select id="tagging-model"></select>
 <label class="toggle-row"><span>Also write titles</span><input type="checkbox" id="tagging-titles"></label>
 <div class="tagging-run"><button type="button" data-tag-action="all" id="tagging-all">Tag untagged conversations</button><button type="button" data-tag-action="stop" id="tagging-stop" hidden>Stop</button></div></div>
