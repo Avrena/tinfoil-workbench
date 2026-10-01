@@ -102,6 +102,8 @@ When a call needs approval, Workbench opens a separate approval window showing t
 
 **The workspace agent is not a sandbox. An approved command runs with your Windows permissions and is not confined to the workspace folder.** It can read, change or send anything your account can access. Confinement applies to the file tools, not commands; attached folders extend read access, not the file tools' write scope. See [security](SECURITY.md).
 
+![A change shown as a diff and a command naming a path outside the folder, both waiting for approval (synthetic demonstration)](docs/agent-1280.png)
+
 ### Python
 
 On Windows, **Advanced → Model-requested Python** finds installed interpreters automatically, preferring those on `PATH`, and shows the selected interpreter and version. Choose another from the list or use the native picker; discovery does not run Python ([Python execution](SECURITY.md#python-is-not-a-sandbox)).
@@ -119,6 +121,8 @@ Tool batches run sequentially. Tinfoil-managed MCP entries display provider-repo
 **Settings → Appearance** offers System, Light and Dark modes, Workbench's own look and 29 Codex app presets, with colour and contrast controls. Not every preset has both light and dark variants ([themes](docs/ARCHITECTURE.md#themes-13)).
 
 **Settings → Chat background** adds a grid, dots, grain or your own picture, with texture strength or picture blur, greyscale and dim controls. The picture stays in the encrypted workspace and is not sent to a model ([background settings](docs/ARCHITECTURE.md#themes-13)).
+
+<img src="docs/settings-appearance.png" alt="Settings with the light GitHub preset and the chat background choices" width="49%"> <img src="docs/chat-background.png" alt="A generated picture, blurred and dimmed, behind a synthetic conversation" width="49%">
 
 ### Keyboard shortcuts (Windows)
 

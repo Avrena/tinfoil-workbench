@@ -156,7 +156,7 @@ with sync_playwright() as p:
  made=re.compile(r'^C:\\Preview\\Tinfoil\\\d{4}-\d{2}-\d{2} workspace agent demo [0-9a-f]{4}$');expect(command.locator('.agent-where')).to_contain_text('C:\\Preview\\Tinfoil\\')
  page.locator('.toolbar [data-action=inspector]').click();expect(current).to_have_text(made);expect(page.locator('#agent-folder-new')).to_be_visible();page.locator('#inspector [data-action=inspector]').click()
  checks.append('sending without a folder gives the conversation a new one, named after the date and its first message, under the chosen place')
- page.screenshot(path=str(root/'docs'/'agent-1280.png'));context.close()
+ page.evaluate("document.getElementById('toast').classList.add('hidden')");page.screenshot(path=str(root/'docs'/'agent-1280.png'));context.close()  # the README's picture of the agent
  # The approval window's page (desktop/approval-window.mjs), with a stand-in for its bridge: the request, one decision
  # and the content height. The window itself, its origin and its preload are checked by the desktop smoke test.
  approval_html=(root/'dist/approval.html').read_text(encoding='utf-8').replace('<link rel="stylesheet" href="/approval.css">','<style>'+(root/'dist/approval.css').read_text(encoding='utf-8')+'</style>').replace('<script type="module" src="/approval.js"></script>','')

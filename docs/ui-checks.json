@@ -1,5 +1,5 @@
 {
-  "checks": 37,
+  "checks": 42,
   "passed": [
     "default layout hides advanced controls and labels offline data",
     "the title search is centred on the window at 40% of its width, and the idle status bar shows only the connection",
@@ -15,9 +15,14 @@
     "in-conversation find highlights matches without rewriting stored answers",
     "focus and sidebar keyboard shortcuts restore the prior layout",
     "offline preview refuses execution rather than simulating a real run",
+    "turning on model-requested Python in Advanced finds installed Python and shows the one on PATH under it; another one found is picked there without Apply",
     "advanced instructions and ask-before-run controls persist only on apply",
     "drafts and IME-friendly multiline input survive thread changes",
+    "the sidebar folds Projects and Threads to their headings; a search shows everything",
+    "a click outside the command palette closes it; a click inside does not",
     "command palette opens settings; preview rejects and clears credentials",
+    "Settings \u2192 Appearance: a light preset recolours the page and is stored, a picked colour marks it edited, System shows both variants",
+    "Settings \u2192 Chat background: texture and picture options, a picked picture behind the conversation, effect sliders only while switched on",
     "HTML preview preserves permitted styles in an opaque sandbox and strips scripts, navigation and images",
     "raw model HTML remains inert text in the transcript",
     "pending execution cannot be hidden by reasoning visibility preferences",

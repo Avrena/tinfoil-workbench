@@ -75,7 +75,9 @@ with sync_playwright() as p:
  assert page.locator('.reasoning').evaluate('(e)=>!e.open');expect(page.locator('.usage')).to_have_count(0)
  page.locator('#transcript').evaluate('(e)=>e.scrollTop=0')
  page.screenshot(path=str(root/'docs/preview.png'),full_page=True)
- page.set_viewport_size({'width':1100,'height':850});page.screenshot(path=str(root/'docs/preview-compact.png'),full_page=True);page.set_viewport_size({'width':1500,'height':1180})
+ # The layout must settle at the new size first, or the full-page shot keeps the old height as a blank strip.
+ page.set_viewport_size({'width':1100,'height':850});page.wait_for_function("document.documentElement.scrollHeight<=850");page.wait_for_timeout(200)
+ page.screenshot(path=str(root/'docs/preview-compact.png'),full_page=True);page.set_viewport_size({'width':1500,'height':1180})
  page.locator('.reasoning summary').click();expect(page.locator('.reasoning-content')).to_be_visible()
  # A snapshot update must not forcibly fold the section the reader opened.
  page.locator('#prompt').fill('Draft');page.wait_for_timeout(650);assert page.locator('.reasoning').evaluate('(e)=>e.open')
@@ -128,6 +130,7 @@ with sync_playwright() as p:
  expect(page.locator('#theme-cards .theme-card')).to_have_count(1);page.locator('[data-for=theme-mode] [data-value=light]').click()
  page.locator('[data-theme-preset=light]').click();expect(page.locator('#theme-popover [data-preset]')).to_have_count(17);page.locator('#theme-popover [data-preset=github]').click()
  assert page.evaluate("getComputedStyle(document.querySelector('.main')).backgroundColor")=='rgb(255, 255, 255)',page.evaluate("getComputedStyle(document.querySelector('.main')).backgroundColor")
+ page.wait_for_timeout(200);page.evaluate("document.getElementById('toast').classList.add('hidden');document.activeElement?.blur()");page.screenshot(path=str(root/'docs/settings-appearance.png'))  # the README's picture of Settings → Appearance
  page.locator('[data-theme-color=light][data-key=accent]').click();page.locator('#theme-popover [data-hex]').fill('#aa3366');page.wait_for_timeout(100)
  expect(page.locator('[data-theme-reset=light]')).to_have_count(0);page.keyboard.press('Escape');expect(page.locator('#settings-dialog')).to_be_visible();expect(page.locator('[data-theme-reset=light]')).to_be_visible()
  page.wait_for_function("window.tinfoil.snapshot().then(s=>s.workspace.view.theme.light.accent==='#aa3366'&&s.workspace.view.theme.mode==='light')",timeout=3000)
@@ -143,6 +146,9 @@ with sync_playwright() as p:
  page.locator('[data-for=background-kind] [data-value=picture]').click();expect(page.locator('#background-texture-options')).to_be_hidden();expect(page.locator('#background-picture-note')).to_be_visible()
  assert page.locator('#background-picture-options .background-slider:visible').count()==1,'only Dim, which starts on, shows its slider'
  page.locator('[data-action=background-pick]').click();expect(page.locator('#chat-backdrop')).to_have_attribute('data-kind','picture');expect(page.locator('#background-clear')).to_be_visible()
+ # The README's picture of a chat background: the synthetic picture, blurred, behind the conversation.
+ page.locator('#background-blur-on').check();page.keyboard.press('Escape');expect(page.locator('#settings-dialog')).to_be_hidden();page.wait_for_timeout(400)
+ page.evaluate("document.getElementById('toast').classList.add('hidden');document.activeElement?.blur()");page.screenshot(path=str(root/'docs/chat-background.png'));page.locator('.sidebar-bottom [data-action=settings]').click();expect(page.locator('#settings-dialog')).to_be_visible()
  page.locator('#background-blur-on').check();expect(page.locator('#background-blur-row')).to_be_visible();page.locator('#background-blur-on').uncheck();expect(page.locator('#background-blur-row')).to_be_hidden()
  page.wait_for_function("window.tinfoil.snapshot().then(s=>!!s.background&&s.workspace.view.background.kind==='picture'&&s.workspace.view.background.texture==='dots')",timeout=3000)
  page.locator('[data-action=background-clear]').click();expect(page.locator('#chat-backdrop')).to_be_hidden();page.keyboard.press('Escape');expect(page.locator('#settings-dialog')).to_be_hidden()
