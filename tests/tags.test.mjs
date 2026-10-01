@@ -118,13 +118,17 @@ async function setup(t, answer = '{"tags":["Coding"],"title":"KeyError in a Pyth
     chat: { completions: { create: async body => {
       calls.push(structuredClone(body));
       const classify = CLASSIFIER.test(body.messages[0]?.content ?? '');
+      if (classify) {
+        // The classifier's answer comes whole: a text, or a message with its finish reason.
+        if (options.slow) await options.slow();
+        const given = typeof answer === 'function' ? answer(calls.length) : answer;
+        const { message, finish = 'stop' } = typeof given === 'string' ? { message: { content: given } } : given;
+        return { choices: [{ message: { role: 'assistant', ...message }, finish_reason: finish }], usage: { prompt_tokens: 300, completion_tokens: 20 } };
+      }
       return (async function* () {
-        if (classify && options.slow) await options.slow();
-        if (!classify && options.reply) await options.reply();
-        const text = classify ? (typeof answer === 'function' ? answer(calls.length) : answer) : 'The dictionary has no such key.';
-        // Usage repeated on every chunk, as some providers send it: it is counted once.
-        yield { choices: [{ delta: { content: text } }], usage: { prompt_tokens: classify ? 300 : 7, completion_tokens: classify ? 10 : 1 } };
-        yield { choices: [{ delta: {}, finish_reason: 'stop' }], usage: { prompt_tokens: classify ? 300 : 7, completion_tokens: classify ? 20 : 3 } };
+        if (options.reply) await options.reply();
+        yield { choices: [{ delta: { content: 'The dictionary has no such key.' } }] };
+        yield { choices: [{ delta: {}, finish_reason: 'stop' }], usage: { prompt_tokens: 7, completion_tokens: 3 } };
       })();
     } } } };
   const s = new WorkbenchService(vault(), async () => client); await s.initialize(); await s.execute({ type: 'credentials.set', key: 'test-only-not-real' });
@@ -141,6 +145,7 @@ test('with tagging on, the first answer is tagged and titled by one short reques
   const thread = s.workspace.threads[0], [body] = classified();
   assert.equal(classified().length, 1);
   assert.equal(body.model, 'chat-model'); assert.equal(body.max_tokens, 512); assert.equal(body.temperature, 0); assert.ok(!('tools' in body) && !('tool_choice' in body));
+  assert.ok(!('stream' in body) && !('stream_options' in body), 'the answer is asked for whole');
   assert.equal(body.messages.length, 2);
   assert.deepEqual(thread.tags, ['preset-coding']); assert.equal(thread.tagged.model, 'chat-model');
   assert.equal(thread.title, 'KeyError in a Python script');
@@ -191,6 +196,22 @@ test('an answer in the wrong form changes nothing, is reported and is not retrie
   assert.equal(classified().length, 1); assert.equal(thread.tagged, undefined); assert.equal(thread.tags, undefined);
   const status = s.snapshot().tagStatus;
   assert.equal(status.failed, 1); assert.equal(status.errorThread, thread.id); assert.match(status.error, /did not answer in the expected form/);
+});
+test('a tool call or an answer cut short changes nothing; an answer reported as a tool call with no call still counts', async t => {
+  const answers = [
+    { message: { content: null, tool_calls: [{ id: 'call-1', type: 'function', function: { name: 'python', arguments: '{}' } }] }, finish: 'tool_calls' },
+    { message: { content: '' }, finish: 'length' },
+    { message: { content: '{"tags": ["Coding"], "title": "KeyError in a Python script"}', tool_calls: [] }, finish: 'tool_calls' },
+  ];
+  let next = 0;
+  const { s, classified } = await setup(t, () => answers[next++]); await on(s);
+  await send(s); await settled(s);
+  const thread = s.workspace.threads[0];
+  assert.match(s.snapshot().tagStatus.error, /asked for a tool/); assert.equal(thread.tagged, undefined);
+  await s.execute({ type: 'thread.classify', id: thread.id }); await settled(s);
+  assert.match(s.snapshot().tagStatus.error, /reached its output limit/); assert.equal(thread.tagged, undefined);
+  await s.execute({ type: 'thread.classify', id: thread.id }); await settled(s);
+  assert.equal(classified().length, 3); assert.deepEqual(thread.tags, ['preset-coding']); assert.equal(thread.title, 'KeyError in a Python script');
 });
 test('"Tag untagged conversations" tags each one once and can be stopped; removing a tag clears it', async t => {
   const { s, classified } = await setup(t, n => n % 2 ? '{"tags":["Work"],"title":"Quarterly plan"}' : '{"tags":["Writing"]}');

@@ -75,7 +75,7 @@ The request (`tagMessages`) has two messages:
 - a system message: fixed instructions and the tag list;
 - a user message: the first message, the names of its files and the first 1,000 characters of the answer, inside `<conversation>`.
 
-It goes to the tagging model, or to the conversation's own, through `service.bound()` for the conversation's account. It is streamed, offers no tools, and turns thinking off where the model can (or uses its lowest effort). The output limit is 512 tokens, or 4,096 for a model that thinks anyway.
+It goes to the tagging model, or to the conversation's own, through `service.bound()` for the conversation's account. It asks for the whole answer at once (streamed, Llama 3.3's one-object JSON answers arrived as empty tool calls), offers no tools, and turns thinking off where the model can (or uses its lowest effort). The output limit is 512 tokens, or 4,096 for a model that thinks anyway.
 
 `parseTagAnswer` reads the first JSON object in the answer. It keeps at most three listed tags and a title of at most 50 characters (`cleanTitle`). The title replaces the current title only while that is still the first-message title (`titleFromMessage`), so a rename, a branch, an import or a Tinfoil Chat title stays. If the person changed the tags while the request ran, the result is dropped.
 
