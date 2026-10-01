@@ -2,9 +2,9 @@
 
 A private Windows 11 chat client in TypeScript and Electron, with a restrained editor-inspired interface, model-aware thinking controls, optional local Python, and versioned visual artifacts.
 
-This is a source implementation. No Windows executable, verified live-provider result, GitHub repository, or green remote CI run is supplied. See [the validation record](docs/VALIDATION.md) for exactly what ran.
+This is a source implementation. No Windows executable, verified live-provider result, GitHub repository, or green remote CI run is supplied. See [the validation record](../../VALIDATION.md) for exactly what ran.
 
-![The production renderer with synthetic preview data](docs/preview.png)
+![The production renderer with synthetic preview data](../../preview.png)
 
 ## Account access in 0.9
 
@@ -12,11 +12,11 @@ This is a source implementation. No Windows executable, verified live-provider r
 
 An **experimental Tinfoil Chat sign-in adapter** now opens the provider's own website in an isolated, temporary window. The main process checks its current Clerk identity and exchanges a session token using the flow published in Tinfoil's web client. Account access and the saved developer API key remain separate modes with no automatic billing fallback. Live website authentication and native Windows execution are not verified in this package.
 
-The Account view shows provider-returned identity, email-verification status and collapsed subscription/usage details. Manage profile & security opens the provider's own interface; Refresh account updates the local display. Sessions last until sign-out or app exit. Signing in does not sync this workspace. Existing history needs native approval before being sent through a different Chat identity or Chat/API mode, and approval itself sends nothing. See [account flow and limitations](docs/ACCOUNT.md).
+The Account view shows provider-returned identity, email-verification status and collapsed subscription/usage details. Manage profile & security opens the provider's own interface; Refresh account updates the local display. Sessions last until sign-out or app exit. Signing in does not sync this workspace. Existing history needs native approval before being sent through a different Chat identity or Chat/API mode, and approval itself sends nothing. See [account flow and limitations](../../ACCOUNT.md).
 
-![Account view with explicitly synthetic preview data](docs/account-profile.png)
+![Account view with explicitly synthetic preview data](../../account-profile.png)
 
-In the offline preview, open **Account & connection** and select **Toggle sample profile**. The sample never authenticates or modifies an account. Real sign-in is available only in the desktop integration, still pending live validation. [Phone](docs/account-phone.png) and [tablet](docs/account-tablet.png) views use the same production renderer.
+In the offline preview, open **Account & connection** and select **Toggle sample profile**. The sample never authenticates or modifies an account. Real sign-in is available only in the desktop integration, still pending live validation. [Phone](../../account-phone.png) and [tablet](../../account-tablet.png) views use the same production renderer.
 
 ## Tool activity in 0.8
 
@@ -26,7 +26,7 @@ The Chat Completions adapter consumes Tinfoil's published built-in MCP progress 
 
 An optional **Text-only sub-agents** setting offers `delegate_task`. Each proposed task requires in-app approval and native confirmation. It makes one separate same-model request with only the explicitly proposed task, no inherited conversation and no tools or recursion. The two-request cap is shared across comparison lanes; child usage remains separate, and Stop sub-agent preserves partial results. This is client orchestration, not an invented native sub-agent API.
 
-Both search and delegation default off. Read [supported interfaces, limits and source references](docs/ACTIVITY.md). Use the **Tool activity** starter in the offline preview for a labelled synthetic demonstration. No live model, MCP server or billing operation is exercised by that preview.
+Both search and delegation default off. Read [supported interfaces, limits and source references](../../ACTIVITY.md). Use the **Tool activity** starter in the offline preview for a labelled synthetic demonstration. No live model, MCP server or billing operation is exercised by that preview.
 
 ## Spacing and layout retained from 0.7
 
@@ -36,7 +36,7 @@ Headers keep the breadcrumb and thread title together. The sidebar search has pa
 
 The idle composer has a 48px text field and grows for longer drafts. Its measured height keeps Latest above wrapped controls and attachments. A single observer belongs to the composer rather than to every message. A short Default label in the quick effort picker preserves the existing provider-default wire value. Editors share one content inset from heading through footer, with wrap-safe actions on narrow screens. Compact drawer focus restoration can no longer scroll the outer app shell out of view.
 
-See [spacing notes and reproduction](docs/SPACING.md), [phone screenshot](docs/preview-phone.png), [tablet screenshot](docs/preview-tablet.png), and [validation](docs/VALIDATION.md).
+See [spacing notes and reproduction](../../SPACING.md), [phone screenshot](../../preview-phone.png), [tablet screenshot](../../preview-tablet.png), and [validation](../../VALIDATION.md).
 
 ## Conversation first
 
@@ -56,7 +56,7 @@ The sidebar has Workspace, Projects and Threads headers. Projects can be created
 
 Phone layouts use fullscreen editors, compact thread headers, visible touch actions, and dismissible navigation/advanced/artifact overlays. Tablet portrait uses overlays; larger landscape viewports retain desktop panels. Viewport-aware sizing keeps save/send reachable when the visible height shrinks. Drawers use focus containment, background inertness and Escape/backdrop dismissal, without changing the saved desktop sidebar preference. Charts adapt their actual geometry instead of scaling desktop labels to unreadable sizes. Wide tables scroll inside the visualization. The neutral seamless visualization style and existing cached streaming islands are retained.
 
-This remains a Windows Electron source project. Its renderer and offline preview are responsive; no native iOS/Android build, installable PWA, phone account connection or hosted mobile service is supplied. See [editing and mobile guide](docs/EDITING-AND-MOBILE.md), [phone view](docs/preview-phone.png), [phone editor](docs/editor-phone.png) and [tablet view](docs/preview-tablet.png).
+This remains a Windows Electron source project. Its renderer and offline preview are responsive; no native iOS/Android build, installable PWA, phone account connection or hosted mobile service is supplied. See [editing and mobile guide](../../EDITING-AND-MOBILE.md), [phone view](../../preview-phone.png), [phone editor](../../editor-phone.png) and [tablet view](../../preview-tablet.png).
 
 ## Tools available to models
 
@@ -97,7 +97,7 @@ The renderer retains the previous source/options for each live text island and r
 
 A shared viewport observer defers initial visualization mounting until it is near the reading area. Static Preview/Data/Source surfaces are retained (at most three per inline selected revision) to preserve table filters and chart controls rather than rebuilding them. SVG toggles reconcile existing nodes. Table searches use a lazy index and a 70 ms debounce; only the current table page is inserted. Once a visualization has been mounted, scrolling does not destroy its state. This is lazy mounting, not unbounded-history virtualization or a promise to pause arbitrary HTML scripts.
 
-Version 0.9 preserves the streaming optimization. Against the authentic 0.8 preview, three runs retained exactly **4,395 processed Markdown characters**, **186,237 template-input characters** and **zero artifact remounts** in the measured phase. Account details render only while the panel is open. These are synthetic work counters, not overall application speed, power, API latency or billing claims. See [rendering measurements](docs/RENDERING.md).
+Version 0.9 preserves the streaming optimization. Against the authentic 0.8 preview, three runs retained exactly **4,395 processed Markdown characters**, **186,237 template-input characters** and **zero artifact remounts** in the measured phase. Account details render only while the panel is open. These are synthetic work counters, not overall application speed, power, API latency or billing claims. See [rendering measurements](../../RENDERING.md).
 
 ## PDF implementation and validation boundary
 
@@ -152,7 +152,7 @@ npm run dist:win
 
 Packaging targets a per-user x64 NSIS installer and portable executable in `release/`; ARM64 has a separate untested `dist:arm64` command. End users of a completed package do not need Node, WSL, Docker or a GPU for ordinary chat. This source archive is not a tested installer. Windows code signing, native dialogs, DPAPI, process-tree handling and live provider integration still require target-platform validation.
 
-The provider adapter uses the official Tinfoil SDK, explicit successful attestation and EHBP transport. Select **Tinfoil Chat account** in Account for the experimental website-session flow, or **API key** for separate developer billing. Neither mode silently falls back to the other. Real account login, inference and native Windows still require validation; no hosted command session is provisioned. See [Account](docs/ACCOUNT.md).
+The provider adapter uses the official Tinfoil SDK, explicit successful attestation and EHBP transport. Select **Tinfoil Chat account** in Account for the experimental website-session flow, or **API key** for separate developer billing. Neither mode silently falls back to the other. Real account login, inference and native Windows still require validation; no hosted command session is provisioned. See [Account](../../ACCOUNT.md).
 
 ## Development, tests and publishing
 
@@ -180,4 +180,4 @@ Keyboard shortcuts: Ctrl+N new conversation; Ctrl+K commands; Ctrl+F in-chat sea
 
 No repository or remote workflow was changed for 0.9.
 
-Back up the encrypted vault before upgrading. New binaries accept earlier version-1 workspaces with safe defaults; older binaries may reject or discard newer additive records; avoid opening upgraded workspaces with older builds. Imports cancel active tools and preserve scoped artifact IDs so saved model references remain valid. Refer to [architecture](docs/ARCHITECTURE.md), [security](SECURITY.md) and [validation](docs/VALIDATION.md) before distribution.
+Back up the encrypted vault before upgrading. New binaries accept earlier version-1 workspaces with safe defaults; older binaries may reject or discard newer additive records; avoid opening upgraded workspaces with older builds. Imports cancel active tools and preserve scoped artifact IDs so saved model references remain valid. Refer to [architecture](../../ARCHITECTURE.md), [security](../../../SECURITY.md) and [validation](../../VALIDATION.md) before distribution.
