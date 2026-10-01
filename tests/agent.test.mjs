@@ -436,7 +436,8 @@ test('a conversation without a folder gets a new, empty one under the root when 
   thread.settings.model = 'fixture';
   await send(s); await done(s);
   const folder = thread.agentFolder;
-  assert.equal(folder, join(realpathSync(root), basename(folder))); assert.match(basename(folder), /^\d{4}-\d{2}-\d{2} Fix the answer [0-9a-f]{4}$/);
+  // Native resolution, as the service's: it also expands 8.3 short names, which a runner's Temp path can be.
+  assert.equal(folder, join(realpathSync.native(root), basename(folder))); assert.match(basename(folder), /^\d{4}-\d{2}-\d{2} Fix the answer [0-9a-f]{4}$/);
   assert.deepEqual(readdirSync(folder), []); assert.ok(requests[0].messages[0].content.includes(`<environment>\nfolder: ${folder}\n`));
   await send(s); await done(s); assert.equal(thread.agentFolder, folder, 'later messages keep the folder');
   assert.equal(await tools.createWorkFolder(root, basename(folder), {}), `${folder} (2)`, 'an existing folder is never reused');
