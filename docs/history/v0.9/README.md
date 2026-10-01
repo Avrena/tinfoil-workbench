@@ -178,6 +178,6 @@ For the offline animation/layout demonstration, open `preview/index.html`, selec
 
 Keyboard shortcuts: Ctrl+N new conversation; Ctrl+K commands; Ctrl+F in-chat search; Ctrl+B sidebar; Ctrl+Shift+F focus; Ctrl+Shift+A artifacts; Ctrl+, Settings. Desktop Enter sends; Shift+Enter inserts a newline. On a coarse touch pointer, Enter inserts a newline and Send or Ctrl/Cmd+Enter submits. IME confirmation never submits. In the editor, Ctrl/Cmd+Enter saves the revision or draft without generating a response.
 
-The existing private-publishing helper is unchanged: authenticate GitHub CLI, then run `./scripts/Publish-PrivateRepo.ps1`. It targets a new private `Avrena/tinfoil-windows` repository and verifies visibility before pushing. It has not been executed. No repository or remote workflow was changed for 0.9.
+No repository or remote workflow was changed for 0.9.
 
 Back up the encrypted vault before upgrading. New binaries accept earlier version-1 workspaces with safe defaults; older binaries may reject or discard newer additive records; avoid opening upgraded workspaces with older builds. Imports cancel active tools and preserve scoped artifact IDs so saved model references remain valid. Refer to [architecture](docs/ARCHITECTURE.md), [security](SECURITY.md) and [validation](docs/VALIDATION.md) before distribution.

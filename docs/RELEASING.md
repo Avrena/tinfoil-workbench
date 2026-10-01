@@ -1,6 +1,6 @@
 # Releasing
 
-A release is built and verified on a maintainer machine from a clean, tagged commit, then published as a GitHub release on the private repository. CI verifies every push but does not publish.
+A release is built and verified on a maintainer machine from a clean, tagged commit, then published as a GitHub release on the repository. CI verifies every push but does not publish.
 
 ## Version
 

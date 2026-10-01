@@ -1,6 +1,6 @@
 # Tinfoil Workbench
 
-An unofficial, private client for [Tinfoil](https://tinfoil.sh) confidential AI on **Windows 11 (Electron)** and **Android (Capacitor)**. Workbench is not affiliated with or endorsed by Tinfoil. Every connection verifies the Tinfoil enclave before a request is sent, and there is no unverified fallback.
+An unofficial client for [Tinfoil](https://tinfoil.sh) confidential AI on **Windows 11 (Electron)** and **Android (Capacitor)**. Workbench is not affiliated with or endorsed by Tinfoil. Every connection verifies the Tinfoil enclave before a request is sent, and there is no unverified fallback.
 
 Chat supports model-aware thinking controls, comparison, editing, versions, branching, projects and inline visual artifacts, in an encrypted local workspace. On Windows, a workspace agent can work in a folder with your approval, and Tinfoil cloud chats sync both ways, pictures included. Both platforms take pictures and PDFs as attachments and offer themes and a chat background. See the [changelog](CHANGELOG.md) for what changed in each release.
 
@@ -10,7 +10,7 @@ Chat supports model-aware thinking controls, comparison, editing, versions, bran
 
 ## Install
 
-Download the latest release from this private repository's **Releases** page. Compare each download's SHA-256 checksum with the release's `SHA256SUMS` before running it.
+Download the latest release from this repository's **Releases** page. Compare each download's SHA-256 checksum with the release's `SHA256SUMS` before running it.
 
 | File | Platform | Notes |
 |---|---|---|

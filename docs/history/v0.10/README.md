@@ -66,4 +66,4 @@ Keyboard shortcuts: Ctrl+N new thread; Ctrl+K commands; Ctrl+F conversation sear
 
 Back up the encrypted workspace before upgrading. The encryption key is protected for the local OS user; copying workspace.vault alone is not a portable account recovery method. Avoid opening the updated workspace in an older build. Plaintext conversation/artifact exports need private storage.
 
-No GitHub repository was created or pushed, no remote workflow was run, and no executable is included. The existing private-publishing helper is unchanged and remains unexecuted. Do the local checks and review the lockfile before using it. Original application code is private/UNLICENSED; third-party notices are in NOTICE.md.
+No GitHub repository was created or pushed, no remote workflow was run, and no executable is included. Do the local checks and review the lockfile before distribution. The application code is licensed under Apache-2.0; third-party notices are in NOTICE.md.
