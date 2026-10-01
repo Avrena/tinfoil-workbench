@@ -116,6 +116,32 @@ Visual tools put charts, tables, diagrams, timelines, stat cards and versioned d
 
 Tool batches run sequentially. Tinfoil-managed MCP entries display provider-reported activity; they cannot invoke local tools. Hosted search and text-only delegation are opt-in, and delegation asks before sending a separate task. See [activity and tools](docs/ACTIVITY.md).
 
+### Tags and titles
+
+A new conversation is titled with the first 70 characters of its first message. **Settings → Tags** holds your tag list. It starts with nine presets: Coding, Writing, Research, Learning, Creative, Health, Work, Money and Personal. Each tag has:
+
+- a name;
+- a colour;
+- a style: filled, outline, filled with outline, a stripe or a dot;
+- a hint that tells the model what belongs under it.
+
+To tag a conversation yourself, use the tag mark beside its title or **Tags…** in the conversation menu.
+
+**Tag and title new conversations** is off by default. When it is on, Workbench sends one short request after a conversation's first answer, to the model you choose or to the conversation's own. The request contains the first message, the names of its files, the start of the answer and your tag list. The model picks up to three of your tags and, with **Also write titles**, a short title. That title replaces the first-message title unless you renamed the conversation.
+
+Workbench turns thinking off for the request where the model allows it, and never retries it. The classifier never changes tags you chose yourself. **Tag untagged conversations** tags older conversations the same way. It first asks for confirmation and says how many requests it will send and roughly how many tokens they use.
+
+In the sidebar:
+
+- tagged conversations show their tags;
+- the tag row under the search shows only conversations that have every tag you pick;
+- `#name` in the search finds conversations by tag;
+- the tag button beside **Threads** groups conversations under their first tag.
+
+Tags are stored in the encrypted workspace on this device only, Tinfoil cloud chats included. Exports leave them out.
+
+<img src="docs/tags.png" alt="Synthetic conversations grouped by tag in the sidebar, with the tag row under the search and tags beside the title" width="62%"> <img src="docs/settings-tags.png" alt="Settings → Tags with tagging on and the colour and style picker of one tag open" width="34%">
+
 ### Themes and chat background
 
 **Settings → Appearance** offers System, Light and Dark modes, Workbench's own look and 29 Codex app presets, with colour and contrast controls. Not every preset has both light and dark variants ([themes](docs/ARCHITECTURE.md#themes-13)).

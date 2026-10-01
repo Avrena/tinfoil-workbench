@@ -62,6 +62,29 @@ Fixed colours stay literal: makers' marks, the window's close button, chart seri
 
 Settings → Chat background (`ViewPreferences.background`, `renderer/backdrop.ts`) puts a layer behind the conversation column: nothing, a texture drawn by CSS in the theme's text colour (Tinfoil Chat's 16-pixel grid, dots or grain) at a strength, or a picture. The host's picker reads the file, the page redraws it at most 2048 pixels on its longer side (JPEG, or PNG when transparent) and `background.set` stores it in the encrypted workspace; snapshots carry only its id, and the page fetches it once per id (`background.get`). Blur, greyscale and dim are CSS filters and an overlay in the theme's background colour; each is a switch whose slider shows only while it is on, and keeps its value when off.
 
+## Tags and titles
+
+A conversation's title is made from its first message (`messageTitle`, `src/core/tags.ts`). Settings → Tags holds the tag list in `Workspace.tagging`: at most 40 tags, each with an id, a name that is unique when compared case-insensitively, a colour, a style and a hint. The nine presets keep fixed ids, so **Restore presets** brings back a removed preset without touching other tags. A conversation keeps its tags as ids in `Thread.tags` (at most eight). `Thread.tagged` records when they were set, and the model when the classifier chose them. Validation drops tag ids that are no longer in the list.
+
+**Colours.** The nine colours are theme tokens: `tag-<colour>` is a fixed step for each variant, using the chart palette's categorical hues and a grey. `tag-<colour>-fill` is that step mixed into the theme's background. A chip's text uses the theme's text colour. The style decides where the colour goes: the fill, a border, both, a 3-pixel left stripe, or a dot before the name. Every style keeps a border, transparent unless drawn, so all styles are the same size.
+
+**The classifier** (`WorkbenchService.classify`) runs only while `tagging.enabled` is on. One request is made after a conversation's first answer (`autoTag`), on **Suggest tags**, and for each conversation that **Tag untagged conversations** includes.
+
+The request (`tagMessages`) has two messages:
+
+- a system message: fixed instructions and the tag list;
+- a user message: the first message, the names of its files and the first 1,000 characters of the answer, inside `<conversation>`.
+
+It goes to the tagging model, or to the conversation's own, through `service.bound()` for the conversation's account. It is streamed, offers no tools, and turns thinking off where the model can (or uses its lowest effort). The output limit is 512 tokens, or 4,096 for a model that thinks anyway.
+
+`parseTagAnswer` reads the first JSON object in the answer. It keeps at most three listed tags and a title of at most 50 characters (`cleanTitle`). The title replaces the current title only while that is still the first-message title (`titleFromMessage`), so a rename, a branch, an import or a Tinfoil Chat title stays. If the person changed the tags while the request ran, the result is dropped.
+
+Requests run one at a time from a queue. A first answer goes ahead of a running batch. Failures are reported in `Snapshot.tagStatus` and never retried. A sign-out, a change of connection or API key, or turning tagging off empties the queue and stops the request that is running.
+
+**Cloud chats.** A conversation that becomes a cloud chat after its first answer waits up to 30 seconds for its title before the upload. An existing cloud chat is written again when its title changes. Tags themselves never leave the device.
+
+The sidebar can filter by tag, where a conversation must have every chosen tag; the selection is kept for the session only. It can also group conversations under their first tag (`ViewPreferences.threadGroup`). Search matches tag names, and `#name` matches only tags.
+
 ## Revision editor and project hierarchy (0.6)
 
 `core/editing.ts` validates a complete reply plus expected source before making a version. A reply edit becomes a new version of its turn that holds only the edited reply; the turn as it was, with its descendants, is set aside (see *Versions* below). `Reply.edit` retains the first original answer/thinking, edit flags/time and a durable `historyRewritten` flag. Once narration has been rewritten, later requests clear narration only from cloned assistant tool records, retain tool calls/results and original protocol reasoning, and send the complete edited answer once. The durable flag prevents restoring original text from accidentally using a stale final-round slice. Thinking-only annotations leave model history unchanged.

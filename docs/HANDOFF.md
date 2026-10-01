@@ -48,6 +48,15 @@ Open the instructions control beside the model; a new conversation must show Non
 
 Check versions: edit a message in the composer and send it, Retry an answer, edit an answer and its thinking in place, and step through the ‹ › arrows on the message and the reply; Branch still makes a new conversation. Check local thinking annotations, project move/rename, search, keyboard focus, Copy, in-dialog errors and clearing an unsubmitted API key by closing Settings. Deleting a project must retain its threads. Exported files are plaintext and may contain the selected text, references, tool outputs or instructions; handle them accordingly.
 
+Check tags with a real model. First state a token budget: each request is about 1,000 tokens.
+
+1. Turn on **Tag and title new conversations** in Settings → Tags and choose a model. Send a first message: after the answer, the conversation gets up to three listed tags and a short title, and Settings shows the tokens used.
+2. Rename a conversation and use **Suggest tags**: the name must stay.
+3. Set tags by hand while a suggestion is running: yours must stay.
+4. Try a model that thinks before answering. It must either answer within its output limit or report that it reached the limit.
+5. Run **Tag untagged conversations** on a few conversations: the confirmation must state the count and an estimate, and **Stop** must end the queue.
+6. In a Tinfoil cloud chat started in Workbench, the new title must reach Tinfoil Chat and the tags must not.
+
 ## 4. Accept visuals and protected tools
 
 Create one inline chart/table and one self-contained HTML artifact with a supported model. The output should share the response’s neutral background. Open Data/Source, toggle a series or filter a table, and continue streaming; retained controls must not reset. Expand into the artifact panel. HTML interaction must require the reader’s explicit enable action and have no desktop bridge or automatic external resource loading.

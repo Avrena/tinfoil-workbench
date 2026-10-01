@@ -42,6 +42,19 @@ Saving/exporting requires an explicit destination. Saved artifacts/PDFs/JSON are
 
 Bootstrap real dependencies, review the lockfile/licenses, run dependency audits, execute native Windows/DPAPI/PDF/approval/installer tests, then validate live attestation/tool calling with non-sensitive inputs. Signing and independent review remain necessary release work. Preserve distinctions between mock tests, Linux-native Python tests, browser tests and Windows results. Never claim a PDF canvas, live model call, remote CI run or executable was verified unless it actually ran.
 
+## Tagging requests
+
+Tagging is off by default. Turning it on in Settings → Tags lets Workbench make one extra request per conversation after its first answer, without asking each time. The request goes to the model chosen there, or to the conversation's own, and it holds:
+
+- the first message;
+- the names of its attached files (not their contents or pictures);
+- the first 1,000 characters of the answer;
+- the tag list.
+
+It goes through the same verified client and account binding as the conversation. A conversation that would need approval for the current account is not tagged, and an authentication failure never falls back to another account or an API key.
+
+The request offers no tools, and it is never retried. Its answer can only choose tags from the list and, while the title is still made from the first message, replace that title; a JSON object is the only thing read from it. Before **Tag untagged conversations** runs, the host asks for confirmation: in a window of the main process on Windows, and in a native dialog on Android. The question states how many requests it will send and about how many tokens. Tags stay in the encrypted workspace and are never sent with conversation requests or to Tinfoil cloud. The tag names and hints in the list are sent with every tagging request.
+
 ## Provider events and delegated inference (0.8)
 
 Progress markers are provider-reported display data, not execution permissions or cryptographic attestations of tool activity. Only known marker types with bounded IDs/payloads/statuses are interpreted; malformed/unknown/incomplete markers remain inert source. Structured secret-named argument fields are redacted, but arbitrary prose/output cannot be guaranteed free of user-supplied secrets. Provider source URLs are constrained and use native external-navigation confirmation. No event can turn into an executor call.

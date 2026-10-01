@@ -1,5 +1,25 @@
 # Changelog
 
+## Unreleased — conversation tags
+
+- Settings → Tags holds a list of tags, starting with nine presets (Coding, Writing, Research, Learning, Creative, Health, Work, Money and Personal).
+  - Each tag has a name, one of nine colours, a hint for the model, and a style: filled, outline, filled with outline, a stripe on its left edge, or a dot before its name.
+  - Chips have small corners, and every colour follows the theme in light and dark.
+  - Tags can be added, renamed and removed (with a confirmation that says how many conversations lose the tag), and **Restore presets** brings back removed presets.
+- You can tag a conversation yourself, from the tag mark beside its title or **Tags…** in the conversation menu.
+- **Tag and title new conversations** (off by default) sends one short request after a conversation's first answer.
+  - The request goes to the model chosen in Settings → Tags, or to the conversation's own.
+  - It contains the first message, the names of its files, the start of the answer and the tag list.
+  - The model files the conversation under up to three of your tags and gives it a short title, unless you renamed it.
+  - The request offers no tools, turns thinking off where the model allows it and is never retried. Tags you chose are never changed by it.
+- **Tag untagged conversations** tags older conversations the same way, one at a time, after a confirmation that states the number of requests and about how many tokens they use. It can be stopped, and Settings shows its progress and the tokens tagging has used since Workbench started.
+- The sidebar shows each conversation's tags under its title.
+  - A tag row under the search shows only conversations that have every tag you pick.
+  - Search also matches tag names, and `#name` finds conversations by tag.
+  - The tag button beside Threads groups conversations under their first tag instead of by day.
+- Tags are kept in the encrypted workspace on this device, also for Tinfoil cloud chats, and exports leave them out. A conversation that becomes a cloud chat after its first answer waits briefly for its new title, so Tinfoil Chat gets that title too.
+- Workspaces from 1.3.0 get the presets with tagging off. 1.3.0 can open a workspace saved by this version, but it drops the tags and the tag list.
+
 ## 1.3.0 — workspace agent, files and pictures, themes
 
 - Workspace agent (Windows): Advanced → Workspace agent turns it on for a conversation. There you choose, once, where new folders are made (for example D:\Work\Tinfoil): a conversation without a folder gets a new, empty one there when it first sends, named after the date and its first message. A project folder can be chosen there instead, in a native picker with a confirmation; the message box has no folder button. The model lists, searches and reads files in the folder without asking. It runs Windows PowerShell 5.1 or Git Bash commands (git included) and changes files only after you approve each one in a native dialog that shows the exact command, or the change as a diff. It is not a sandbox: an approved command runs with your Windows account's permissions. Drive roots, your home folder, AppData, Windows and program folders cannot be chosen, as a folder or as the place for new ones; a conversation's new folder is never reused or deleted by Workbench. A change is written only if the file has not changed since it was proposed. See docs/WORKSPACE-AGENT.md.
