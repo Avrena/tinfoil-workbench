@@ -260,4 +260,6 @@ The [manual acceptance checklist](docs/HANDOFF.md) covers work beyond automated 
 - **Platforms and builds:** [Android](docs/ANDROID.md) · [Android sign-in](docs/ANDROID-ACCOUNT.md) · [Releasing](docs/RELEASING.md) · [Validation](docs/VALIDATION.md) · [Manual acceptance](docs/HANDOFF.md)
 - **Design and changes:** [Architecture](docs/ARCHITECTURE.md) · [Security](SECURITY.md) · [Spacing](docs/SPACING.md) · [Rendering](docs/RENDERING.md) · [Changelog](CHANGELOG.md) · [Notices](NOTICE.md)
 
-Original application code is private and UNLICENSED. Third-party notices are in [NOTICE.md](NOTICE.md).
+## Licence
+
+Tinfoil Workbench is licensed under the [Apache License 2.0](LICENSE). Copyright 2026 Avrena. Third-party components retain their own licences; see [NOTICE.md](NOTICE.md).
