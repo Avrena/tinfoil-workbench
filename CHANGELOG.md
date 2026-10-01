@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased — conversation tags
+## 1.4.0 — conversation tags (unreleased)
 
 - Settings → Tags holds a list of tags, starting with fourteen presets (Coding, Writing, Research, Learning, Creative, Health, Work, Money, Personal, Travel, Legal, Cyber, NSFW and Ambiguous).
   - Each tag has a name, one of nine colours, a hint for the model, and a style: filled, outline, filled with outline, a stripe on its left edge, or a dot before its name.
@@ -21,6 +21,8 @@
   - The tag button beside Threads groups conversations under their first tag instead of by day.
 - Tags are kept in the encrypted workspace, and exports leave them out. A Tinfoil cloud chat also carries its tags in its encrypted cloud data, so Workbench on another device shows them and adds tags its list lacks; a tag change is written on its own, without touching the chat's messages or its place in Tinfoil Chat's list. Tinfoil Chat on the web keeps the tags when it edits the chat but does not show them. A conversation that becomes a cloud chat after its first answer waits briefly for its new title, so Tinfoil Chat gets that title too.
 - Workspaces from 1.3.0 get the presets with tagging off. 1.3.0 can open a workspace saved by this version, but it drops the tags and the tag list.
+- Windows: the hidden page that keeps the Tinfoil Chat sign-in is no longer slowed down while it is out of view. After a few quiet minutes, a token read could take longer than its 15-second limit, so adding the chat key or syncing cloud chats failed with "Tinfoil sign-in did not respond". 1.3.0 has the same problem.
+- Android: versionCode 1004000.
 
 ## 1.3.0 — workspace agent, files and pictures, themes
 

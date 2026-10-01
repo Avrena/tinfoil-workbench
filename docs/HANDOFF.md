@@ -1,4 +1,4 @@
-# Manual acceptance checklist — 1.3.0
+# Manual acceptance checklist — 1.4.0
 
 This checklist covers what automated checks cannot establish.
 
@@ -55,7 +55,8 @@ Check tags with a real model. First state a token budget: each request is about 
 3. Set tags by hand while a suggestion is running: yours must stay.
 4. Try a model that thinks before answering. It must either answer within its output limit or report that it reached the limit.
 5. Run **Tag untagged conversations** on a few conversations: the confirmation must state the count and an estimate, and **Stop** must end the queue.
-6. In a Tinfoil cloud chat started in Workbench, the new title must reach Tinfoil Chat and the tags must not.
+6. In a Tinfoil cloud chat started in Workbench, the new title must reach Tinfoil Chat. Change its tags: the chat must keep its place in Tinfoil Chat's list. Rename it in Tinfoil Chat and sync: the tags must stay. Remove the chat key and add it again: the chat must come back with its tags.
+7. Tag a few conversations and narrow the window below 600 pixels, or open them on a phone: the title bar and the sidebar must show each tag's icon, or its first letter when it has none, and a screen reader must still read the names.
 
 ## 4. Accept visuals and protected tools
 
@@ -81,7 +82,7 @@ After the checks above:
 npm run dist:win
 ```
 
-The command gates packaging behind doctor, tests and native smoke and never publishes. Expected outputs are `release/Tinfoil-Workbench-1.3.0-x64-Setup.exe` and `release/Tinfoil-Workbench-1.3.0-x64-Portable.exe`. Validate the generated filenames and test both on a clean standard-user Windows installation. Code signing is not configured; do not describe artifacts as signed or instructions to disable OS protection. ARM64 requires its own real machine/runner validation.
+The command gates packaging behind doctor, tests and native smoke and never publishes. Expected outputs are `release/Tinfoil-Workbench-1.4.0-x64-Setup.exe` and `release/Tinfoil-Workbench-1.4.0-x64-Portable.exe`. Validate the generated filenames and test both on a clean standard-user Windows installation. Code signing is not configured; do not describe artifacts as signed or instructions to disable OS protection. ARM64 requires its own real machine/runner validation.
 
 Optional PowerShell orchestration: `./scripts/Local-Build.ps1 -Bootstrap -Package`. This script’s native execution remains untested here; the npm commands above are the reference sequence.
 

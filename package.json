@@ -1,7 +1,7 @@
 {
   "name": "tinfoil-windows",
   "productName": "Tinfoil Workbench",
-  "version": "1.3.0",
+  "version": "1.4.0",
   "private": true,
   "description": "Tinfoil Workbench for Windows 11 and Android — attested Tinfoil chat with inline artifacts and optional custom instructions",
   "author": "Avrena",
