@@ -55,7 +55,7 @@ Where the WebView lacks the needed features, the checks confirm the refusal inst
 
 ### Live check with a real account
 
-The check used the phone above, the debug build of commit `7cc871a`, and a Tinfoil account. Sign-in was completed on Tinfoil's page. A harness drove the app over DevTools. It logged only statuses, UTC times, counts and booleans.
+The check used the phone above, the debug build of commit `7bd626f`, and a Tinfoil account. Sign-in was completed on Tinfoil's page. A harness drove the app over DevTools. It logged only statuses, UTC times, counts and booleans.
 
 | Check | Result |
 |---|---|
@@ -68,7 +68,7 @@ The check used the phone above, the debug build of commit `7cc871a`, and a Tinfo
 | Sign-out | The native confirmation appeared and was confirmed on the phone. The account signed out, and a message afterwards was refused with "Sign in to Tinfoil Chat in Account first. No API-key fallback is used." |
 | Restart | The sign-in profile was gone |
 
-The released code differs from `7cc871a` in three ways: the order in which `mobile/bridge.mjs` registers its listeners and requests the channel (`61adbef`, see [Defects found and fixed](#defects-found-and-fixed)), the Account view's text, and the version.
+The released code differs from `7bd626f` in three ways: the order in which `mobile/bridge.mjs` registers its listeners and requests the channel (`002d945`, see [Defects found and fixed](#defects-found-and-fixed)), the Account view's text, and the version.
 
 ### Security review
 
@@ -82,11 +82,11 @@ The released code differs from `7cc871a` in three ways: the order in which `mobi
 
 ## Defects found and fixed
 
-- **Android dialogs under the status bar** (merged before this release, `764918f`). From WebView 140, Capacitor draws the page under the system bars and leaves the insets to CSS. `body`'s padding kept the shell clear, but modal dialogs and the phone message editor are laid out against the whole screen.
+- **Android dialogs under the status bar** (merged before this release, `0229a84`). From WebView 140, Capacitor draws the page under the system bars and leaves the insets to CSS. `body`'s padding kept the shell clear, but modal dialogs and the phone message editor are laid out against the whole screen.
   - *Before.* On the phone, the close buttons of Account & connection and of the message editor sat at y = 36 px, inside the 120 px status bar, and did not respond to a tap. With the fix they sit at 156 px and close their dialogs. System instructions, Model picker and Settings, which already worked, moved 60 px down, to the middle of the area below the status bar.
   - *Why the emulators missed it.* Their WebViews (133 and 113) are below 140, where Capacitor pads the view itself.
   - *Test.* `tests/ui-responsive.py` now simulates the insets for every dialog; it failed on four layers before the fix.
-- **A Back press lost right after a cold start** (found by the release gates, fixed in `61adbef`). The Android plugin passes Back to the page's `backButton` listener and drops it until that listener is registered. `bridge.mjs` requested the account channel first, which put a plugin round trip ahead of the registration.
+- **A Back press lost right after a cold start** (found by the release gates, fixed in `002d945`). The Android plugin passes Back to the page's `backButton` listener and drops it until that listener is registered. `bridge.mjs` requested the account channel first, which put a plugin round trip ahead of the registration.
   - *Found.* On the Android 14 emulator (WebView 113), a Back press right after a cold start did nothing, and the debug checks for Back failed twice in a row, also when run alone. In isolation the same steps passed once a second had passed after the start. The release build and the Android 16 image passed.
   - *Fix.* The channel is now requested after the Back, pause and resume listeners. A test keeps that order, and the Android 14 debug checks then passed twice in a row.
 - **Test harness.** The device test matched labels exactly, but the phone draws native dialog buttons in capitals, so the harness could not find "Sign out on this device". Labels now match regardless of case.
@@ -147,7 +147,7 @@ Both images still pass the 0.12.1 checks, including live enclave verification fr
 
 ## Release artifacts
 
-The release files were built from commit `61adbef`. The tag commit adds only this record, the updated handoff checklist, refreshed screenshots and check records, none of which is packaged. The packaging, smoke and device checks above ran on these exact files; the live account check used the debug build named above.
+The release files were built from commit `002d945`. The tag commit adds only this record, the updated handoff checklist, refreshed screenshots and check records, none of which is packaged. The packaging, smoke and device checks above ran on these exact files; the live account check used the debug build named above.
 
 | File | Bytes | SHA-256 |
 |---|---:|---|
@@ -157,4 +157,4 @@ The release files were built from commit `61adbef`. The tag commit adds only thi
 
 The Windows files are not code-signed. The APK is signed with APK Signature Scheme v2, with the same release key as 0.12.1, and verified with `apksigner`. The signer's certificate SHA-256 is `6395ead797a520c632156abcd9ee2731869c64ed0ee510ad5b52e887185494cb`. The APK has versionName 0.13.0 and versionCode 13000, targets SDK 36 with minimum SDK 24, and requests the same two permissions as 0.12.1.
 
-GitHub Actions passed all three workflows on commit `61adbef`, in the pull request runs 36474547042 (Windows client), 36474547099 (Android client) and 36474546965 (renderer UI suites).
+GitHub Actions passed all three workflows on commit `002d945`, in the pull request runs 36474547042 (Windows client), 36474547099 (Android client) and 36474546965 (renderer UI suites).

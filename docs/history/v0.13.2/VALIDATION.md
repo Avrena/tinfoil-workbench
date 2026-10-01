@@ -91,7 +91,7 @@ The Android app was not affected by the packaging defect: its build bundles the 
 
 ## Release artifacts
 
-The release files were built from commit `9a10585`. The tag commit adds only this record, the archived 0.13.1 record with a note on the packaging defect, the updated handoff checklist, README and ARCHITECTURE text, and refreshed screenshots and check records, none of which is packaged. The packaging, smoke, live packaged, upgrade and release-mode device checks ran on these exact files; the debug device checks used the debug APK built from the same commit.
+The release files were built from commit `1de6495`. The tag commit adds only this record, the archived 0.13.1 record with a note on the packaging defect, the updated handoff checklist, README and ARCHITECTURE text, and refreshed screenshots and check records, none of which is packaged. The packaging, smoke, live packaged, upgrade and release-mode device checks ran on these exact files; the debug device checks used the debug APK built from the same commit.
 
 | File | Bytes | SHA-256 |
 |---|---:|---|
@@ -101,4 +101,4 @@ The release files were built from commit `9a10585`. The tag commit adds only thi
 
 The Windows files are not code-signed. The APK is signed with APK Signature Scheme v2, with the same release key as 0.13.1, and verified with `apksigner`. The signer's certificate SHA-256 is `6395ead797a520c632156abcd9ee2731869c64ed0ee510ad5b52e887185494cb`. The APK has versionName 0.13.2 and versionCode 13002, targets SDK 36 with minimum SDK 24, and requests the same two permissions as 0.13.1.
 
-GitHub Actions passed all three workflows on commit `9a10585`, in the pull request runs 36498060460 (Windows client, which now also ran the package check and the packaged app's smoke test), 36498060321 (Android client) and 36498060417 (renderer UI suites).
+GitHub Actions passed all three workflows on commit `1de6495`, in the pull request runs 36498060460 (Windows client, which now also ran the package check and the packaged app's smoke test), 36498060321 (Android client) and 36498060417 (renderer UI suites).

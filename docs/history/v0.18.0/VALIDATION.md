@@ -66,7 +66,7 @@ The twelve production-renderer browser suites passed **466 checks** with no Java
 
 ## Release artifacts
 
-The release files were built from commit `6aea4b3`. The tag commit adds only this record, the archived 0.17.2 record and handoff checklist, a link update, and refreshed screenshots and check records, none of which is packaged.
+The release files were built from commit `71c0af1`. The tag commit adds only this record, the archived 0.17.2 record and handoff checklist, a link update, and refreshed screenshots and check records, none of which is packaged.
 
 | File | Bytes | SHA-256 |
 |---|---:|---|
@@ -76,4 +76,4 @@ The release files were built from commit `6aea4b3`. The tag commit adds only thi
 
 The Windows files are not code-signed. The APK is signed with APK Signature Scheme v2, with the same release key as 0.17.2 (certificate SHA-256 `6395ead797a520c632156abcd9ee2731869c64ed0ee510ad5b52e887185494cb`), has versionName 0.18.0 and versionCode 18000, targets SDK 36 with minimum SDK 24, and requests the same two permissions.
 
-GitHub Actions passed all three workflows on commit `6aea4b3`, in the pull request runs 36608081583 (Windows client), 36608081662 (Android client) and 36608081657 (renderer UI suites).
+GitHub Actions passed all three workflows on commit `71c0af1`, in the pull request runs 36608081583 (Windows client), 36608081662 (Android client) and 36608081657 (renderer UI suites).

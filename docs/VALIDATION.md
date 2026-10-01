@@ -15,12 +15,12 @@ The manual live checks ran from source in Electron with a temporary profile; the
 
 | Run, at | Set | Finding | Change |
 |---|---|---|---|
-| 1, a669621 | 13 conversations | Token use was counted several times over: Tinfoil's router repeats the cumulative usage on every streamed chunk. DeepSeek V4.1 Flash titled some English messages in Spanish, French or Chinese | 8872844 counts usage once per request, asks for a title in the message's language and sets temperature 0 when the model does not think |
-| 2, 8872844 | 13 | Llama 3.3 70B returned its one-object JSON answer, when streamed, as two empty chunks finishing with `tool_calls` and no call, also with `tool_choice: "none"`; the same request not streamed returned the answer | 3d3faff asks for the answer whole instead of streamed |
-| 3, 3d3faff | 13 | Every model answered. Tags that fit, out of 13: Kimi K3 13; DeepSeek V4.1 Flash, Gemma 4, GLM-5.3 Flash and GLM-5.3 12; gpt-oss-120b 11; Llama 3.3 70B 8. Models often added a second tag for a detail or a possible use | e6cb196 asks for a second tag only when the conversation is mainly about it too |
-| 4, e6cb196 | 13 | Tags per model fell from 16–20 to 12–15 over the 13 conversations. DeepSeek V4.1 Flash still titled an English message about a budget in euros in Spanish, at temperature 0 every time | — |
-| 5, 20d94bd | 18, with the five new presets | The new presets (Travel, Legal, Cyber, NSFW, Ambiguous) were chosen where they fit. The Spanish title remained | 40c2f23 has the model name the message's language before the title |
-| 6, 40c2f23 | 18 | Every title in the message's language. Tags that fit, out of 18: DeepSeek V4.1 Flash, Gemma 4, GLM-5.3 Flash and GLM-5.3 18; Kimi K3 17; gpt-oss-120b 16; Llama 3.3 70B 14 | — |
+| 1, 2d7fe75 | 13 conversations | Token use was counted several times over: Tinfoil's router repeats the cumulative usage on every streamed chunk. DeepSeek V4.1 Flash titled some English messages in Spanish, French or Chinese | ecb3dbf counts usage once per request, asks for a title in the message's language and sets temperature 0 when the model does not think |
+| 2, ecb3dbf | 13 | Llama 3.3 70B returned its one-object JSON answer, when streamed, as two empty chunks finishing with `tool_calls` and no call, also with `tool_choice: "none"`; the same request not streamed returned the answer | d03924a asks for the answer whole instead of streamed |
+| 3, d03924a | 13 | Every model answered. Tags that fit, out of 13: Kimi K3 13; DeepSeek V4.1 Flash, Gemma 4, GLM-5.3 Flash and GLM-5.3 12; gpt-oss-120b 11; Llama 3.3 70B 8. Models often added a second tag for a detail or a possible use | b0f01c3 asks for a second tag only when the conversation is mainly about it too |
+| 4, b0f01c3 | 13 | Tags per model fell from 16–20 to 12–15 over the 13 conversations. DeepSeek V4.1 Flash still titled an English message about a budget in euros in Spanish, at temperature 0 every time | — |
+| 5, c2fb24e | 18, with the five new presets | The new presets (Travel, Legal, Cyber, NSFW, Ambiguous) were chosen where they fit. The Spanish title remained | 2ce4548 has the model name the message's language before the title |
+| 6, 2ce4548 | 18 | Every title in the message's language. Tags that fit, out of 18: DeepSeek V4.1 Flash, Gemma 4, GLM-5.3 Flash and GLM-5.3 18; Kimi K3 17; gpt-oss-120b 16; Llama 3.3 70B 14 | — |
 
 A tagging request took about 500–700 input and 20–30 output tokens; the six runs, answers included, used about 540,000 tokens.
 
@@ -28,11 +28,11 @@ A tagging request took about 500–700 input and 20–30 output tokens; the six 
 
 | At | Check | Result |
 |---|---|---|
-| 40c2f23, with the field check uncommitted | Sign in, add the chat key, sync | Adding the chat key failed once with "Tinfoil sign-in did not respond", and the first sync then timed out. Electron throttled the hidden sign-in page: twenty chained 50 ms timers took 22 s in a window hidden for 10 s and over 90 s after six minutes, against 4.2 s and 1.2 s unthrottled. Fixed in e152366 (`backgroundThrottling: false`) |
-| e152366 | The same | The key was added and the first sync finished 25 seconds after sign-in. The check then stopped before writing anything, because its test chat had no model; fixed in the harness (0f73df5) |
-| 0f73df5 (`tests/cloud-field-live.mjs`) | A test chat with an extra top-level field, renamed by the tester in Tinfoil Chat on the web | The field was still there after the web's write (version 1 to 2); the web added its own fields and dropped a null `projectId`. The test chat was then deleted from the cloud and the workspace |
+| 2ce4548, with the field check uncommitted | Sign in, add the chat key, sync | Adding the chat key failed once with "Tinfoil sign-in did not respond", and the first sync then timed out. Electron throttled the hidden sign-in page: twenty chained 50 ms timers took 22 s in a window hidden for 10 s and over 90 s after six minutes, against 4.2 s and 1.2 s unthrottled. Fixed in ab9c6d6 (`backgroundThrottling: false`) |
+| ab9c6d6 | The same | The key was added and the first sync finished 25 seconds after sign-in. The check then stopped before writing anything, because its test chat had no model; fixed in the harness (c07aaa8) |
+| c07aaa8 (`tests/cloud-field-live.mjs`) | A test chat with an extra top-level field, renamed by the tester in Tinfoil Chat on the web | The field was still there after the web's write (version 1 to 2); the web added its own fields and dropped a null `projectId`. The test chat was then deleted from the cloud and the workspace |
 
-Tags of cloud chats themselves (8d39365) were checked with the in-memory enclave below, not between two installs with a real account.
+Tags of cloud chats themselves (db8cbd5) were checked with the in-memory enclave below, not between two installs with a real account.
 
 **Phone.** The release-signed 1.4.0 APK, installed over the release-signed 1.3.0 holding a saved sign-in, opened without Tinfoil's sign-in page and showed the enclave verified. After the release, tags and model-written titles were checked by hand on that phone with the same APK, and worked.
 
@@ -52,7 +52,7 @@ Tags of cloud chats themselves (8d39365) were checked with the in-memory enclave
 | `npm run dist:win` | Passed its doctor (32/32), test and native smoke gates, built the x64 NSIS installer and portable executable (unsigned), then `PACKAGE_CHECK_OK` (28 packaged modules) |
 | Packaged app `release\win-unpacked\Tinfoil Workbench.exe --smoke-test` | `DESKTOP_SMOKE_OK`, including the attested SDK import, the workspace agent runner and the approval window |
 | Packaged app, live enclaves (`check-packaged-provider.mjs`) | `PACKAGED_PROVIDER_OK`: Electron 44.4.5, the inference enclave's five verification steps and 17 models, then the sync enclave's five verification steps |
-| Silent install (`Setup.exe /S /currentuser`) over an installed review build of 1.4.0 (built from 8d39365, before the version change, so it reported 1.3.0) | Exit 0. The installed executable and its uninstall entry report 1.4.0, and its `app.asar` is byte-identical to the build's. The installed app's `--smoke-test` printed `DESKTOP_SMOKE_OK`, and `check-packaged-provider.mjs` run by the installed executable printed `PACKAGED_PROVIDER_OK` with both enclaves. The app data folder held 78 files before and after; every file was unchanged by SHA-256 across the install, and the files at its top across the checks too |
+| Silent install (`Setup.exe /S /currentuser`) over an installed review build of 1.4.0 (built from db8cbd5, before the version change, so it reported 1.3.0) | Exit 0. The installed executable and its uninstall entry report 1.4.0, and its `app.asar` is byte-identical to the build's. The installed app's `--smoke-test` printed `DESKTOP_SMOKE_OK`, and `check-packaged-provider.mjs` run by the installed executable printed `PACKAGED_PROVIDER_OK` with both enclaves. The app data folder held 78 files before and after; every file was unchanged by SHA-256 across the install, and the files at its top across the checks too |
 
 The twelve production-renderer browser suites passed **533 checks** with no JavaScript errors and no requests leaving the page: ui-smoke 49, ui-artifacts 24, ui-inline 20, ui-seamless 18, ui-editing 26, ui-responsive 107, ui-spacing 121, ui-activity 49, ui-account 68, ui-handoff 25, ui-cloud 13, ui-charts 13. Seven more than 1.3.0, all in ui-smoke, for tags.
 
@@ -77,7 +77,7 @@ The twelve production-renderer browser suites passed **533 checks** with no Java
 
 ## Release artifacts
 
-The release files were built from commit `07ea332`. The tag commit adds this record, the archived 1.3.0 record and handoff checklist, and documentation updates, none of which is packaged.
+The release files were built from commit `9b8c840`. The tag commit adds this record, the archived 1.3.0 record and handoff checklist, and documentation updates, none of which is packaged.
 
 | File | Bytes | SHA-256 |
 |---|---:|---|
@@ -87,4 +87,4 @@ The release files were built from commit `07ea332`. The tag commit adds this rec
 
 The Windows files are not code-signed. The APK is signed with APK Signature Scheme v2, with the same release key as 1.3.0 (certificate SHA-256 `6395ead797a520c632156abcd9ee2731869c64ed0ee510ad5b52e887185494cb`), has versionName 1.4.0 and versionCode 1004000, targets SDK 36 with minimum SDK 24, and requests the same two permissions.
 
-GitHub Actions ran all three workflows on the pull request. On the build commit `07ea332` the runs 36902037678 (Windows client), 36902037760 (Android client) and 36902037575 (renderer UI suites) passed, and the Windows and Android runs kept their build copies.
+GitHub Actions ran all three workflows on the pull request. On the build commit `9b8c840` the runs 36902037678 (Windows client), 36902037760 (Android client) and 36902037575 (renderer UI suites) passed, and the Windows and Android runs kept their build copies.

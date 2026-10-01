@@ -27,7 +27,7 @@ Recorded 28 September 2026 for the 0.13.1 release. It replaces the model ID fiel
 - `tests/model-picker.test.mjs` (17 tests): display metadata and its sanitising, and that display data never becomes reasoning parameters; list order and filtering; maker fallbacks; search; context labels; escaping and accessible names of rows; the network messages, built from the SDK's own error classes; the catalog loaded once and kept across a credential change, and retried only a minute after a failure; and the timeout, failed-step, ended-session and network paths of verification.
 - `tests/ui-smoke.py`: three new checks of the picker and the welcome mark in the production renderer.
 - `tests/android-device.py --live`: three new checks. The catalog loads in the Android worker with makers; a tap opens the picker with its badges and does not raise the keyboard; choosing a row sets the model and the welcome mark.
-- **Live, on the build machine** (commit `a9ef8c2`, in Electron 44.4.3's runtime, without credentials): the desktop catalog loader returned 17 entries in 464 ms, and the picker listed the 7 chat models among them, each with a known maker (DS, GLM, Ki, L, G, OAI). Enclave verification passed all five steps with a placeholder API key and with a placeholder Chat token, and the endpoint listed 17 models. No generation was requested.
+- **Live, on the build machine** (commit `7361c42`, in Electron 44.4.3's runtime, without credentials): the desktop catalog loader returned 17 entries in 464 ms, and the picker listed the 7 chat models among them, each with a known maker (DS, GLM, Ki, L, G, OAI). Enclave verification passed all five steps with a placeholder API key and with a placeholder Chat token, and the endpoint listed 17 models. No generation was requested.
 
 ## Windows
 
@@ -85,7 +85,7 @@ Both images pass the 0.13.0 checks and the three new picker and catalog checks. 
 
 ## Release artifacts
 
-The release files were built from commit `a9ef8c2`. The tag commit adds only this record, the archived 0.13.0 record, the updated handoff checklist, README and ARCHITECTURE text, and refreshed screenshots and check records, none of which is packaged. The packaging, smoke and upgrade checks and the release-mode device checks ran on these exact files; the debug device checks used the debug APK built from the same commit.
+The release files were built from commit `7361c42`. The tag commit adds only this record, the archived 0.13.0 record, the updated handoff checklist, README and ARCHITECTURE text, and refreshed screenshots and check records, none of which is packaged. The packaging, smoke and upgrade checks and the release-mode device checks ran on these exact files; the debug device checks used the debug APK built from the same commit.
 
 | File | Bytes | SHA-256 |
 |---|---:|---|
@@ -95,4 +95,4 @@ The release files were built from commit `a9ef8c2`. The tag commit adds only thi
 
 The Windows files are not code-signed. The APK is signed with APK Signature Scheme v2, with the same release key as 0.13.0, and verified with `apksigner`. The signer's certificate SHA-256 is `6395ead797a520c632156abcd9ee2731869c64ed0ee510ad5b52e887185494cb`. The APK has versionName 0.13.1 and versionCode 13001, targets SDK 36 with minimum SDK 24, and requests the same two permissions as 0.13.0.
 
-GitHub Actions passed all three workflows on commit `a9ef8c2`, in the pull request runs 36490350524 (Windows client), 36490350443 (Android client) and 36490350326 (renderer UI suites).
+GitHub Actions passed all three workflows on commit `7361c42`, in the pull request runs 36490350524 (Windows client), 36490350443 (Android client) and 36490350326 (renderer UI suites).

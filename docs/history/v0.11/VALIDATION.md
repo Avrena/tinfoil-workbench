@@ -95,7 +95,7 @@ The emulator images are `userdebug` builds, on which WebView exposes DevTools fo
 
 ## Release artifacts
 
-The release files were built from commit `a00c6c5`, the code of the `v0.11.0` tag. The tag commit adds only this record and refreshed documentation screenshots, neither of which is packaged. Every check below was repeated on these exact files:
+The release files were built from commit `49c1545`, the code of the `v0.11.0` tag. The tag commit adds only this record and refreshed documentation screenshots, neither of which is packaged. Every check below was repeated on these exact files:
 
 - **Windows:** `npm run dist:win` (doctor 27/27, 300/300 tests, native smoke); `release\win-unpacked` smoke; a silent install, installed-app smoke and silent uninstall. All printed `DESKTOP_SMOKE_OK` and left no files, registry entry or shortcuts behind.
 - **Android 16 and Android 14:** `tests/android-device.py --debug --live` (23/23 each) and `--release` (10/10 each), with no plugin payloads in logcat.
@@ -109,4 +109,4 @@ The release files were built from commit `a00c6c5`, the code of the `v0.11.0` ta
 
 The Windows files are not code-signed. The APK is signed with APK Signature Scheme v2 and verified with `apksigner`. The signer is `CN=Avrena, O=Avrena`, certificate SHA-256 `6395ead797a520c632156abcd9ee2731869c64ed0ee510ad5b52e887185494cb`. It targets SDK 36 with minimum SDK 24 and requests only `INTERNET`.
 
-GitHub Actions on commit `a00c6c5` passed all three workflows. The Windows run (tests, native Electron/DPAPI/PDF smoke on `windows-latest`, x64 packaging) was the first to pass after the TEMP short-path fix. The Android run built the debug and unsigned release APKs, and the renderer run passed all ten browser suites. The run IDs are 36376817138, 36376817105 and 36376816977. The earlier failed run on `f1ee3de` is the one described under Windows above.
+GitHub Actions on commit `49c1545` passed all three workflows. The Windows run (tests, native Electron/DPAPI/PDF smoke on `windows-latest`, x64 packaging) was the first to pass after the TEMP short-path fix. The Android run built the debug and unsigned release APKs, and the renderer run passed all ten browser suites. The run IDs are 36376817138, 36376817105 and 36376816977. The earlier failed run on `89c4974` is the one described under Windows above.

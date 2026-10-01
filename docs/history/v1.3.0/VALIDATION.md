@@ -13,16 +13,16 @@ Performed with a real Tinfoil account on review builds of 1.3.0 and on the relea
 
 | Where | Check | Result |
 |---|---|---|
-| Windows, review builds | Asking the agent to read a file outside its folder | `read_file` refused it; the model then asked to run a command, which waited for approval and read the file once approved. Commands are not confined, as designed; the approval now lists the paths outside the folder that a command names (59b61a7) |
-| | The tool calls of an agent reply | A row per batch stacked up above the answer; one row that rolls from call to call was built (5c2d930). Text of two calls drawn over each other during a roll was then reported and fixed (1978197) |
-| | A real agent task that seemed stuck while the model thought | Thinking now shows how long it has run (c4e7701) |
-| | A conversation's folder that had not been chosen for it | A reproduction made a new folder under the root as designed, and the cause was not established. It found a folder made for a send that could not start, fixed in f6057ae |
-| | Approving in Workbench's own window instead of a Windows message box | Accepted; the other questions were then moved to the same window (766a711) |
+| Windows, review builds | Asking the agent to read a file outside its folder | `read_file` refused it; the model then asked to run a command, which waited for approval and read the file once approved. Commands are not confined, as designed; the approval now lists the paths outside the folder that a command names (790b6fd) |
+| | The tool calls of an agent reply | A row per batch stacked up above the answer; one row that rolls from call to call was built (51874e3). Text of two calls drawn over each other during a roll was then reported and fixed (8cf5058) |
+| | A real agent task that seemed stuck while the model thought | Thinking now shows how long it has run (6565db2) |
+| | A conversation's folder that had not been chosen for it | A reproduction made a new folder under the root as designed, and the cause was not established. It found a folder made for a send that could not start, fixed in 223bdf1 |
+| | Approving in Workbench's own window instead of a Windows message box | Accepted; the other questions were then moved to the same window (9c77b04) |
 | | Python found without pointing to it | The installed app showed the interpreter on PATH with its version, in Settings and then under Model-requested Python in Advanced |
-| | A model reading the folder's name as something the user wrote | The environment now says where the folder came from (99ba8fe); see the greeting check below |
+| | A model reading the folder's name as something the user wrote | The environment now says where the folder came from (1ac52a1); see the greeting check below |
 | | Drop and paste, themes, the chat background | Installed for review; no changes were asked before the release |
-| Live agent check (`tests/agent-live.mjs`), at 59b61a7 and c4239c1 | Two tasks per model in a small Node project: explain it without changing anything, and make a failing test pass | Kimi K3, GLM-5.3 and DeepSeek V4.1 Flash passed both tasks with native calls only. DeepSeek V4.1 Flash first failed with "Unsupported streamed tool call." because it asked for more than four reads at once, fixed in c4239c1. About 91,000 input tokens in all. Details in [WORKSPACE-AGENT.md](../../WORKSPACE-AGENT.md) |
-| Live agent check, greeting, at 2c85693 | A greeting in a folder Workbench made and named after it | Kimi K3 and DeepSeek V4.1 Flash answered with a greeting: no tool calls and no mention of the folder; 3,914 input and 108 output tokens |
+| Live agent check (`tests/agent-live.mjs`), at 790b6fd and 6a8de47 | Two tasks per model in a small Node project: explain it without changing anything, and make a failing test pass | Kimi K3, GLM-5.3 and DeepSeek V4.1 Flash passed both tasks with native calls only. DeepSeek V4.1 Flash first failed with "Unsupported streamed tool call." because it asked for more than four reads at once, fixed in 6a8de47. About 91,000 input tokens in all. Details in [WORKSPACE-AGENT.md](../../WORKSPACE-AGENT.md) |
+| Live agent check, greeting, at 883241d | A greeting in a folder Workbench made and named after it | Kimi K3 and DeepSeek V4.1 Flash answered with a greeting: no tool calls and no mention of the folder; 3,914 input and 108 output tokens |
 | Windows, the installed release build | A cloud chat holding a picture sent in Tinfoil Chat | The picture was fetched from Tinfoil's attachment storage in Workbench |
 | | A photo attached in Workbench to a cloud chat | Uploaded, and shown in that chat in Tinfoil Chat on the web |
 | Phone, release-signed 1.3.0 installed over the release-signed 1.2.0 holding a saved sign-in | Opening the app after the update | Signed in, without Tinfoil's page |
@@ -59,7 +59,7 @@ The twelve production-renderer browser suites passed **526 checks** with no Java
 | Android 16 (API 36), Pixel 7 profile | 133.0.6943.137 | **41/41** | **13/13** (second run; see below) |
 | Android 14 (API 34), Pixel 6 profile | 113.0.5672.136 | **36/36** | **13/13** |
 
-- **The failed release check.** The first release run on Android 16 failed one check, a text file picked in the system picker becoming an attachment: the test looked for the Attach button by its 1.2.0 name, which 89151db changed. The test now matches the new name (738435c); the same APK then passed all 13 checks after a fresh boot, and Android 14 passed with the fixed test the first time.
+- **The failed release check.** The first release run on Android 16 failed one check, a text file picked in the system picker becoming an attachment: the test looked for the Attach button by its 1.2.0 name, which abba617 changed. The test now matches the new name (8177875); the same APK then passed all 13 checks after a fresh boot, and Android 14 passed with the fixed test the first time.
 - **Upgrade in place (Android 16), from 1.2.0.** The published, signed 1.2.0 APK (its SHA-256 matches the release) was installed and a draft typed through the on-screen keyboard; 1.2.0 kept it across a force-stop. `adb install -r` then installed the signed 1.3.0 APK, which reported versionName 1.3.0 and versionCode 1003000. The draft written by 1.2.0 opened and persisted across another force-stop.
 - The release APK is signed with the release certificate (SHA-256 `63:95:EA:…:94:CB`).
 
@@ -73,7 +73,7 @@ The twelve production-renderer browser suites passed **526 checks** with no Java
 
 ## Release artifacts
 
-The release files were built from commit `3dbaec1`. The tag commit adds two test fixes (`738435c`, `80f131b`), this record, the archived 1.2.0 record and handoff checklist, and documentation updates, none of which is packaged.
+The release files were built from commit `4889a61`. The tag commit adds two test fixes (`8177875`, `17c2512`), this record, the archived 1.2.0 record and handoff checklist, and documentation updates, none of which is packaged.
 
 | File | Bytes | SHA-256 |
 |---|---:|---|
@@ -83,4 +83,4 @@ The release files were built from commit `3dbaec1`. The tag commit adds two test
 
 The Windows files are not code-signed. The APK is signed with APK Signature Scheme v2, with the same release key as 1.2.0 (certificate SHA-256 `6395ead797a520c632156abcd9ee2731869c64ed0ee510ad5b52e887185494cb`), has versionName 1.3.0 and versionCode 1003000, targets SDK 36 with minimum SDK 24, and requests the same two permissions.
 
-GitHub Actions ran all three workflows on the pull request. On commit `738435c` the Windows client run failed one Node test, the agent's new folder: the runner's Temp is an 8.3 short path, which the service expands and the test did not. The other two runs were cancelled by the next push. `80f131b` fixes the test; on it the runs 36798512733 (Windows client), 36798512717 (Android client) and 36798512743 (renderer UI suites) passed, and the Windows and Android runs kept their build copies.
+GitHub Actions ran all three workflows on the pull request. On commit `8177875` the Windows client run failed one Node test, the agent's new folder: the runner's Temp is an 8.3 short path, which the service expands and the test did not. The other two runs were cancelled by the next push. `17c2512` fixes the test; on it the runs 36798512733 (Windows client), 36798512717 (Android client) and 36798512743 (renderer UI suites) passed, and the Windows and Android runs kept their build copies.

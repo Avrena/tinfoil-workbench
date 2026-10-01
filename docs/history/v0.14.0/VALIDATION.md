@@ -86,7 +86,7 @@ The counts equal those of 0.13.2; the debug counts differ because Android 16 run
 
 ## Release artifacts
 
-The release files were built from commit `4e3b5d2`. The tag commit adds only this record, the archived 0.13.2 record, the updated handoff checklist, README and ARCHITECTURE text, and refreshed screenshots and check records, none of which is packaged. The packaging, smoke, live packaged, upgrade and release-mode device checks ran on these exact files; the debug device checks used the debug APK built from the same commit.
+The release files were built from commit `07f845a`. The tag commit adds only this record, the archived 0.13.2 record, the updated handoff checklist, README and ARCHITECTURE text, and refreshed screenshots and check records, none of which is packaged. The packaging, smoke, live packaged, upgrade and release-mode device checks ran on these exact files; the debug device checks used the debug APK built from the same commit.
 
 | File | Bytes | SHA-256 |
 |---|---:|---|
@@ -96,4 +96,4 @@ The release files were built from commit `4e3b5d2`. The tag commit adds only thi
 
 The Windows files are not code-signed. The APK is signed with APK Signature Scheme v2, with the same release key as 0.13.2, and verified with `apksigner`. The signer's certificate SHA-256 is `6395ead797a520c632156abcd9ee2731869c64ed0ee510ad5b52e887185494cb`. The APK has versionName 0.14.0 and versionCode 14000, targets SDK 36 with minimum SDK 24, and requests the same two permissions as 0.13.2.
 
-GitHub Actions passed all three workflows on commit `4e3b5d2`, in the pull request runs 36502335910 (Windows client, including the package check and the packaged app's smoke test), 36502336057 (Android client) and 36502336036 (renderer UI suites).
+GitHub Actions passed all three workflows on commit `07f845a`, in the pull request runs 36502335910 (Windows client, including the package check and the packaged app's smoke test), 36502336057 (Android client) and 36502336036 (renderer UI suites).

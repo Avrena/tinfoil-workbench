@@ -47,7 +47,7 @@ DevTools `CSS.getPlatformFontsForNode` reported the fonts actually used, both in
 
 ### Defects found and fixed
 
-- **A second Escape discarded unsaved text.** Both the message editor and the new instructions editor keep their dialog open on Escape by cancelling its `cancel` event and asking before discarding. Chromium lets a page prevent only one close request per user activation, and Escape is not an activation. The second Escape therefore delivered a non-cancelable `cancel` event and closed the dialog without the question it had just shown. This reproduced in Electron 44.4.3 and in Chromium 153 with a single opening click, typed text and two Escape presses. The renderer now handles Escape at `keydown` (commit `7e17f04`).
+- **A second Escape discarded unsaved text.** Both the message editor and the new instructions editor keep their dialog open on Escape by cancelling its `cancel` event and asking before discarding. Chromium lets a page prevent only one close request per user activation, and Escape is not an activation. The second Escape therefore delivered a non-cancelable `cancel` event and closed the dialog without the question it had just shown. This reproduced in Electron 44.4.3 and in Chromium 153 with a single opening click, typed text and two Escape presses. The renderer now handles Escape at `keydown` (commit `bfad87d`).
 - **Tests that could not see it.** The first regression checks passed even without the fix, because Playwright evaluates its page queries with a user gesture. Each `expect()` between the two presses granted a new activation. The final checks press Escape twice with no page query in between. They fail when the `keydown` handler or the IME guard is removed, and pass with them.
 - **Stacked dialogs.** Android Back acted on the last open dialog in document order. The message editor is appended after every other dialog, so with close review open over an editor the lower dialog would have been chosen. Escape and Back now share `cancelTopDialog()`, which uses the opening order recorded by `openModal()`. `ui-handoff.py` checks Escape with close review over an unsaved editor, and fails when document order is used.
 
@@ -87,7 +87,7 @@ Further checks on the same images:
 ### Defect found and fixed
 
 - **Instructions editor actions behind the keyboard.** The first debug run on Android 16 failed three of the new checks. Tapping *Keep editing* focuses the text field and opens the on-screen keyboard. The dialog then fits the 527 CSS px left above the keyboard, and Back, Save for reuse and Use in this conversation sat at 540–584 px, below the visible part of the scrolling dialog. The harness tapped the keyboard instead of Save. A user would have had to discover that the dialog scrolls.
-- **Fix.** The action row is now sticky (commit `3f6d5f7`). `ui-responsive.py` checks Save and Use at 390×420 and 844×390 and fails without the fix (Save at y=421 in a 420 px viewport). The device checks now tap Save with the real keyboard open. The harness also accounts for the first Back only hiding the keyboard.
+- **Fix.** The action row is now sticky (commit `da1b440`). `ui-responsive.py` checks Save and Use at 390×420 and 844×390 and fails without the fix (Save at y=421 in a 420 px viewport). The device checks now tap Save with the real keyboard open. The harness also accounts for the first Back only hiding the keyboard.
 
 ### Compatibility checks
 
@@ -123,7 +123,7 @@ These checks do not cover the Windows sign-in window and token exchange that pro
 
 ## Release artifacts
 
-The release files were built from commit `e05441d`, the code of the `v0.12.0` tag. The tag commit adds only this record, the updated handoff checklist, refreshed screenshots and check records, none of which is packaged. Every check above ran on these exact files:
+The release files were built from commit `8048de6`, the code of the `v0.12.0` tag. The tag commit adds only this record, the updated handoff checklist, refreshed screenshots and check records, none of which is packaged. Every check above ran on these exact files:
 
 | File | Bytes | SHA-256 |
 |---|---:|---|
@@ -133,4 +133,4 @@ The release files were built from commit `e05441d`, the code of the `v0.12.0` ta
 
 The Windows files are not code-signed. The APK is signed with APK Signature Scheme v2, with the same release key as 0.11.0, and verified with `apksigner`. The signer's certificate SHA-256 is `6395ead797a520c632156abcd9ee2731869c64ed0ee510ad5b52e887185494cb`. The APK has versionName 0.12.0 and versionCode 12000, and targets SDK 36 with minimum SDK 24.
 
-GitHub Actions passed all three workflows on commit `e05441d`, in the pull request runs 36412699439 (Windows client), 36412699319 (Android client) and 36412699505 (renderer UI suites).
+GitHub Actions passed all three workflows on commit `8048de6`, in the pull request runs 36412699439 (Windows client), 36412699319 (Android client) and 36412699505 (renderer UI suites).

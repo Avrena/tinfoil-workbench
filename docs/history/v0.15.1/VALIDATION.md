@@ -54,7 +54,7 @@ The Android app has no saved sign-in, so no restore is ever pending there and no
 
 ## Release artifacts
 
-The release files were built from commit `5954fb8`. The tag commit adds only this record, the archived 0.15.0 record and refreshed screenshots and check records, none of which is packaged.
+The release files were built from commit `d4e61e7`. The tag commit adds only this record, the archived 0.15.0 record and refreshed screenshots and check records, none of which is packaged.
 
 | File | Bytes | SHA-256 |
 |---|---:|---|
@@ -64,4 +64,4 @@ The release files were built from commit `5954fb8`. The tag commit adds only thi
 
 The Windows files are not code-signed. The APK is signed with APK Signature Scheme v2, with the same release key as 0.15.0 (certificate SHA-256 `6395ead797a520c632156abcd9ee2731869c64ed0ee510ad5b52e887185494cb`), has versionName 0.15.1 and versionCode 15001, targets SDK 36 with minimum SDK 24, and requests the same two permissions.
 
-GitHub Actions passed all three workflows on commit `5954fb8`, in the pull request runs 36511348437 (Windows client), 36511348568 (Android client) and 36511348429 (renderer UI suites).
+GitHub Actions passed all three workflows on commit `d4e61e7`, in the pull request runs 36511348437 (Windows client), 36511348568 (Android client) and 36511348429 (renderer UI suites).

@@ -31,15 +31,15 @@ With a chat key added under Account → Tinfoil cloud chats, the Windows app lis
 
 - **First sync:** the account's cloud chats and projects, one of them with instructions, and their documents were listed. The workspace snapshot did not contain the key.
 - **Fidelity, read-only:** the 10 most recent chats (1 to 4 turns) were opened. For each, writing it back unchanged was computed from a fresh pull: all messages and all top-level fields were kept exactly, and the loaded version matched the pulled one. Nothing was written.
-- **The first run stopped at the upload** of its test chat. Workbench requested a chat ID from `api.tinfoil.sh/api/chats/generate-id`, which Tinfoil Chat's current client no longer uses: it makes IDs itself, a 13-digit reverse timestamp, an underscore and a random UUID. The request failed with an HTTP status that Workbench reported as a model rejection, because `publicError` read any 400, 404 or 422 as one. Nothing had been written. Commit `af770a2` makes IDs locally in that format and reports sync errors as the sync service's.
-- **The second run, on `af770a2`,** continued with the first run's profile. The saved sign-in was restored at launch, within about a second and without the sign-in window, and the chat key came from the encrypted workspace. It then repeated the first sync and the fidelity check with the same results, and took a new test chat through its whole life, confirming each step by pulling the row again:
+- **The first run stopped at the upload** of its test chat. Workbench requested a chat ID from `api.tinfoil.sh/api/chats/generate-id`, which Tinfoil Chat's current client no longer uses: it makes IDs itself, a 13-digit reverse timestamp, an underscore and a random UUID. The request failed with an HTTP status that Workbench reported as a model rejection, because `publicError` read any 400, 404 or 422 as one. Nothing had been written. Commit `ec92a0e` makes IDs locally in that format and reports sync errors as the sync service's.
+- **The second run, on `ec92a0e`,** continued with the first run's profile. The saved sign-in was restored at launch, within about a second and without the sign-in window, and the chat key came from the encrypted workspace. It then repeated the first sync and the fidelity check with the same results, and took a new test chat through its whole life, confirming each step by pulling the row again:
   - one short message (DeepSeek V4.1 Flash, 64 tokens at most) and *Move to Tinfoil cloud*: version 1, 2 messages, the title and the writer ID matched;
   - rename: version 2, the new title with `titleState: manual`;
   - a second short message: version 3, 4 messages in the order user, assistant, user, assistant, and Workbench's link at the same version;
   - delete, confirmed in the app's dialog: the row answered `NOT_FOUND`, and the conversation was gone locally.
 - **At the end** no file in the profile contained the key, its base64 form or a session token in plaintext, and the account was signed out, which deleted the saved sign-in. The profile was then deleted.
 
-The live check ran from source on `af770a2`. The later commits add the sync enclave to the packaged-app check, the version and, in `497d12f`, move the construction of the sync engine from the shared service to the Windows entry point (see Android). The installed app was not run with a real account.
+The live check ran from source on `ec92a0e`. The later commits add the sync enclave to the packaged-app check, the version and, in `117a0d1`, move the construction of the sync engine from the shared service to the Windows entry point (see Android). The installed app was not run with a real account.
 
 ## Staying signed in
 
@@ -57,7 +57,7 @@ The 0.14.0 record listed the restore of a real sign-in as not checked. The secon
 | Silent install into a new folder and uninstall | **Not repeated.** The installer configuration is unchanged since 0.12.1, where this check passed |
 | Opening a 0.15.0 workspace in 0.14.0 | 0.14.0's workspace validation, taken from the installed 0.14.0, opens a 0.15.0 workspace with cloud chats, a cloud project and a chat key, and drops the cloud links and the key. It refuses a workspace with more than 300 conversations, the 0.14.0 limit |
 
-The eleven production-renderer browser suites passed **451 checks** with no JavaScript errors; the suites that record network requests saw none leave the page. They ran on commit `497d12f`; its renderer preview is byte-identical to the one built from `a97a1f5`, where the suites also passed.
+The eleven production-renderer browser suites passed **451 checks** with no JavaScript errors; the suites that record network requests saw none leave the page. They ran on commit `117a0d1`; its renderer preview is byte-identical to the one built from `abceed7`, where the suites also passed.
 
 | Suite | 0.14.0 | 0.15.0 |
 | --- | ---: | ---: |
@@ -75,7 +75,7 @@ The eleven production-renderer browser suites passed **451 checks** with no Java
 
 ## Android
 
-The Android app has no cloud sync. Its worker bundles the shared service with a crypto shim that provides only `randomUUID`, so the first 0.15.0 APK build failed: the service imported the sync engine, which reaches Node's `hkdfSync`. Commit `497d12f` moves the engine's construction to the Windows entry point, so the cloud modules are not in the worker, and adds a test of the worker's imports.
+The Android app has no cloud sync. Its worker bundles the shared service with a crypto shim that provides only `randomUUID`, so the first 0.15.0 APK build failed: the service imported the sync engine, which reaches Node's `hkdfSync`. Commit `117a0d1` moves the engine's construction to the Windows entry point, so the cloud modules are not in the worker, and adds a test of the worker's imports.
 
 `tests/android-device.py` ran against the final APKs:
 
@@ -92,7 +92,7 @@ The counts equal those of 0.14.0; the debug counts differ because Android 16 run
 
 ## Not executed
 
-- **Cloud sync in the installed app** with a real account, and on the final build commit; the live check ran from source on `af770a2`.
+- **Cloud sync in the installed app** with a real account, and on the final build commit; the live check ran from source on `ec92a0e`.
 - **Cloud sync cases not reached by the live check:** a conflict with a real concurrent edit in Tinfoil Chat, a chat deleted in Tinfoil Chat while Workbench has unwritten changes, moving a chat between real cloud projects, a new conversation in a real cloud project, chats with images or attachments written back, project documents near their size limits, more than 300 cloud chats, a key rotated in Tinfoil Chat, and sync while another account is signed in. These ran only against the in-memory enclave.
 - **Staying signed in with the installed app:** sign in, quit and reopen; and a restore after an update.
 - **Sign-in:** apart from the live cloud check (Chat sign-in on Windows, from source), no sign-in with a real account ran for this release. Still open: the release-signed Android APK with a real account; additional sign-in methods on Windows; additional sign-in methods on Android; other phones, and WebViews between 113 and 133.
@@ -103,7 +103,7 @@ The counts equal those of 0.14.0; the debug counts differ because Android 16 run
 
 ## Release artifacts
 
-The release files were built from commit `497d12f`. The tag commit adds only this record, the archived 0.14.0 record, the updated handoff checklist, README, ARCHITECTURE and CHANGELOG text, and refreshed screenshots and check records, none of which is packaged. The packaging, smoke, live packaged, upgrade and release-mode device checks ran on these exact files; the debug device checks used the debug APK built from the same commit.
+The release files were built from commit `117a0d1`. The tag commit adds only this record, the archived 0.14.0 record, the updated handoff checklist, README, ARCHITECTURE and CHANGELOG text, and refreshed screenshots and check records, none of which is packaged. The packaging, smoke, live packaged, upgrade and release-mode device checks ran on these exact files; the debug device checks used the debug APK built from the same commit.
 
 | File | Bytes | SHA-256 |
 |---|---:|---|
@@ -113,4 +113,4 @@ The release files were built from commit `497d12f`. The tag commit adds only thi
 
 The Windows files are not code-signed. The APK is signed with APK Signature Scheme v2, with the same release key as 0.14.0, and verified with `apksigner`. The signer's certificate SHA-256 is `6395ead797a520c632156abcd9ee2731869c64ed0ee510ad5b52e887185494cb`. The APK has versionName 0.15.0 and versionCode 15000, targets SDK 36 with minimum SDK 24, and requests the same two permissions as 0.14.0.
 
-GitHub Actions passed all three workflows on commit `497d12f`, in the pull request runs 36507936493 (Windows client, including the package check and the packaged app's smoke test), 36507936638 (Android client, whose build includes the worker bundle) and 36507936489 (renderer UI suites, now eleven).
+GitHub Actions passed all three workflows on commit `117a0d1`, in the pull request runs 36507936493 (Windows client, including the package check and the packaged app's smoke test), 36507936638 (Android client, whose build includes the worker bundle) and 36507936489 (renderer UI suites, now eleven).

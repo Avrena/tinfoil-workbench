@@ -32,7 +32,7 @@ Recorded 28 September 2026 for the 0.12.1 release, which completes Tinfoil Chat 
 - **Sleep:** resume drops an expired cached key without a network request.
 - **Sign-in window:** it opens `https://chat.tinfoil.sh/signin` and injects no sign-in script. A sign-in needs two agreeing session reads a second apart. A page that is loading or on another origin is not ready, never a sign-out. The host list governs the page, and a frame redirect cannot stall it; a refused host is reported by name. Google's country account hosts are allowed; other hosts on those domains and lookalikes are not.
 
-**Mutation checks.** A script disabled one rule at a time in `desktop/account-session.mjs`, `desktop/account-window.mjs`, `desktop/service.mjs` and the compiled host policy, and ran the account tests after each of the 36 changes. Examples: accepting a missing expiry for 60 seconds, as 0.12.0 did; ignoring the `Date` header; reusing a key until its last second; removing the 401 refresh or treating 403 as unavailable; dropping the cooldown or the hourly-limit code; following redirects; removing the coalescing, the Clerk-session comparison or the identity read after an exchange; guarding frame redirects; refusing Google's country hosts. 34 made the matching test fail. The two that did not were the one-hour reuse cap and the 64 KiB limit on a streamed body: the only oversize case sent a key that `secret()` refuses anyway, and a constructed `Response` declares no length. Tests for both were added in `480c9a7`. With them, those two changes, and removing the check on a declared length, each make a test fail.
+**Mutation checks.** A script disabled one rule at a time in `desktop/account-session.mjs`, `desktop/account-window.mjs`, `desktop/service.mjs` and the compiled host policy, and ran the account tests after each of the 36 changes. Examples: accepting a missing expiry for 60 seconds, as 0.12.0 did; ignoring the `Date` header; reusing a key until its last second; removing the 401 refresh or treating 403 as unavailable; dropping the cooldown or the hourly-limit code; following redirects; removing the coalescing, the Clerk-session comparison or the identity read after an exchange; guarding frame redirects; refusing Google's country hosts. 34 made the matching test fail. The two that did not were the one-hour reuse cap and the 64 KiB limit on a streamed body: the only oversize case sent a key that `secret()` refuses anyway, and a constructed `Response` declares no length. Tests for both were added in `397a64e`. With them, those two changes, and removing the check on a declared length, each make a test fail.
 
 `tests/ui-account.py` checks the production renderer's account view with synthetic snapshots: 66 checks, as in 0.12.0.
 
@@ -46,14 +46,14 @@ The packaged and installed smoke checks in [Windows](#windows) cover storage, th
 
 | Run | Code | Result |
 |---|---|---|
-| 1 | `5961de3` | Signed in. The exchange returned 200 in 393 ms with a `Date` header and a key valid for 15 minutes; verification completed all five steps in 4.6 s. The harness then read the model list before it had loaded and stopped (fixed in the harness, `88c2e59`). |
-| 2 | `88c2e59` | Sign-in remained stalled after an authentication step. This run did not yet log page hosts. |
-| 3 | `6782dff` | The same stall. The log showed the page's navigation to `accounts.youtube.com` refused. |
-| 4 | `247448e` | The same stall; the page's navigation to `accounts.google.co.uk` was refused. |
-| 5 | `5f76b70` | Full run, below. The generic sign-in modal needed another action to continue the pending authentication step. |
-| 6 | `2ab454f` | Quick run with Tinfoil's own sign-in page, below. The pending authentication step continued directly. |
+| 1 | `7eb098e` | Signed in. The exchange returned 200 in 393 ms with a `Date` header and a key valid for 15 minutes; verification completed all five steps in 4.6 s. The harness then read the model list before it had loaded and stopped (fixed in the harness, `c466ad2`). |
+| 2 | `c466ad2` | Sign-in remained stalled after an authentication step. This run did not yet log page hosts. |
+| 3 | `232ff18` | The same stall. The log showed the page's navigation to `accounts.youtube.com` refused. |
+| 4 | `963a85c` | The same stall; the page's navigation to `accounts.google.co.uk` was refused. |
+| 5 | `5134a17` | Full run, below. The generic sign-in modal needed another action to continue the pending authentication step. |
+| 6 | `203cbbe` | Quick run with Tinfoil's own sign-in page, below. The pending authentication step continued directly. |
 
-**Run 5, full run (`5f76b70`):**
+**Run 5, full run (`5134a17`):**
 
 - **Sign-in:** one interactive sign-in. The profile matched the binding, the Clerk session was bound, and the identity read after the exchange matched. The exchange returned 200 in 176 ms with a `Date` header, and the sign-in window was then hidden.
 - **Verification:** all five steps in 3.1 s; 17 models.
@@ -62,9 +62,9 @@ The packaged and installed smoke checks in [Windows](#windows) cover storage, th
 - **Sign-out during a renewal:** the harness held a renewal's response and signed out. The 200 response arrived after sign-out and was discarded; the refresh ended with "The account operation was cancelled." The key, binding and SDK client were cleared, and the sign-in window was destroyed.
 - **Send after sign-out:** refused with "Sign in to Tinfoil Chat in Account first. No API-key fallback is used."; nothing was sent or exchanged. This profile had no saved developer key; the synthetic checks cover one.
 
-**Run 6, quick run (`2ab454f`, without the wait for expiry):** the sign-in page completed its redirects. No host was refused and no frame redirected outside the list. The binding and the identity read after the exchange matched. The exchange returned 200 in 399 ms with a `Date` header, verification took 4.5 s (17 models), and a send completed. The exposure checks (5 credentials, 30 snapshots, 7 vault writes) and the profile scan were clean, and sign-out during a renewal and the refused send behaved as in run 5.
+**Run 6, quick run (`203cbbe`, without the wait for expiry):** the sign-in page completed its redirects. No host was refused and no frame redirected outside the list. The binding and the identity read after the exchange matched. The exchange returned 200 in 399 ms with a `Date` header, verification took 4.5 s (17 models), and a send completed. The exposure checks (5 credentials, 30 snapshots, 7 vault writes) and the profile scan were clean, and sign-out during a renewal and the refused send behaved as in run 5.
 
-The released code differs from `2ab454f` only in the Account view's session text and the version number, and the renewal code has not changed since `5f76b70`. Every exchange whose timing was logged returned 200 in 176–399 ms, each sign-in exchange carried a `Date` header, and every key whose expiry was logged was valid for 15 minutes.
+The released code differs from `203cbbe` only in the Account view's session text and the version number, and the renewal code has not changed since `5134a17`. Every exchange whose timing was logged returned 200 in 176–399 ms, each sign-in exchange carried a `Date` header, and every key whose expiry was logged was valid for 15 minutes.
 
 **Not covered live:** 401, 402, 403 and 429 responses and the hourly-limit code, none of which occurred; an account or session change during a renewal; an inference rejection; Stop during a Chat reply; Manage profile & security; real sleep and resume; additional sign-in methods; and sign-in from the packaged or installed app. The first group rests on the synthetic checks above; the rest remain open in [HANDOFF.md](HANDOFF.md).
 
@@ -79,7 +79,7 @@ The released code differs from `2ab454f` only in the Account view's session text
 
 | Check | Result |
 |---|---|
-| `npm test` (strict build + Node tests) | At the build commit `fa69b95`: **340 passed**, 0 failed, 0 skipped: the 313 tests of 0.12.0 plus 27 account tests. With the two tests of `480c9a7`: **342 passed**. Python-runner cases ran against a real interpreter. |
+| `npm test` (strict build + Node tests) | At the build commit `0fea4c0`: **340 passed**, 0 failed, 0 skipped: the 313 tests of 0.12.0 plus 27 account tests. With the two tests of `397a64e`: **342 passed**. Python-runner cases ran against a real interpreter. |
 | `npm run dist:win` | Passed its doctor (27/27), test and native smoke gates (`DESKTOP_SMOKE_OK: encrypted storage, bridge, native PDF print and PDF.js canvas`); built the x64 NSIS installer and portable executable (unsigned) |
 | Packaged app `release\win-unpacked\Tinfoil Workbench.exe --smoke-test` | `DESKTOP_SMOKE_OK`; file version 0.12.1 |
 | Silent per-user install (`/S /D=…`) → installed-app smoke → silent uninstall | Installed with an uninstall entry for 0.12.1 plus Start-menu and desktop shortcuts; the installed app printed `DESKTOP_SMOKE_OK`; uninstall removed the program files, the uninstall entry and both shortcuts |
@@ -118,7 +118,7 @@ Android 11 (API 30) was not rerun. In 0.12.0 the app refused its stock WebView a
 
 ## Release artifacts
 
-The release files were built from commit `fa69b95`. The tag commit adds only two tests (`480c9a7`), this record, the updated handoff checklist, refreshed screenshots and check records, none of which is packaged. The packaging, smoke, install and device checks above ran on these exact files; the live account runs used the source at the commits named.
+The release files were built from commit `0fea4c0`. The tag commit adds only two tests (`397a64e`), this record, the updated handoff checklist, refreshed screenshots and check records, none of which is packaged. The packaging, smoke, install and device checks above ran on these exact files; the live account runs used the source at the commits named.
 
 | File | Bytes | SHA-256 |
 |---|---:|---|
@@ -128,4 +128,4 @@ The release files were built from commit `fa69b95`. The tag commit adds only two
 
 The Windows files are not code-signed. The APK is signed with APK Signature Scheme v2, with the same release key as 0.12.0, and verified with `apksigner`. The signer's certificate SHA-256 is `6395ead797a520c632156abcd9ee2731869c64ed0ee510ad5b52e887185494cb`. The APK has versionName 0.12.1 and versionCode 12001, targets SDK 36 with minimum SDK 24, and requests the same two permissions as 0.12.0.
 
-GitHub Actions passed all three workflows on commit `fa69b95`, in the pull request runs 36447865162 (Windows client), 36447865183 (Android client) and 36447865218 (renderer UI suites).
+GitHub Actions passed all three workflows on commit `0fea4c0`, in the pull request runs 36447865162 (Windows client), 36447865183 (Android client) and 36447865218 (renderer UI suites).

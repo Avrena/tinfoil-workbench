@@ -64,7 +64,7 @@ The twelve production-renderer browser suites passed **464 checks** with no Java
 
 ## Release artifacts
 
-The release files were built from commit `2109854`. The tag commit adds only this record, the archived 0.17.1 record and handoff checklist, corrections to the documentation of Android Chat sign-in, and refreshed screenshots and check records, none of which is packaged.
+The release files were built from commit `9d0c294`. The tag commit adds only this record, the archived 0.17.1 record and handoff checklist, corrections to the documentation of Android Chat sign-in, and refreshed screenshots and check records, none of which is packaged.
 
 | File | Bytes | SHA-256 |
 |---|---:|---|
@@ -74,4 +74,4 @@ The release files were built from commit `2109854`. The tag commit adds only thi
 
 The Windows files are not code-signed. The APK is signed with APK Signature Scheme v2, with the same release key as 0.17.1 (certificate SHA-256 `6395ead797a520c632156abcd9ee2731869c64ed0ee510ad5b52e887185494cb`), has versionName 0.17.2 and versionCode 17002, targets SDK 36 with minimum SDK 24, and requests the same two permissions.
 
-GitHub Actions passed all three workflows on commit `2109854`, in the pull request runs 36583747655 (Windows client), 36583747968 (Android client) and 36583747935 (renderer UI suites).
+GitHub Actions passed all three workflows on commit `9d0c294`, in the pull request runs 36583747655 (Windows client), 36583747968 (Android client) and 36583747935 (renderer UI suites).

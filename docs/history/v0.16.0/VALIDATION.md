@@ -72,7 +72,7 @@ The Android app shares the renderer and the service, so it gets the guide and th
 
 ## Release artifacts
 
-The release files were built from commit `45ef4bb`. The tag commit adds only this record, the archived 0.15.1 record, the updated handoff checklist and README text, and refreshed screenshots and check records, none of which is packaged.
+The release files were built from commit `e15ae14`. The tag commit adds only this record, the archived 0.15.1 record, the updated handoff checklist and README text, and refreshed screenshots and check records, none of which is packaged.
 
 | File | Bytes | SHA-256 |
 |---|---:|---|
@@ -82,4 +82,4 @@ The release files were built from commit `45ef4bb`. The tag commit adds only thi
 
 The Windows files are not code-signed. The APK is signed with APK Signature Scheme v2, with the same release key as 0.15.1 (certificate SHA-256 `6395ead797a520c632156abcd9ee2731869c64ed0ee510ad5b52e887185494cb`), has versionName 0.16.0 and versionCode 16000, targets SDK 36 with minimum SDK 24, and requests the same two permissions.
 
-GitHub Actions passed all three workflows on commit `45ef4bb`, in the pull request runs 36562959207 (Windows client), 36562959160 (Android client) and 36562959181 (renderer UI suites, now twelve).
+GitHub Actions passed all three workflows on commit `e15ae14`, in the pull request runs 36562959207 (Windows client), 36562959160 (Android client) and 36562959181 (renderer UI suites, now twelve).
