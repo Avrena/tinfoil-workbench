@@ -76,7 +76,11 @@ with sync_playwright() as p:
  page.locator('#transcript').evaluate('(e)=>e.scrollTop=0')
  page.screenshot(path=str(root/'docs/preview.png'),full_page=True)
  # The layout must settle at the new size first, or the full-page shot keeps the old height as a blank strip.
- page.set_viewport_size({'width':1100,'height':850});page.wait_for_function("document.documentElement.scrollHeight<=850");page.wait_for_timeout(200)
+ page.set_viewport_size({'width':1100,'height':850})
+ for _ in range(60):  # polled with evaluate: the page's CSP refuses wait_for_function's string evaluation in some browsers
+  if page.evaluate('document.documentElement.scrollHeight')<=850: break
+  page.wait_for_timeout(50)
+ page.wait_for_timeout(200)
  page.screenshot(path=str(root/'docs/preview-compact.png'),full_page=True);page.set_viewport_size({'width':1500,'height':1180})
  page.locator('.reasoning summary').click();expect(page.locator('.reasoning-content')).to_be_visible()
  # A snapshot update must not forcibly fold the section the reader opened.
