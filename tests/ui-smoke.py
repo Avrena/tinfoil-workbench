@@ -264,6 +264,67 @@ with sync_playwright() as p:
  fourth.keyboard.press('Escape');fourth.keyboard.press('Escape');fourth.wait_for_timeout(150)
  expect(fourth.locator('#instructions-dialog')).to_be_visible();expect(fourth.locator('#instructions-discard')).to_be_visible();expect(fourth.locator('#instructions-text')).to_have_value('Unsaved instructions');fourth.close()
  checks.append('a second Escape keeps unsaved instructions behind the discard question')
+ # Tags: Settings → Tags, a first answer tagged and titled by the preview's synthetic classifier, the tags dialog, the
+ # sidebar's tag row, #search and grouping by tag, and each style's shape.
+ tags=b.new_page(viewport={'width':1400,'height':900});tags.on('pageerror',lambda e:errors.append(str(e)));tags.set_content(html)
+ tags.locator('[data-action=settings]').first.click();expect(tags.locator('#tagging-options')).to_be_hidden()
+ expect(tags.locator('#tag-list [data-tag]')).to_have_count(9);tags.locator('#tagging-on').check();expect(tags.locator('#tagging-options')).to_be_visible()
+ expect(tags.locator('#tagging-model')).to_have_value('')
+ coding=tags.locator('[data-tag=preset-coding]');coding.locator('.tag-look').click();expect(coding.locator('.tag-styles [role=radio]')).to_have_count(5)
+ coding.locator('[data-pick-style=stripe]').click();expect(coding.locator('.tag-look .tag-chip')).to_have_attribute('data-style','stripe')
+ expect(coding.locator('[data-pick-style=stripe]')).to_be_focused();coding.locator('[data-pick-color=green]').click()
+ expect(coding.locator('.tag-look .tag-chip')).to_have_attribute('data-color','green');coding.locator('.tag-look').click();expect(coding.locator('.tag-looks')).to_have_count(0)
+ tags.locator('#tag-add').click();new=tags.locator('#tag-list [data-tag]').last;expect(new.locator('.tag-name-input')).to_be_focused();expect(new.locator('.tag-name-input')).to_have_value('New tag')
+ new.locator('.tag-name-input').fill('#Travel');new.locator('.tag-name-input').press('Enter');expect(new.locator('.tag-name-input')).to_have_value('Travel')
+ tags.locator('[data-tag=preset-personal] .tag-name-input').fill('travel');tags.locator('[data-tag=preset-personal] .tag-name-input').press('Enter')
+ expect(tags.locator('#toast')).to_contain_text('Two tags are called');expect(tags.locator('[data-tag=preset-personal] .tag-name-input')).to_have_value('Personal')
+ new.locator('[data-tag-action=remove]').click();expect(new.locator('[data-tag-action=remove-cancel]')).to_be_focused();new.locator('[data-tag-action=remove-confirm]').click()
+ tags.locator('[data-tag=preset-health] [data-tag-action=remove]').click();tags.locator('[data-tag=preset-health] [data-tag-action=remove-confirm]').click()
+ expect(tags.locator('#tag-list [data-tag]')).to_have_count(8);tags.locator('#tag-presets').click();expect(tags.locator('#tag-list [data-tag]')).to_have_count(9);expect(tags.locator('#tag-presets')).to_be_disabled()
+ checks.append('Settings → Tags turns tagging on, picks each tag’s colour and style, adds, renames, refuses a duplicate name, removes and restores presets')
+ tags.keyboard.press('Escape');tags.locator('#prompt').fill('Help with debugging this programming error in my scripts');tags.locator('#send').click()
+ row=tags.locator('#thread-list .thread').first;expect(row.locator('.row-tags .tag-chip')).to_have_text(['Coding'],timeout=15000)
+ expect(tags.locator('#thread-title')).to_have_text('Help with debugging this programming error');expect(tags.locator('#thread-tags .tag-chip')).to_have_text(['Coding'])
+ assert tags.evaluate('window.__active().tagged.model')=='demo/writer'
+ checks.append('with tagging on, the first answer is tagged and the first-message title replaced; the title bar and the sidebar show the tags')
+ tags.locator('#thread-tags').click();expect(tags.locator('#tags-dialog')).to_be_visible();expect(tags.locator('#tag-note')).to_contain_text('Suggested by Demo Writer')
+ expect(tags.locator('[data-tag-toggle=preset-coding]')).to_have_attribute('aria-pressed','true');tags.locator('[data-tag-toggle=preset-work]').click()
+ expect(tags.locator('[data-tag-toggle=preset-work]')).to_have_attribute('aria-pressed','true');expect(tags.locator('#tag-note')).to_have_text('Chosen by you.')
+ expect(tags.locator('#thread-tags .tag-chip')).to_have_text(['Coding','Work'])
+ tags.locator('[data-action=tags-manage]').click();expect(tags.locator('#settings-dialog')).to_be_visible();expect(tags.locator('#tags-dialog')).to_be_hidden();tags.wait_for_timeout(400)
+ gap=tags.locator('#tag-settings-title').evaluate("e=>e.getBoundingClientRect().top-e.closest('dialog').querySelector('.modal-head').getBoundingClientRect().bottom");assert 0<=gap<=40,gap
+ tags.keyboard.press('Escape')
+ checks.append('the tags dialog shows who chose the tags and switches each tag; the person’s choice is recorded as theirs; Manage tags… opens Settings at Tags')
+ tags.locator('[data-action=new]').first.click();tags.locator('#prompt').fill('Drafting and editing a short letter');tags.locator('#send').click()
+ expect(tags.locator('#thread-list .thread').first.locator('.row-tags .tag-chip')).to_have_text(['Writing'],timeout=15000)
+ expect(tags.locator('#tag-filter [data-tag-filter]')).to_have_count(3);tags.locator('[data-tag-filter=preset-work]').click()
+ expect(tags.locator('#thread-list .thread')).to_have_count(1);expect(tags.locator('#thread-list .thread strong')).to_have_text('Help with debugging this programming error')
+ tags.locator('[data-tag-filter=preset-work]').click();expect(tags.locator('#thread-list .thread')).to_have_count(2)
+ tags.locator('#search').fill('#writ');expect(tags.locator('#thread-list .thread strong')).to_have_text(['Drafting and editing a short letter'])
+ tags.locator('#search').fill('coding');expect(tags.locator('#thread-list .thread')).to_have_count(1);tags.locator('#search').fill('')
+ tags.locator('[data-action=thread-group]').click();expect(tags.locator('#thread-list .thread-group h3')).to_have_text(['Coding','Writing'])
+ expect(tags.locator('[data-action=thread-group]')).to_have_attribute('aria-pressed','true')
+ # README shot: the sidebar grouped by tag, with the tag row and the title bar's tags.
+ tags.set_viewport_size({'width':1280,'height':800});tags.evaluate("document.getElementById('toast').classList.add('hidden');document.activeElement?.blur()")
+ tags.wait_for_timeout(200);tags.screenshot(path=str(root/'docs/tags.png'));tags.set_viewport_size({'width':1400,'height':900})
+ checks.append('the sidebar’s tag row narrows the list to conversations with every chosen tag, #name finds tags, words match tag names, and threads group under their first tag')
+ shapes=tags.evaluate("""()=>[...document.querySelectorAll('#tag-list .tag-look .tag-chip')].map(c=>{const s=getComputedStyle(c);return [c.dataset.style,parseFloat(s.borderTopLeftRadius),s.borderLeftWidth,s.borderTopColor,s.backgroundColor];})""")
+ assert all(radius<=4 for _,radius,*_ in shapes),shapes
+ by={s:(left,top,bg) for s,_,left,top,bg in shapes}
+ assert by['stripe'][0]=='3px' and by['fill'][1]=='rgba(0, 0, 0, 0)',by
+ tags.locator('[data-action=settings]').first.click();work=tags.locator('[data-tag=preset-work]');work.locator('.tag-look').click()
+ tags.locator('#tag-settings-title').evaluate("e=>{const d=e.closest('dialog');d.scrollTop+=e.getBoundingClientRect().top-d.querySelector('.modal-head').getBoundingClientRect().bottom-8}");tags.evaluate("document.activeElement?.blur()")
+ tags.wait_for_timeout(150);tags.locator('#settings-dialog').screenshot(path=str(root/'docs/settings-tags.png'))
+ looks=work.locator('.tag-styles .tag-chip').evaluate_all("cs=>cs.map(c=>{const s=getComputedStyle(c);return [c.dataset.style,s.backgroundColor,s.borderTopColor,s.borderLeftWidth,getComputedStyle(c.querySelector('.tag-dot')).display];})")
+ style={s:rest for s,*rest in looks};none='rgba(0, 0, 0, 0)'
+ assert style['fill'][0]!=none and style['fill'][1]==none and style['outline'][0]==none and style['outline'][1]!=none,style
+ assert style['both'][0]!=none and style['both'][1]!=none and style['stripe'][2]=='3px' and style['dot'][3]!='none' and style['fill'][3]=='none',style
+ dark=work.locator('[data-pick-style=fill] .tag-chip').evaluate('c=>getComputedStyle(c).backgroundColor')
+ tags.locator('.segmented[data-for=theme-mode] [data-value=light]').click();tags.wait_for_timeout(150)
+ assert work.locator('[data-pick-style=fill] .tag-chip').evaluate('c=>getComputedStyle(c).backgroundColor')!=dark
+ tags.keyboard.press('Escape')
+ checks.append('tags have small corners in five styles (filled, outline, both, stripe, dot), drawn from the theme’s tokens in light and dark')
+ tags.close()
  assert not errors,errors;assert len(blocked_styles)<=1,blocked_styles;assert not [r for r in requests if r.startswith(('http:','https:'))],requests
  checks.append('no JavaScript errors or external requests; CSP remains enforced during inert parsing')
  b.close()

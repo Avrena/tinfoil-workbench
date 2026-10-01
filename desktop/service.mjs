@@ -1,7 +1,8 @@
 import { editReply } from '../dist/core/editing.js';
 import { createProject,renameProject,removeProject,moveThread,newProjectThread } from '../dist/core/projects.js';
 import { saveInstructionPreset, deleteInstructionPreset } from '../dist/core/instructions.js';
-import { InputError, record, text, identifier, settings, attachments, validateWorkspace, LIMITS, validateTool, agentFolder, imageId, storedImage } from '../dist/core/validation.js';
+import { InputError, record, text, identifier, settings, attachments, validateWorkspace, LIMITS, validateTool, agentFolder, imageId, storedImage, tagging, threadTagIds, keepListedTags } from '../dist/core/validation.js';
+import { TAG_LIMITS, tagMessages, parseTagAnswer, titleFromMessage, untagged } from '../dist/core/tags.js';
 import { IMAGE_LIMITS } from '../dist/core/attachments.js';
 import { newWorkspace, findThread, addThread, beginTurn, retryTurn, addMessage, chooseReply, forkThread, recoverInterrupted, importThread, outputLimitNotice, checkLanes } from '../dist/core/workspace.js';
 import { showVersion } from '../dist/core/versions.js';
@@ -35,6 +36,19 @@ const STEP_LABELS = { fetchDigest: 'fetching the published release', verifyCode:
   compareMeasurements: 'the measurement comparison', verifyCertificate: 'the certificate check' };
 const verificationFailure = kind => Object.assign(new Error(`Verification ${kind}`), { verificationFailure: kind });
 const finite = v => typeof v === 'number' && Number.isFinite(v) && v >= 0 && v <= 1e9 ? v : 0;
+/** Settles when `promise` does or after `ms`, whichever is first; a null promise settles at once. */
+function within(promise, ms) {
+  let timer;
+  return Promise.race([promise, new Promise(resolve => { timer = setTimeout(resolve, ms); })]).finally(() => clearTimeout(timer));
+}
+/** Reasoning parameters that keep a classification short: thinking off where the model can turn it off, else its lowest
+ * effort. `thinks`: the model may still think first, which needs a larger output limit. */
+function quietReasoning(cap) {
+  if (!cap.known || !cap.reasoning) return { parameters: {}, thinks: cap.display?.reasoning === true };
+  if (cap.toggle) return { parameters: reasoningParameters(cap, 'default', 'disabled'), thinks: false };
+  const low = ['none', 'minimal', 'low'].find(effort => cap.effort.includes(effort));
+  return { parameters: low ? reasoningParameters(cap, low, 'default') : {}, thinks: true };
+}
 function abortable(promise, signal) {
   return new Promise((resolve, reject) => {
     const stop = () => reject(new Error('Stopped'));
@@ -70,6 +84,10 @@ export class WorkbenchService {
     // The public catalog outlives connections; `listed` is the verified endpoint's own list.
     this.catalog = []; this.listed = []; this.catalogState = 'idle'; this.catalogFlight = null; this.catalogFailedAt = 0;
     this.controllers = new Map(); this.tasks = new Set(); this.notice = null; this.storageFailed = false; this.emitter = null;
+    // The classifier (core/tags.ts): conversations waiting to be tagged, one request at a time; `tagRun` is the running
+    // one, `tagWaiters` resolve when a conversation leaves the queue, and `tagStatus` is this run's progress.
+    this.tagQueue = []; this.tagRun = null; this.tagWaiters = new Map(); this.tagUsage = { input: 0, output: 0 };
+    this.tagStatus = { done: 0, total: 0, failed: 0, error: null, errorThread: null };
     // Tinfoil cloud chats and projects (docs/CLOUD.md): `options.cloud(host)` builds the sync engine. The Windows app
     // provides it; the Android bundle shares this service and leaves cloud sync, and its Node-only crypto, out.
     this.cloud = options.cloud ? options.cloud({ workspace: () => this.workspace,
@@ -90,8 +108,9 @@ export class WorkbenchService {
     return this.snapshot();
   }
   snapshot() {
-    const { version, activeId, threads, projects, instructionPresets, view } = this.workspace;
-    return { sequence: ++this.sequence, workspace: structuredClone({ version, activeId, threads, projects, instructionPresets, view }), hasKey: !!this.workspace.apiKey,
+    const { version, activeId, threads, projects, instructionPresets, view, tagging } = this.workspace;
+    return { sequence: ++this.sequence, workspace: structuredClone({ version, activeId, threads, projects, instructionPresets, view, tagging }), hasKey: !!this.workspace.apiKey,
+      tagStatus: { running: this.tagRun?.threadId ?? null, queued: this.tagQueue.length, ...this.tagStatus, usage: { ...this.tagUsage } },
       pythonConfigured: !!this.workspace.pythonPath, ...(this.python ? { python: this.pythonState() } : {}), models: [...this.models], capabilities: structuredClone(this.capabilities), modelCatalog: this.catalogState, verification: structuredClone(this.verification),
       account: this.options.account?.snapshot()??signedOutAccount(), connectionMode:this.workspace.connectionMode??'api-key', rememberAccount:this.workspace.rememberAccount!==false,
       cloud: this.cloud?.snapshot() ?? { state: 'off', keyId: null, user: null, lastSyncAt: null, message: null, chats: 0, projects: 0, older: 0 }, cloudLoading: this.cloud ? [...this.cloud.loading] : [],
@@ -236,6 +255,7 @@ export class WorkbenchService {
     this.lastAccountStatus = status;
     if(this.workspace?.connectionMode==='chat-account' && this.options.account?.snapshot().status!=='signed-in'){
       for(const ctrl of this.controllers.values())ctrl.abort();
+      this.stopTagging();
       this.resetConnection();
     }
     if(this.workspace)this.emit();
@@ -408,7 +428,7 @@ export class WorkbenchService {
       case 'connection.mode': {
         if(this.busyThreadId||this.connection)throw new InputError('Stop the response or wait for verification before changing connections.');
         if(!['api-key','chat-account'].includes(c.mode))throw new InputError('Invalid connection mode.');
-        this.workspace.connectionMode=c.mode;this.resetConnection();reconnect=true;break;
+        this.stopTagging();this.workspace.connectionMode=c.mode;this.resetConnection();reconnect=true;break;
       }
       case 'view.set': this.workspace.view = viewPreferences(c.view); break;
       // Only the preference is stored here; the host's account session saves or deletes the website session.
@@ -463,6 +483,29 @@ export class WorkbenchService {
         break;
       }
       case 'thread.rename': this.editable(c.id).title = text(c.title, 'Title', 120, true).trim(); cloudChanged = c.id; break;
+      // Tags (core/tags.ts). The list and its settings: a tag that leaves the list leaves every conversation, and turning
+      // tagging off empties the classifier's queue.
+      case 'tagging.set': {
+        const next = tagging(c.tagging);
+        keepListedTags(this.workspace.threads, next); this.workspace.tagging = next;
+        if (!next.enabled) this.stopTagging();
+        break;
+      }
+      // Tags the person chose. The classifier never changes them by itself afterwards.
+      case 'thread.tags': {
+        const t = findThread(this.workspace, identifier(c.id)), ids = threadTagIds(c.tags);
+        if (ids.some(id => !this.workspace.tagging.tags.some(tag => tag.id === id))) throw new InputError('That tag is no longer in your list.');
+        if (ids.length) t.tags = ids; else delete t.tags;
+        t.tagged = { at: Date.now() }; break;
+      }
+      case 'thread.classify': { const t = findThread(this.workspace, identifier(c.id)); this.checkTagging(t); void this.queueTags([t.id], true); return this.snapshot(); }
+      // The host has confirmed the requests (tagPlan).
+      case 'tagging.all': {
+        const plan = this.tagPlan();
+        if (!plan.length) throw new InputError('Every conversation that can be tagged already has tags.');
+        void this.queueTags(plan.map(t => t.id)); return this.snapshot();
+      }
+      case 'tagging.stop': this.stopTagging(); return this.snapshot();
       case 'thread.pin': { const t = findThread(this.workspace, identifier(c.id)); t.pinned = !t.pinned; break; }
       case 'thread.delete': {
         // A cloud chat is deleted in Tinfoil first; the host has already asked about that.
@@ -513,7 +556,7 @@ export class WorkbenchService {
         if (this.busyThreadId || this.connection) throw new InputError('Wait for verification or stop the response before changing credentials.');
         const key = type === 'credentials.clear' ? '' : text(c.key, 'API key', 4096, true).trim();
         if (/[\x00-\x20\x7f]/.test(key)) throw new InputError('The API key cannot contain spaces or control characters.');
-        this.workspace.apiKey = key; this.resetConnection();
+        this.stopTagging(); this.workspace.apiKey = key; this.resetConnection();
         this.verification = idleVerification(); this.notice = null; break;
       }
       case 'connect': await this.refreshModels(); return this.snapshot();
@@ -604,8 +647,12 @@ export class WorkbenchService {
         // A cloud chat is written back after each turn; a conversation in a cloud project, or one started from the Cloud
         // list, becomes a cloud chat.
         const done = this.workspace.threads.find(t => t.id === threadId);
+        // With tagging on, a first answer is tagged and titled; a conversation that becomes a cloud chat now waits for
+        // that (30 seconds at most) so that Tinfoil gets the new title with it.
+        const tagged = done ? this.autoTag(done) : null;
         if (done?.cloud) void this.cloud?.changed(threadId);
-        else if (done && this.cloudReady() && (done.cloudPending || this.workspace.projects.find(p => p.id === done.projectId)?.cloud)) void this.cloud.upload(threadId).catch(error => { this.notice = error.message; this.emit(); });
+        else if (done && this.cloudReady() && (done.cloudPending || this.workspace.projects.find(p => p.id === done.projectId)?.cloud))
+          void within(tagged, 30000).then(() => this.cloud.upload(threadId)).catch(error => { this.notice = error.message; this.emit(); });
       }
     })();
     this.tasks.add(task); task.finally(() => this.tasks.delete(task));
@@ -837,6 +884,119 @@ export class WorkbenchService {
       await this.save().catch(()=>{});this.emit();
     }
   }
+  /** Why the classifier cannot tag a conversation now, thrown as the message to show. */
+  checkTagging(thread) {
+    const s = this.workspace.tagging;
+    if (!s.enabled) throw new InputError('Turn on tagging in Settings → Tags first.');
+    if (!tagMessages(s, thread)) throw new InputError(thread.cloud && !thread.cloud.loaded ? 'Open this chat so that it loads from Tinfoil cloud first.'
+      : !s.tags.length && !s.titles ? 'Add tags in Settings → Tags first.' : 'Tags are suggested once the first message has a finished answer.');
+    if (!(s.model || thread.settings.model)) throw new InputError('Choose a model for tagging in Settings → Tags.');
+  }
+  /** What "Tag untagged conversations" sends: every conversation without tags whose first message has an answer, that
+   * has a model to ask and is allowed for the current account (approval alone never sends existing history). */
+  tagPlan() {
+    const s = this.workspace.tagging;
+    if (!s.enabled) throw new InputError('Turn on tagging in Settings → Tags first.');
+    return this.workspace.threads.filter(t => untagged(t) && !!(s.model || t.settings.model) && !this.tagQueue.includes(t.id)
+      && this.tagRun?.threadId !== t.id && tagMessages(s, t) && !this.needsAuthorization(t.id));
+  }
+  /** After a conversation's first answer, with tagging on: tags it once, unless the person or the classifier already did.
+   * Resolves when it has been tagged or has failed; null when nothing is asked. */
+  autoTag(thread) {
+    const s = this.workspace.tagging;
+    if (!s.enabled || thread.turns.filter(t => !t.role).length !== 1 || !untagged(thread) || !tagMessages(s, thread) || !(s.model || thread.settings.model)) return null;
+    try { if (this.needsAuthorization(thread.id)) return null; } catch { return null; }
+    return this.queueTags([thread.id], true);
+  }
+  /** Adds conversations to the classifier's queue (`first`: ahead of those already waiting) and resolves when each of
+   * them has been tagged or has failed. A new run of the queue starts its counts again. */
+  queueTags(ids, first = false) {
+    if (!this.tagRun && !this.tagQueue.length) this.tagStatus = { done: 0, total: 0, failed: 0, error: null, errorThread: null };
+    const fresh = [...new Set(ids)].filter(id => !this.tagQueue.includes(id) && this.tagRun?.threadId !== id);
+    if (first) this.tagQueue.unshift(...fresh); else this.tagQueue.push(...fresh);
+    this.tagStatus.total += fresh.length;
+    const waits = ids.map(id => this.tagWaiter(id));
+    this.startTagDrain(); this.emit();
+    return Promise.all(waits).then(() => {});
+  }
+  startTagDrain() {
+    this.tagDrain ??= this.drainTags().finally(() => { this.tagDrain = null; if (this.tagQueue.length) this.startTagDrain(); });
+  }
+  tagWaiter(id) {
+    let waiter = this.tagWaiters.get(id);
+    if (!waiter) { let resolve; const promise = new Promise(r => { resolve = r; }); waiter = { promise, resolve }; this.tagWaiters.set(id, waiter); }
+    return waiter.promise;
+  }
+  tagDone(id) { this.tagWaiters.get(id)?.resolve(); this.tagWaiters.delete(id); }
+  /** Tags the queued conversations one at a time. A failure is reported and the queue goes on; nothing is retried. */
+  async drainTags() {
+    while (this.tagQueue.length) {
+      const id = this.tagQueue.shift(), controller = new AbortController();
+      // A conversation deleted while it waited is skipped.
+      if (!this.workspace.threads.some(t => t.id === id)) { this.tagStatus.total--; this.tagDone(id); continue; }
+      this.tagRun = { threadId: id, controller }; this.emit();
+      try { await this.classify(id, controller); this.tagStatus.done++; }
+      catch (error) {
+        if (controller.stopped) this.tagStatus.total--;
+        else { this.tagStatus.failed++; this.tagStatus.error = error instanceof InputError ? error.message : publicError(error); this.tagStatus.errorThread = id; }
+      } finally { this.tagRun = null; this.tagDone(id); }
+      await this.save().catch(() => {}); this.emit();
+    }
+  }
+  /** Empties the queue and stops the request that is running. */
+  stopTagging() {
+    const waiting = this.tagQueue.splice(0);
+    this.tagStatus.total -= waiting.length;
+    for (const id of waiting) this.tagDone(id);
+    if (this.tagRun) { this.tagRun.controller.stopped = true; this.tagRun.controller.abort(); }
+  }
+  /** One classifier request (core/tags.ts). The conversation's first message, the names of its files and the start of
+   * its answer go to the tagging model through the account the conversation is bound to: no tools, thinking off where
+   * the model allows, no retry and nothing else from the conversation. The answer sets its tags and, while its title is
+   * still the one made from the first message, its title, unless the person changed its tags meanwhile. */
+  async classify(threadId, controller) {
+    const thread = findThread(this.workspace, threadId), s = this.workspace.tagging, before = thread.tagged?.at;
+    this.checkTagging(thread);
+    const owner = this.activeOwner();
+    if (this.needsAuthorization(threadId)) throw new InputError('Review and allow this conversation for the selected account first. Nothing was sent.');
+    const model = s.model || thread.settings.model, quiet = quietReasoning(capabilityFor(model, this.capabilities));
+    const body = { model, messages: tagMessages(s, thread), stream: true, max_tokens: quiet.thinks ? 4096 : 512, stream_options: { include_usage: true }, ...quiet.parameters };
+    const stop = () => { controller.timedOut = true; controller.abort(); };
+    let timer = setTimeout(stop, this.options.tagTimeoutMs ?? 90000), idle, client = null, answer = '', finish = null;
+    try {
+      client = this.bound(await abortable(this.connect(), controller.signal), owner);
+      const stream = await abortable(client.chat.completions.create(body, { signal: controller.signal }), controller.signal);
+      const iterator = stream[Symbol.asyncIterator](); let drained = false;
+      try {
+        while (true) {
+          clearTimeout(idle); idle = setTimeout(stop, 45000);
+          const next = await abortable(iterator.next(), controller.signal);
+          if (next.done) { drained = true; break; }
+          const choice = next.value.choices?.[0], delta = choice?.delta ?? {}, usage = next.value.usage;
+          if (delta.tool_calls?.length) throw new InputError('The tagging model asked for a tool. Nothing was changed.');
+          if (typeof delta.content === 'string') answer += delta.content;
+          if (answer.length > TAG_LIMITS.answer) throw new InputError('The tagging model wrote more than a short answer. Nothing was changed.');
+          if (usage) { this.tagUsage.input += finite(usage.prompt_tokens); this.tagUsage.output += finite(usage.completion_tokens); }
+          if (typeof choice?.finish_reason === 'string') finish = choice.finish_reason;
+        }
+      } finally { if (!drained && iterator.return) Promise.resolve(iterator.return()).catch(() => {}); }
+    } catch (error) {
+      if (controller.signal.aborted) throw new InputError(controller.timedOut ? 'The tagging request timed out. Nothing was changed.' : 'Tagging stopped.');
+      throw this.connectionError(error, client);
+    } finally { clearTimeout(timer); clearTimeout(idle); }
+    // The list may have changed during the request; names are matched against the list as it is now.
+    const result = parseTagAnswer(answer, this.workspace.tagging);
+    if (!result) throw new InputError(finish === 'length' ? 'The tagging model reached its output limit before it answered. Choose another model in Settings → Tags.'
+      : 'The tagging model did not answer in the expected form. Nothing was changed.');
+    const current = this.workspace.threads.find(t => t.id === threadId);
+    if (!current || current.tagged?.at !== before) return;
+    if (result.tags.length) current.tags = result.tags; else delete current.tags;
+    current.tagged = { at: Date.now(), model };
+    const title = this.workspace.tagging.titles && result.title && titleFromMessage(current) && current.title !== result.title ? result.title : null;
+    if (title) current.title = title;
+    await this.save(); this.emit();
+    if (title && current.cloud) void this.cloud?.changed(current.id);
+  }
   newTool(call, origin) {
     return { id: randomUUID(), callId: call.id, name: call.function.name, arguments: call.function.arguments,
       origin, status: 'awaiting_approval', stdout: '', stderr: '', exitCode: null, elapsedMs: 0, artifacts: [], truncated: false };
@@ -1004,7 +1164,8 @@ export class WorkbenchService {
   }
   async shutdown() {
     for (const ctrl of this.controllers.values()) ctrl.abort();
-    await Promise.allSettled([...this.tasks]);
+    this.stopTagging();
+    await Promise.allSettled([...this.tasks, this.tagDrain]);
     // Cloud writes in flight finish or fail; a chat that was not written stays marked and is written next time.
     await Promise.allSettled([...(this.cloud?.writes.values() ?? [])]);
     await this.vault.flush();

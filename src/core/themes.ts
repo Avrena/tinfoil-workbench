@@ -3,6 +3,8 @@
  * changed. Every colour in the stylesheets is a token (--n40, --a70, --w16, --o-0d, …): one family's base colour mixed
  * with the background, or with the far end beyond the text, at a fixed share. `themeTokens` computes them for a theme;
  * the build writes the Workbench dark values into the stylesheets as their defaults (scripts/build.mjs). */
+import type { TagColor } from './types.js';
+import { TAG_COLORS } from './tags.js';
 export type ThemeVariant = 'dark' | 'light';
 export type ThemeMode = 'system' | ThemeVariant;
 export interface ThemeColors { accent: string; surface: string; ink: string; contrast: number }
@@ -96,6 +98,13 @@ const FIXED: Record<ThemeVariant, { bases: Record<'w' | 'g' | 'r' | 'd' | 'v', s
     named: { 'syn-comment': '#008000', 'syn-keyword': '#0000ff', 'syn-string': '#a31515', 'syn-function': '#795e26', 'syn-number': '#098658',
       'syn-type': '#267f99', 'syn-property': '#001080', 'syn-regex': '#811f3f', match: '#fff0a6', 'match-current': '#ffd35c', 'match-current-line': '#b07800' } },
 };
+/** Tag colours (core/tags.ts): the chart palette's categorical steps for each variant (core/visual-tools.ts, from the
+ * validated dataviz reference palette) and a grey. A chip is drawn in `tag-<colour>-fill`, the colour mixed into the
+ * theme's background, with the theme's own text on it; the colour itself marks its dot. */
+const TAG_STEPS: Record<ThemeVariant, Record<TagColor, string>> = {
+  dark: { blue: '#3987e5', orange: '#d95926', aqua: '#199e70', yellow: '#c98500', magenta: '#d55181', green: '#008300', violet: '#9085e9', red: '#e66767', grey: '#8f8e88' },
+  light: { blue: '#2a78d6', orange: '#eb6834', aqua: '#1baf7a', yellow: '#eda100', magenta: '#e87ba4', green: '#008300', violet: '#4a3aa7', red: '#e34948', grey: '#8a8984' },
+};
 interface Rgb { r: number; g: number; b: number }
 const parse = (hex: string): Rgb => ({ r: parseInt(hex.slice(1, 3), 16), g: parseInt(hex.slice(3, 5), 16), b: parseInt(hex.slice(5, 7), 16) });
 const mix = (x: Rgb, y: Rgb, share: number): Rgb => { const p = Math.max(0, Math.min(1, share)); return { r: x.r * p + y.r * (1 - p), g: x.g * p + y.g * (1 - p), b: x.b * p + y.b * (1 - p) }; };
@@ -138,6 +147,10 @@ export function themeTokens(theme: ThemeColors, variant: ThemeVariant): Record<s
     out[name] = css(color, alpha);
   }
   for (const [name, value] of Object.entries(fixed.named)) out[name] = value;
+  for (const color of TAG_COLORS) {
+    const step = TAG_STEPS[variant][color];
+    out[`tag-${color}`] = step; out[`tag-${color}-fill`] = css(mix(parse(step), S, dark ? .26 : .16));
+  }
   // Text on the accent fill: white where it reads (3:1, as for large text and icons), otherwise near black.
   out['on-f'] = contrast(F, { r: 255, g: 255, b: 255 }) >= 3 ? '#ffffff' : '#111111';
   return out;

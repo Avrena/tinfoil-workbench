@@ -1,6 +1,7 @@
 import { viewPreferences } from './preferences.js';
-import type { ReplyEdit, ApiMessage, Artifact, Attachment, CloudConfig, CloudPicture, GenerationSettings, ImageAttachment, InstructionPreset, Reply, StoredImage, Thread, ToolRun, Turn, TurnVersion, Workspace } from './types.js';
+import type { ReplyEdit, ApiMessage, Artifact, Attachment, CloudConfig, CloudPicture, GenerationSettings, ImageAttachment, InstructionPreset, Reply, StoredImage, TagColor, TagDef, TagStyle, Tagging, Thread, ToolRun, Turn, TurnVersion, Workspace } from './types.js';
 import { CLOUD_PICTURE_ID, IMAGE_ID, IMAGE_LIMITS, STORED_IMAGE_TYPES } from './attachments.js';
+import { TAG_COLORS, TAG_LIMITS, TAG_STYLES, defaultTagging } from './tags.js';
 import type { CloudChatLink, CloudProjectLink } from './cloud.js';
 export const LIMITS = Object.freeze({
   prompt: 160_000, attachment: 200_000, attachments: 8,
@@ -222,6 +223,8 @@ export function validateThread(value: unknown): Thread {
     ...(v.cloud === undefined ? {} : {cloud:cloudChatLink(v.cloud)}),
     ...(v.cloudPending === true && v.cloud === undefined ? {cloudPending:true as const} : {}),
     ...(v.agentFolder === undefined ? {} : {agentFolder:agentFolder(v.agentFolder)}),
+    ...(v.tags === undefined ? {} : {tags:threadTagIds(v.tags)}),
+    ...(v.tagged === undefined ? {} : {tagged:tagged(v.tagged)}),
     ...(v.connectionOwner === undefined ? {} : {connectionOwner:text(v.connectionOwner,'Connection owner',250,true)}),
     createdAt: stamp(v.createdAt), updatedAt: stamp(v.updatedAt), settings: settings(v.settings),
     draft: text(v.draft, 'Draft', LIMITS.prompt), draftAttachments: attachments(v.draftAttachments ?? []), turns,
@@ -241,14 +244,66 @@ export function validateWorkspace(value: unknown): Workspace {
   if(new Set(instructionPresets.map(p=>p.id)).size!==instructionPresets.length) throw new InputError('Duplicate saved instruction identifiers.');
   const activeId = identifier(v.activeId);
   if (!threads.some(t => t.id === activeId)) throw new InputError('Active conversation is missing.');
+  // A workspace from before tags gets the presets, with tagging off.
+  const tags = v.tagging === undefined ? defaultTagging() : tagging(v.tagging);
+  keepListedTags(threads, tags);
   return {
     version: 1, activeId, threads, projects, instructionPresets, ...(v.connectionMode?{connectionMode:v.connectionMode as Workspace['connectionMode']}:{}), ...(v.rememberAccount===false?{rememberAccount:false as const}:{}), ...(v.cloud===undefined?{}:{cloud:cloudConfig(v.cloud)}), view: viewPreferences(v.view), pythonPath: text(v.pythonPath ?? '', 'Python interpreter path', 4096),
     ...(v.agentRoot === undefined ? {} : {agentRoot: agentFolder(v.agentRoot)}),
     ...(v.images === undefined ? {} : {images: images(v.images)}),
     ...(v.cloudImages === undefined ? {} : {cloudImages: cloudImages(v.cloudImages)}),
     ...(v.backgroundPicture === undefined ? {} : {backgroundPicture: backgroundPicture(v.backgroundPicture)}),
-    apiKey: text(v.apiKey, 'API key', 4096), cacheSecret: text(v.cacheSecret, 'Cache secret', 200, true),
+    apiKey: text(v.apiKey, 'API key', 4096), cacheSecret: text(v.cacheSecret, 'Cache secret', 200, true), tagging: tags,
   };
+}
+
+/** One line of text, trimmed, for a tag's name or hint. */
+function line(value: unknown, label: string, max: number, required = false): string {
+  const result = text(value, label, max, required).trim();
+  if (/[\x00-\x1f\x7f]/.test(result)) throw new InputError(`${label} must be a single line of text.`);
+  return result;
+}
+function tagDef(value: unknown): TagDef {
+  const v = record(value);
+  if (!TAG_COLORS.includes(v.color as TagColor)) throw new InputError('Unknown tag colour.');
+  if (v.style !== undefined && !TAG_STYLES.includes(v.style as TagStyle)) throw new InputError('Unknown tag style.');
+  // A leading # is how a search names a tag, not part of the name.
+  const name = line(v.name, 'Tag name', TAG_LIMITS.name, true).replace(/^#+/, '').trim();
+  if (!name) throw new InputError('A tag name needs more than #.');
+  return { id: identifier(v.id), name, color: v.color as TagColor, style: (v.style ?? 'fill') as TagStyle, hint: line(v.hint ?? '', 'Tag hint', TAG_LIMITS.hint) };
+}
+/** Settings → Tags: at most 40 tags with different names (ignoring case) and ids; the model is a catalog id or '' for
+ * the conversation's own model. */
+export function tagging(value: unknown): Tagging {
+  const v = record(value);
+  if (typeof v.enabled !== 'boolean' || typeof v.titles !== 'boolean') throw new InputError('Invalid tagging settings.');
+  const model = text(v.model, 'Tagging model', 200).trim();
+  if (/[\x00-\x1f]/.test(model)) throw new InputError('Invalid model name.');
+  const tags = list(v.tags, TAG_LIMITS.tags).map(tagDef), names = new Set<string>();
+  if (new Set(tags.map(t => t.id)).size !== tags.length) throw new InputError('Duplicate tag identifiers.');
+  for (const tag of tags) {
+    const name = tag.name.toLocaleLowerCase();
+    if (names.has(name)) throw new InputError(`Two tags are called “${tag.name}”. Give each tag its own name.`);
+    names.add(name);
+  }
+  return { enabled: v.enabled, titles: v.titles, model, tags };
+}
+/** A conversation's tags: ids, each once, at most eight. */
+export function threadTagIds(value: unknown): string[] {
+  const ids = list(value, TAG_LIMITS.perThread).map(identifier);
+  return [...new Set(ids)];
+}
+function tagged(value: unknown): NonNullable<Thread['tagged']> {
+  const v = record(value);
+  return { at: stamp(v.at), ...(v.model === undefined ? {} : { model: text(v.model, 'Model', 200, true) }) };
+}
+/** Drops tags the list no longer has from every conversation. */
+export function keepListedTags(threads: Thread[], tagging: Tagging): void {
+  const listed = new Set(tagging.tags.map(t => t.id));
+  for (const thread of threads) if (thread.tags) {
+    thread.tags = thread.tags.filter(id => listed.has(id));
+    if (!thread.tags.length) delete thread.tags;
+  }
 }
 
 export function backgroundPicture(value: unknown): NonNullable<Workspace['backgroundPicture']> {

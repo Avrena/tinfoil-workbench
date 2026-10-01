@@ -14,7 +14,7 @@ const paths: Record<string,string> = {
   upload:'M12 17V3m-5 5 5-5 5 5M4 17v4h16v-4', code:'m8 6-6 6 6 6m8-12 6 6-6 6M14 3 10 21',
   write:'m4 16 12-12 4 4L8 20H4zM13 7l4 4', spark:'m12 3 2.4 6.6L21 12l-6.6 2.4L12 21l-2.4-6.6L3 12l6.6-2.4z',
   cloud:'M7 18a4 4 0 0 1-.6-7.96A6 6 0 0 1 17.8 8.5 4.75 4.75 0 0 1 17.25 18z',
-  minus:'M5 12h14', square:'M5 5h14v14H5z', check:'m5 12 4 4L19 6', down:'m6 9 6 6 6-6', pin:'m8 3 8 0-1 6 4 4H5l4-4zM12 13v8',
+  minus:'M5 12h14', square:'M5 5h14v14H5z', tag:'M3 3h8.5L21 12.5 12.5 21 3 11.5zM7.5 7.5h.01', check:'m5 12 4 4L19 6', down:'m6 9 6 6 6-6', pin:'m8 3 8 0-1 6 4 4H5l4-4zM12 13v8',
   instructions:'M6 3h8l4 4v14H6zM14 3v4h4M9 12h6M9 16h4', person:'M12 4a4 4 0 1 0 0 8 4 4 0 0 0 0-8M5 20a7 7 0 0 1 14 0',
   image:'M4 5h16v14H4zM4 16l5-5 4 4 2-2 5 5M15 9h.01', monitor:'M3 4h18v12H3zM8 20h8M12 16v4',
   grid:'M4 4h16v16H4zM4 9.33h16M4 14.67h16M9.33 4v16M14.67 4v16', dots:'M7 7h.01M12 7h.01M17 7h.01M7 12h.01M12 12h.01M17 12h.01M7 17h.01M12 17h.01M17 17h.01',

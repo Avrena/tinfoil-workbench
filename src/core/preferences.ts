@@ -5,6 +5,8 @@ export interface ViewPreferences {
   markdown: boolean; math: boolean; metadata: boolean; wrapCode: boolean;
   /** Which threads the sidebar lists while Tinfoil cloud chats are connected. */
   threadTab: 'cloud' | 'local';
+  /** How the sidebar groups conversations outside projects: by day, or under their first tag (Settings → Tags). */
+  threadGroup: 'date' | 'tag';
   /** The composer offers adding assistant and system messages (the transcript editor); off unless turned on. */
   roleMessages: boolean;
   /** The sidebar's Projects and Threads sections, folded to their headings. */
@@ -39,7 +41,7 @@ export function backgroundPreferences(value: unknown): BackgroundPreferences {
 }
 export const defaultView: ViewPreferences = {
   motion: 'system', autoArtifacts: false, sidebar: true, inspector: false, focus: false, reasoning: 'collapsed',
-  markdown: true, math: true, metadata: false, wrapCode: false, threadTab: 'cloud', roleMessages: false,
+  markdown: true, math: true, metadata: false, wrapCode: false, threadTab: 'cloud', threadGroup: 'date', roleMessages: false,
   projectsFolded: false, threadsFolded: false, theme: defaultTheme, background: defaultBackground,
 };
 export function viewPreferences(value: unknown): ViewPreferences {
@@ -51,6 +53,7 @@ export function viewPreferences(value: unknown): ViewPreferences {
   if (['collapsed','expanded','hidden'].includes(String(v.reasoning))) result.reasoning = v.reasoning as ViewPreferences['reasoning'];
   if (v.motion === 'reduced') result.motion = 'reduced';
   if (v.threadTab === 'local') result.threadTab = 'local';
+  if (v.threadGroup === 'tag') result.threadGroup = 'tag';
   result.theme = themePreferences(v.theme); result.background = backgroundPreferences(v.background);
   return result;
 }

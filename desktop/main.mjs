@@ -29,6 +29,8 @@ import { AccountStore } from './account-store.mjs';
 import { resourcePath, trustedFrame, publicError } from '../dist/core/security.js';
 import { InputError, record, identifier, text, attachments, LIMITS } from '../dist/core/validation.js';
 import { findThread, exportThread, exportMarkdown } from '../dist/core/workspace.js';
+import { tagAllQuestion } from '../dist/core/tags.js';
+import { capabilityFor } from '../dist/core/capabilities.js';
 import { themePreferences, themeTokens, themeVariant } from '../dist/core/themes.js';
 import { TEXT_EXTENSIONS, IMAGE_EXTENSIONS, IMAGE_LIMITS, PDF_SOURCE_BYTES, attachmentKind, folderKey, unknownFolder } from '../dist/core/attachments.js';
 const root = dirname(dirname(fileURLToPath(import.meta.url)));
@@ -450,6 +452,13 @@ async function command(input) {
     case 'cloud.disconnect': {
       if (await confirm({ approve: 'Remove chat key', title: 'Remove your Tinfoil chat key from Workbench?',
         message: 'Cloud chats and projects are removed from this PC and stay in your Tinfoil account. A chat with changes that were not written yet is kept here as a local conversation.' })) await service.execute(c);
+      break;
+    }
+    case 'tagging.all': {
+      const plan = service.tagPlan();
+      if (!plan.length) throw new InputError('Every conversation that can be tagged already has tags.');
+      const question = tagAllQuestion(plan, service.workspace.tagging, id => capabilityFor(id, service.capabilities).display?.name || id);
+      if (await confirm({ approve: question.approve, title: question.title, message: question.message })) await service.execute(c);
       break;
     }
     case 'thread.delete': {

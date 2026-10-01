@@ -1,5 +1,7 @@
 import { InputError, record, identifier, text, attachments, LIMITS } from '../dist/core/validation.js';
 import { findThread, exportThread, exportMarkdown } from '../dist/core/workspace.js';
+import { tagAllQuestion } from '../dist/core/tags.js';
+import { capabilityFor } from '../dist/core/capabilities.js';
 import { safeExternalURL } from '../dist/core/markdown.js';
 import { PREVIEW_LIMIT, previewFile, textAttachments, mediaFile, importText, bytesToBase64 } from './files.mjs';
 import { attachmentKind, IMAGE_LIMITS } from '../dist/core/attachments.js';
@@ -160,6 +162,13 @@ export function createCommandHandler({ service, native, account = null, uuid = (
         break;
       }
       case 'open.docs': await native.openExternal({ url: c.topic === 'python' ? 'https://www.python.org/downloads/windows/' : 'https://docs.tinfoil.sh/get-api-key' }); break;
+      case 'tagging.all': {
+        const plan = service.tagPlan();
+        if (!plan.length) throw new InputError('Every conversation that can be tagged already has tags.');
+        const question = tagAllQuestion(plan, service.workspace.tagging, id => capabilityFor(id, service.capabilities).display?.name || id);
+        if (await confirm({ title: question.title, confirm: question.approve, cancel: 'Cancel', message: question.message })) await service.execute(c);
+        break;
+      }
       case 'thread.delete': {
         const thread = findThread(service.workspace, identifier(c.id));
         if (service.busyThreadId === c.id) throw new InputError('Stop the active response before deleting.');

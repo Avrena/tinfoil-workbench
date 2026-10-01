@@ -938,3 +938,35 @@ dialog[open]{transform:translateZ(0);isolation:isolate}
 .python-actions{display:flex;flex-wrap:wrap;gap:6px}
 .python-actions button{font-size:12px;padding:4px 10px}
 @media (pointer:coarse),(hover:none){.python-actions button{min-height:40px}}
+/* Tags (core/tags.ts, renderer/tags-view.ts): each colour is a token of the theme (core/themes.ts). A chip's text is the
+   theme's own; its style puts the colour in a fill, an outline, both, a stripe on its left edge or a dot. */
+:is(.tag-chip,.tag-swatch,.tag-dot)[data-color=blue]{--tag:var(--tag-blue);--tag-fill:var(--tag-blue-fill)}
+:is(.tag-chip,.tag-swatch,.tag-dot)[data-color=orange]{--tag:var(--tag-orange);--tag-fill:var(--tag-orange-fill)}
+:is(.tag-chip,.tag-swatch,.tag-dot)[data-color=aqua]{--tag:var(--tag-aqua);--tag-fill:var(--tag-aqua-fill)}
+:is(.tag-chip,.tag-swatch,.tag-dot)[data-color=yellow]{--tag:var(--tag-yellow);--tag-fill:var(--tag-yellow-fill)}
+:is(.tag-chip,.tag-swatch,.tag-dot)[data-color=magenta]{--tag:var(--tag-magenta);--tag-fill:var(--tag-magenta-fill)}
+:is(.tag-chip,.tag-swatch,.tag-dot)[data-color=green]{--tag:var(--tag-green);--tag-fill:var(--tag-green-fill)}
+:is(.tag-chip,.tag-swatch,.tag-dot)[data-color=violet]{--tag:var(--tag-violet);--tag-fill:var(--tag-violet-fill)}
+:is(.tag-chip,.tag-swatch,.tag-dot)[data-color=red]{--tag:var(--tag-red);--tag-fill:var(--tag-red-fill)}
+:is(.tag-chip,.tag-swatch,.tag-dot)[data-color=grey]{--tag:var(--tag-grey);--tag-fill:var(--tag-grey-fill)}
+.tag-dot{background:var(--tag,var(--tag-grey))}
+.tag-chip{color:var(--n87);border-color:transparent}
+.tag-chip[data-style=fill]{background:var(--tag-fill)}
+.tag-chip[data-style=outline]{border-color:var(--tag)}
+.tag-chip[data-style=both]{background:var(--tag-fill);border-color:var(--tag)}
+.tag-chip[data-style=stripe]{background:var(--o-05);border-left-color:var(--tag)}
+.tag-more{color:var(--n62)}
+.tag-filter-chip,.tag-option{color:var(--n77)}
+.tag-filter-chip:hover,.tag-option:hover{background:var(--o-08)}
+.tag-filter-chip[aria-pressed=true]{background:var(--o-0d);box-shadow:inset 0 0 0 1px var(--n40)}
+.tag-option{border:1px solid var(--n17)}
+.tag-option[aria-pressed=true]{background:var(--o-0d);border-color:var(--n40)}
+.tag-option svg{opacity:0;color:var(--n87)}
+.tag-option[aria-pressed=true] svg{opacity:1}
+.thread-tags{color:var(--n62)}
+.thread-tags:hover{background:var(--o-08);color:var(--n98)}
+.tags-for{color:var(--n77)}
+.tag-look,.tag-swatch,.tag-style{border:1px solid var(--n17)}
+.tag-look:hover,.tag-swatch:hover,.tag-style:hover{background:var(--o-08)}
+.tag-swatch[aria-checked=true],.tag-style[aria-checked=true]{box-shadow:inset 0 0 0 2px var(--n60)}
+.tag-remove-confirm{background:var(--n4);border:1px solid var(--n17);color:var(--n87)}

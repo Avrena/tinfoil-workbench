@@ -21,7 +21,7 @@ test('every token the stylesheets use is defined, for every preset and variant',
   const css = ['style.css', 'approval.css'].map(f => readFileSync(new URL(`../dist/${f}`, import.meta.url), 'utf8')).join('\n');
   const defined = new Set([...css.matchAll(/--([a-z][a-z0-9-]*)\s*:/g)].map(m => m[1]));
   // Theme tokens only; the rest (safe areas, --tick, --hue…) are set by scripts, with fallbacks.
-  const used = [...new Set([...css.matchAll(/var\(--([a-z][a-z0-9-]*)/g)].map(m => m[1]))].filter(name => /^([a-z]l?\d+(-[0-9a-f]{2})?|[os]-[0-9a-f]{2}|syn-[a-z]+|match[a-z-]*|on-f)$/.test(name));
+  const used = [...new Set([...css.matchAll(/var\(--([a-z][a-z0-9-]*)/g)].map(m => m[1]))].filter(name => /^([a-z]l?\d+(-[0-9a-f]{2})?|[os]-[0-9a-f]{2}|syn-[a-z]+|match[a-z-]*|on-f|tag-[a-z]+(-fill)?)$/.test(name));
   const themed = Object.keys(themeTokens(workbench.dark, 'dark'));
   assert.deepEqual(used.filter(name => !defined.has(name)), [], 'a token is used but never defined');
   for (const preset of THEME_PRESETS) for (const variant of ['dark', 'light']) if (preset[variant]) {

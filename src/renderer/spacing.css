@@ -889,3 +889,68 @@ dialog:not(.message-editor) .modal-body { padding: 8px 20px 20px; }
 .background-picture-note { flex: 1; font-size: 12px; color: var(--n68); }
 .background-picture-row button { min-height: 0; height: 30px; padding: 0 10px; border: 1px solid var(--n16); font-size: 12px; }
 .background-picture-row [data-action="background-pick"] { margin-left: auto; }
+/* Tags: chips in the sidebar, the title bar and the tag row; the tags dialog; Settings → Tags. Chips have small
+   corners; the border is always there (transparent unless the style draws it), so every style has the same size. */
+.tag-chip { display: inline-flex; align-items: center; gap: 4px; min-width: 0; max-width: 100%; padding: 0 5px; border-width: 1px; border-style: solid; border-radius: 3px; font-size: 10px; line-height: 15px; white-space: nowrap; }
+.tag-chip[data-style=stripe] { border-left-width: 3px; padding-left: 4px; }
+.tag-chip[data-style=dot] { padding-left: 3px; }
+.tag-chip .tag-name { overflow: hidden; text-overflow: ellipsis; }
+.tag-chip .tag-dot { display: none; }
+.tag-chip[data-style=dot] .tag-dot { display: inline-block; }
+.tag-dot { flex: none; display: inline-block; width: 7px; height: 7px; border-radius: 50%; }
+.tag-more { flex: none; font-size: 10px; padding: 0 2px; }
+.row-tags { display: flex; gap: 4px; min-width: 0; margin-top: 4px; overflow: hidden; }
+/* The tag row wraps, so every tag stays in view; past three lines it scrolls. */
+.tag-filter { display: flex; flex-wrap: wrap; gap: 3px; max-height: 72px; margin: -4px 4px 10px; overflow-y: auto; }
+.tag-filter-chip { flex: none; min-width: 0; min-height: 0; padding: 3px; border-radius: 5px; }
+.tag-filter-chip .tag-chip { font-size: 11px; line-height: 17px; padding: 0 6px; }
+.thread-crumbs { display: flex; align-items: center; gap: 6px; min-width: 0; max-width: 100%; }
+.thread-crumbs .project-breadcrumb { flex: none; max-width: 50%; }
+.thread-tags { display: inline-flex; align-items: center; gap: 4px; min-width: 0; min-height: 0; padding: 1px 2px; border-radius: 4px; overflow: hidden; }
+.thread-tags.empty svg { width: 12px; height: 12px; }
+.thread-group h3 { display: flex; align-items: center; gap: 6px; }
+.tags-for { margin: 0 0 12px; font-size: 12px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.tag-options { display: flex; flex-wrap: wrap; gap: 6px; margin: 0 0 12px; }
+.tag-option { gap: 5px; min-width: 0; padding: 5px 9px 5px 6px; border-radius: 6px; }
+.tag-option .tag-chip { font-size: 12px; line-height: 19px; padding: 0 7px; }
+.tag-option .tag-chip[data-style=stripe] { padding-left: 6px; }
+.tag-option svg { width: 13px; height: 13px; }
+.tag-note { min-height: 1.5em; margin: 0 0 4px; }
+.tagging-options { display: grid; gap: 6px; margin: 4px 0; }
+.tagging-options > label:first-child { font-size: 12px; }
+.tagging-options select { padding: 6px 8px; font-size: 12px; }
+.tagging-options .toggle-row { padding: 10px 0; }
+.tagging-run { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 4px; }
+.tagging-run button, .tag-list-actions button { min-height: 0; height: 30px; padding: 0 10px; border: 1px solid var(--n16); font-size: 12px; }
+.tagging-status { margin: 8px 0 0; }
+.tagging-status:empty { display: none; }
+.tag-list { display: grid; gap: 6px; margin: 12px 0 8px; }
+.tag-row { display: grid; grid-template-columns: auto minmax(84px, 10em) minmax(0, 1fr) auto; align-items: center; gap: 6px; }
+.tag-row input { padding: 6px 8px; font-size: 12px; }
+.tag-row > .icon-button { width: 30px; height: 30px; padding: 7px; }
+.tag-look, .tag-style { min-width: 0; min-height: 0; height: 30px; padding: 0 6px; border-radius: 6px; }
+/* Every style's sample fits, so the rows' fields line up. */
+.tag-look { width: 50px; }
+.tag-look .tag-chip, .tag-style .tag-chip { font-size: 11px; line-height: 17px; }
+.tag-swatch { width: 30px; height: 30px; min-width: 0; min-height: 0; padding: 0; border-radius: 6px; }
+.tag-swatch .tag-dot { width: 12px; height: 12px; }
+.tag-looks { grid-column: 1 / -1; display: grid; gap: 6px; padding: 0 0 4px; }
+.tag-swatches, .tag-styles { display: flex; flex-wrap: wrap; gap: 4px; }
+.tag-remove-confirm { grid-column: 1 / -1; display: flex; flex-wrap: wrap; align-items: center; gap: 8px; padding: 8px 10px; border-radius: 6px; font-size: 12px; }
+.tag-remove-confirm span { flex: 1; min-width: 10em; }
+.tag-remove-confirm button { min-height: 0; height: 28px; padding: 0 10px; font-size: 12px; }
+.tag-list-actions { display: flex; flex-wrap: wrap; gap: 8px; }
+@media (max-width: 600px) {
+  .tag-row { grid-template-columns: auto minmax(0, 1fr) auto; }
+  .tag-row > .icon-button { grid-column: 3; grid-row: 1; }
+  .tag-hint-input { grid-column: 2 / -1; grid-row: 2; }
+  .thread-crumbs .project-breadcrumb { max-width: 45%; }
+}
+/* Touch: the tag row, the tags dialog and the pickers keep finger-sized targets; the title bar's tags stay on the
+   project line. */
+@media (pointer: coarse), (hover: none) {
+  .tag-filter-chip { min-height: 36px; }
+  .tag-option, .tag-look, .tag-swatch, .tag-style, .tag-row > .icon-button { min-width: 44px; min-height: 44px; }
+  .tagging-run button, .tag-list-actions button, .tag-remove-confirm button { min-height: 40px; }
+  .thread-tags { min-height: 23px; }
+}

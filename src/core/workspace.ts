@@ -2,6 +2,7 @@ import { defaultView } from './preferences.js';
 import type { ApiMessage, Attachment, GenerationJob, GenerationSettings, Reply, Thread, Turn, Workspace } from './types.js';
 import { addVersion, everyTurn } from './versions.js';
 import { InputError, LIMITS, attachments as checkAttachments, text, validateThread } from './validation.js';
+import { defaultTagging, messageTitle } from './tags.js';
 export const defaults: GenerationSettings = {
   toolsMode: 'off', visualTools: true, webSearch: false, delegateMode: 'off', agentMode: 'off', agentShell: 'powershell', thinkingMode: 'default', compareReasoningEffort: 'default', compareThinkingMode: 'default', model: '', compareModel: '', compare: false, systemPrompt: '', systemPromptName: '',
   temperature: null, maxTokens: 32768, reasoningEffort: 'default',
@@ -25,7 +26,7 @@ export function newThread(seed: GenerationSettings = defaults): Thread {
 }
 export function newWorkspace(): Workspace {
   const thread = newThread();
-  return { version: 1, activeId: thread.id, threads: [thread], projects: [], instructionPresets: [], apiKey: '', cacheSecret: uid() + uid(), view: { ...defaultView }, pythonPath: '' };
+  return { version: 1, activeId: thread.id, threads: [thread], projects: [], instructionPresets: [], apiKey: '', cacheSecret: uid() + uid(), view: { ...defaultView }, pythonPath: '', tagging: defaultTagging() };
 }
 export function findThread(workspace: Workspace, id: string): Thread {
   const thread = workspace.threads.find(t => t.id === id);
@@ -80,7 +81,7 @@ export function beginTurn(thread: Thread, prompt: string, files: Attachment[], c
   const jobs = startTurn(thread, prompt, files, context, at);
   // An edited message comes from the composer too, but the draft stored there is the one from before the edit.
   if (replace === undefined) { thread.draft = ''; thread.draftAttachments = []; }
-  if (thread.turns.length === 1 && thread.title === 'New conversation') thread.title = prompt.trim().replace(/\s+/g, ' ').slice(0, 70);
+  if (thread.turns.length === 1 && thread.title === 'New conversation') thread.title = messageTitle(prompt);
   return jobs;
 }
 /** Asks again: a new version of the turn, with the same message, answered afresh. The draft is kept. */
@@ -101,7 +102,7 @@ export function addMessage(thread: Thread, role: 'assistant' | 'system', content
   if (at < thread.turns.length) addVersion(thread, at, turn); else thread.turns.push(turn);
   if (replace === undefined) { thread.draft = ''; thread.draftAttachments = []; }
   thread.updatedAt = Date.now();
-  if (thread.turns.length === 1 && thread.title === 'New conversation') thread.title = content.trim().replace(/\s+/g, ' ').slice(0, 70);
+  if (thread.turns.length === 1 && thread.title === 'New conversation') thread.title = messageTitle(content);
   return turn;
 }
 /** Where a new turn goes: the end, or the place of the turn it replaces. */
@@ -166,6 +167,8 @@ export function forkThread(workspace: Workspace, sourceId: string, turnId: strin
   if(source.connectionOwner)branch.connectionOwner=source.connectionOwner;
   // A branch continues in the same folder, asking again before each command and change.
   branch.settings.agentMode = source.settings.agentMode; if (source.agentFolder) branch.agentFolder = source.agentFolder;
+  // It keeps the source's tags; its title is not a first-message title, so the classifier never renames it.
+  if (source.tags) { branch.tags = [...source.tags]; branch.tagged = { ...source.tagged ?? { at: Date.now() } }; }
   branch.turns = structuredClone(source.turns.slice(0, before ? index : index + 1));
   // A branch starts from the path shown; the versions set aside stay with the source.
   for (const t of branch.turns) { delete t.versions; delete t.version; }
@@ -190,8 +193,9 @@ export function recoverInterrupted(workspace: Workspace): boolean {
   return changed;
 }
 export function exportThread(thread: Thread): string {
-  // The account binding and a cloud link belong to this device's copy; an import is a new, local conversation.
-  const {connectionOwner: _localBinding, cloud: _cloudLink, ...conversation}=thread;
+  // The account binding, a cloud link and tags (ids into this workspace's list) belong to this device's copy; an import
+  // is a new, local conversation.
+  const {connectionOwner: _localBinding, cloud: _cloudLink, tags: _tags, tagged: _tagged, ...conversation}=thread;
   return JSON.stringify({ format: 'tinfoil-workbench', version: 1, conversation }, null, 2);
 }
 export function importThread(workspace: Workspace, value: unknown): Thread {
@@ -201,7 +205,7 @@ export function importThread(workspace: Workspace, value: unknown): Thread {
   const validated = validateThread(raw.conversation);
   if (workspace.threads.length >= LIMITS.threads) throw new InputError('Conversation limit reached.');
   validated.id = uid();
-  validated.projectId = null; delete validated.branchOf; delete validated.connectionOwner; delete validated.cloud;
+  validated.projectId = null; delete validated.branchOf; delete validated.connectionOwner; delete validated.cloud; delete validated.tags; delete validated.tagged;
   for (const turn of everyTurn(validated.turns)) {
     turn.id = uid();
     for (const reply of turn.replies) {

@@ -7,7 +7,8 @@ import { chartSpec,chartSVG,tableSpec,tableHTML,diagramSpec,diagramSVG } from '/
 import { viewPreferences } from '/core/preferences.js';
 // Development preview only. This file is outside dist/desktop and is NOT packaged in the Windows application.
 import {newWorkspace,findThread,addThread,beginTurn,retryTurn,addMessage,chooseReply,forkThread} from '/core/workspace.js';
-import {settings,attachments,InputError} from '/core/validation.js';
+import {settings,attachments,InputError,tagging as taggingSettings,threadTagIds,keepListedTags} from '/core/validation.js';
+import {untagged,titleFromMessage,cleanTitle} from '/core/tags.js';
 import {agentFolderName} from '/core/agent.js';
 // The workspace agent's root for new folders: synthetic, like every preview path; set by the Choose… button in Advanced.
 let previewAgentRoot=null;
@@ -21,7 +22,7 @@ const workspace=newWorkspace(),listeners=new Set();let sequence=0,busy=null,stop
 Object.assign(workspace.threads[0].settings,{model:'demo/writer',compareModel:'demo/analyst'});
 /** The chat background picture set in this page (`background.set`). */
 let previewBackground=null;
-const snapshot=()=>({sequence:++sequence,background:previewBackground?.id??null,account:structuredClone(previewAccount),connectionMode:previewMode,rememberAccount:previewRemember,cloud:structuredClone(previewCloud),cloudLoading:[...previewLoading],workspace:structuredClone({version:workspace.version,activeId:workspace.activeId,threads:workspace.threads,projects:workspace.projects,instructionPresets:workspace.instructionPresets,view:workspace.view}),pythonConfigured:!!previewPython.current,python:structuredClone(previewPython),agent:{available:true,gitBash:true,root:previewAgentRoot},hasKey:false,models:['demo/writer','demo/analyst','deepseek-v4-pro','kimi-k3'],capabilities:structuredClone(previewCatalog),modelCatalog:'ready',verification:{state:'idle',checkedAt:null,steps:[]},busyThreadId:busy,storage:'preview',notice:'OFFLINE PREVIEW · Synthetic responses · No API connection or local persistence'});
+const snapshot=()=>({sequence:++sequence,background:previewBackground?.id??null,account:structuredClone(previewAccount),connectionMode:previewMode,rememberAccount:previewRemember,cloud:structuredClone(previewCloud),cloudLoading:[...previewLoading],tagStatus:structuredClone(previewTags),workspace:structuredClone({version:workspace.version,activeId:workspace.activeId,threads:workspace.threads,projects:workspace.projects,tagging:workspace.tagging,instructionPresets:workspace.instructionPresets,view:workspace.view}),pythonConfigured:!!previewPython.current,python:structuredClone(previewPython),agent:{available:true,gitBash:true,root:previewAgentRoot},hasKey:false,models:['demo/writer','demo/analyst','deepseek-v4-pro','kimi-k3'],capabilities:structuredClone(previewCatalog),modelCatalog:'ready',verification:{state:'idle',checkedAt:null,steps:[]},busyThreadId:busy,storage:'preview',notice:'OFFLINE PREVIEW · Synthetic responses · No API connection or local persistence'});
 const emit=()=>{const s=snapshot();for(const fn of listeners)fn(s);};
 // Synthetic picker metadata. Display-only (`known: false`), so the bundled reasoning profiles still apply.
 function previewModel(id,display){return {id,label:display.name,known:false,source:'unknown',reasoning:false,effort:[],toggle:false,defaultEnabled:true,enable:{},disable:{},toolCalling:null,
@@ -31,6 +32,26 @@ const previewCatalog=[previewModel('deepseek-v4-pro',{name:'DeepSeek V4 Pro',mak
   previewModel('kimi-k3',{name:'Kimi K3',maker:'moonshot',contextWindow:262144,multimodal:true,reasoning:true,tools:true,description:'Synthetic preview entry for a multimodal reasoning model.'}),
   previewModel('demo/writer',{name:'Demo Writer',contextWindow:131072}),previewModel('demo/analyst',{name:'Demo Analyst',contextWindow:131072,experimental:true})];
 const pause=ms=>new Promise(r=>setTimeout(r,ms));
+// Tags: a synthetic classifier that matches the words of each tag's name and hint in the first message, and
+// titles a conversation with the first words of its message. No model is asked.
+let previewTags={running:null,queued:0,done:0,total:0,failed:0,error:null,errorThread:null,usage:{input:0,output:0}},tagQueue=[],tagStopped=false;
+const tagWords=tag=>[tag.name,...tag.hint.split(/[^\p{L}\p{N}]+/u)].map(w=>w.toLowerCase()).filter(w=>w.length>=4);
+async function previewClassify(ids){
+  if(!previewTags.running&&!tagQueue.length)Object.assign(previewTags,{done:0,total:0,failed:0,error:null,errorThread:null});
+  const fresh=ids.filter(id=>!tagQueue.includes(id)&&previewTags.running!==id);tagQueue.push(...fresh);previewTags.total+=fresh.length;previewTags.queued=tagQueue.length;emit();
+  if(previewTags.running)return;tagStopped=false;
+  while(tagQueue.length&&!tagStopped){
+    const id=tagQueue.shift(),t=workspace.threads.find(x=>x.id===id);previewTags.queued=tagQueue.length;if(!t){previewTags.total--;continue;}
+    previewTags.running=id;emit();await pause(450);previewTags.running=null;
+    if(tagStopped){previewTags.total--;break;}
+    const first=t.turns.find(x=>!x.role),text=first?first.prompt.toLowerCase():'';
+    const chosen=workspace.tagging.tags.filter(tag=>tagWords(tag).some(w=>text.includes(w))).slice(0,3).map(tag=>tag.id);
+    if(chosen.length)t.tags=chosen;else delete t.tags;t.tagged={at:Date.now(),model:workspace.tagging.model||t.settings.model};
+    if(workspace.tagging.titles&&first&&titleFromMessage(t))t.title=cleanTitle(first.prompt.split(/\s+/).slice(0,6).join(' ').replace(/[,:;]$/,''))??t.title;
+    previewTags.done++;emit();
+  }
+  previewTags.queued=tagQueue.length;emit();
+}
 function encodeArtifact(value){const bytes=new TextEncoder().encode(value);let str='';for(const b of bytes)str+=String.fromCharCode(b);return btoa(str);}
 function previewTool(kind,source,data,title,offset,mime='image/svg+xml'){
   const id=crypto.randomUUID();return{id:crypto.randomUUID(),callId:crypto.randomUUID(),name:kind==='html'?'create_artifact':'render_'+kind,arguments:'{}',origin:'model',contentOffset:offset,status:'complete',stdout:'Synthetic preview only. No provider request was made.',stderr:'',exitCode:0,elapsedMs:0,truncated:false,artifacts:[{id,rootId:id,version:1,name:title+(kind==='html'?'.html':'.svg'),mime,data:encodeArtifact(data),source,kind,title,description:'Synthetic preview data · not a measured benchmark.'}]};
@@ -178,8 +199,15 @@ window.tinfoil=Object.freeze({
       case 'send':case 'turn.retry':if(busy)throw new InputError('A response is already running.');{const t=findThread(workspace,c.id);
         // As in the app, a conversation without a folder gets a new one under the root; nothing is created here.
         if(t.settings.agentMode==='ask'&&!t.agentFolder){if(!previewAgentRoot)throw new InputError('Choose where the workspace agent keeps new work (Advanced → Workspace agent), or choose a project folder there.');t.agentFolder=previewAgentRoot+'\\'+agentFolderName(t.turns.length?t.title:c.text??'',new Date(),t.id);}
-        const jobs=c.type==='send'?beginTurn(t,c.text,attachments(c.attachments),'',c.replace):retryTurn(t,c.turnId);busy=t.id;stopped=false;void simulate(t,jobs);break;}
+        const jobs=c.type==='send'?beginTurn(t,c.text,attachments(c.attachments),'',c.replace):retryTurn(t,c.turnId);busy=t.id;stopped=false;
+        // As in the app, a first answer is tagged when tagging is on.
+        void simulate(t,jobs).then(()=>{if(workspace.tagging.enabled&&!t.tagged&&t.turns.filter(x=>!x.role).length===1&&untagged(t))void previewClassify([t.id]);});break;}
       case 'stop':stopped=true;break;
+      case 'tagging.set':{const next=taggingSettings(c.tagging);keepListedTags(workspace.threads,next);workspace.tagging=next;if(!next.enabled){tagStopped=true;previewTags.total-=tagQueue.length;tagQueue=[];previewTags.queued=0;}break;}
+      case 'thread.tags':{const t=findThread(workspace,c.id),ids=threadTagIds(c.tags);if(ids.some(id=>!workspace.tagging.tags.some(tag=>tag.id===id)))throw new InputError('That tag is no longer in your list.');if(ids.length)t.tags=ids;else delete t.tags;t.tagged={at:Date.now()};break;}
+      case 'thread.classify':{const t=findThread(workspace,c.id);if(!workspace.tagging.enabled)throw new InputError('Turn on tagging in Settings → Tags first.');void previewClassify([t.id]);break;}
+      case 'tagging.all':{if(!workspace.tagging.enabled)throw new InputError('Turn on tagging in Settings → Tags first.');const ids=workspace.threads.filter(untagged).map(t=>t.id);if(!ids.length)throw new InputError('Every conversation that can be tagged already has tags.');void previewClassify(ids);break;}
+      case 'tagging.stop':tagStopped=true;previewTags.total-=tagQueue.length;tagQueue=[];previewTags.queued=0;break;
       case 'attachments.pick':extra=[{name:'outline.md',content:'A fictional scene outline. Preview-only attachment.'}];break;
       case 'image.add':previewImages.set(c.id,{mime:c.mime,data:c.data});break;
       // A drawn landscape stands in for a picked picture; the stored one lives only in this page.

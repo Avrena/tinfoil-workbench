@@ -111,6 +111,10 @@ export interface Thread {
   cloudPending?: true;
   /** The workspace agent's folder: an absolute path, set only through the native folder picker. */
   agentFolder?: string;
+  /** Tags from the workspace's list (Settings → Tags), by id, in the order shown; kept on this device only, also for
+   * cloud chats. `tagged` says when they were set, and by which model when the classifier chose them (core/tags.ts):
+   * a conversation with `tagged` is never tagged automatically again. */
+  tags?: string[]; tagged?: { at: number; model?: string };
   id: string; title: string; pinned: boolean; createdAt: number; updatedAt: number;
   settings: GenerationSettings; turns: Turn[]; draft: string;
   /** Unsent reference files, encrypted with the draft and never sent until Send. */
@@ -130,7 +134,20 @@ export interface Workspace {
   cloudImages?: Record<string, CloudPicture>;
   /** The picture behind the conversation (Settings → Chat background), base64. Never in snapshots: they carry its id. */
   backgroundPicture?: { id: string; mime: string; data: string };
+  /** Settings → Tags: the tag list, and whether a model tags (and titles) each new conversation (core/tags.ts). */
+  tagging: Tagging;
 }
+export type TagColor = 'blue' | 'orange' | 'aqua' | 'yellow' | 'magenta' | 'green' | 'violet' | 'red' | 'grey';
+/** How a tag is drawn: its colour as a fill, an outline, both, a stripe on its left edge, or a dot before its name. */
+export type TagStyle = 'fill' | 'outline' | 'both' | 'stripe' | 'dot';
+/** A tag: its name, colour, style and a hint that tells the classifier what belongs under it. */
+export interface TagDef { id: string; name: string; color: TagColor; style: TagStyle; hint: string }
+/** `model` '' asks the conversation's own model. `titles` lets the same request replace a title made from the first
+ * message. */
+export interface Tagging { enabled: boolean; titles: boolean; model: string; tags: TagDef[] }
+/** The classifier's queue as the page sees it: the conversation being tagged, how many wait, this run's counts, its
+ * last error and the conversation it was about, and the tokens tagging used since Workbench started. */
+export interface TaggingStatus { running: string | null; queued: number; done: number; total: number; failed: number; error: string | null; errorThread: string | null; usage: Usage }
 /** `writer` and `clock` are this installation's edit clock for Tinfoil's conflict order (docs/CLOUD.md). */
 export interface CloudConfig { key: string; keyId: string; user: string; writer: string; clock: number }
 /** Cloud sync as the renderer sees it; the key itself is never included. */
@@ -155,6 +172,7 @@ export interface Snapshot {
   busyThreadId: string | null; storage: 'os-encrypted' | 'preview';
   /** The id of the stored background picture, for the page to fetch it once (`background.get`), or null. */
   background?: string | null;
+  tagStatus?: TaggingStatus;
   notice: string | null; pythonConfigured?: boolean;
   /** Python in the Windows app: the interpreter runs use (`missing` when its file is gone) and, once searched, the
    * installed ones Workbench found. The page may pick one of those; any other path comes from the native picker. */
@@ -207,6 +225,12 @@ export type Command =
   | { type: 'open.url'; url: string }
   | { type: 'thread.select'; id: string }
   | { type: 'thread.rename'; id: string; title: string }
+  /** Tags: the list and its settings; a conversation's tags, chosen by the person; one suggestion from the classifier;
+   * every untagged conversation (the host confirms first); and stopping the queue. */
+  | { type: 'tagging.set'; tagging: Tagging }
+  | { type: 'thread.tags'; id: string; tags: string[] }
+  | { type: 'thread.classify'; id: string }
+  | { type: 'tagging.all' } | { type: 'tagging.stop' }
   | { type: 'thread.pin'; id: string }
   | { type: 'thread.delete'; id: string }
   | { type: 'thread.draft'; id: string; text: string; attachments?: Attachment[] }
