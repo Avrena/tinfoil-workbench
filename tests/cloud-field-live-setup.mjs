@@ -72,18 +72,19 @@ async function run() {
   stage = 'first sync'; let seen = '';
   await until('the first sync', () => {
     const s = cloud().status, now = `${s.state}|${s.message ?? ''}`;
-    if (now !== seen) { seen = now; log('cloud-status', { state: s.state, message: s.message ?? null, chats: s.chats ?? null }); }
+    if (now !== seen) { seen = now; log('cloud-status', { state: s.state, message: s.message ?? null }); }
     return s.state === 'ready' && s.lastSyncAt;
   }, 10 * 60_000);
-  log('synced', { chats: cloud().status.chats ?? null });
+  log('synced', { chats: cloud().snapshot().chats, older: cloud().snapshot().older ?? null });
 
   // A test chat from a written exchange, moved to the cloud with the extra field.
   stage = 'test chat'; await command({ type: 'thread.new', projectId: null });
   const id = service.workspace.activeId, stamp = new Date().toISOString().slice(0, 16), title = `Workbench field probe ${stamp}`;
   const t = () => service.workspace.threads.find(x => x.id === id);
+  t().settings.model = 'deepseek-v4-1-flash';
   beginTurn(t(), 'This chat checks that a field Workbench adds survives an edit on the web. Rename it, then leave it.', []);
   Object.assign(t().turns[0].replies[0], { status: 'complete', content: 'Understood.', model: 'deepseek-v4-1-flash' });
-  t().title = title; t().settings.model = 'deepseek-v4-1-flash'; await service.save();
+  t().title = title; await service.save();
   const client = cloud().client, push = client.push.bind(client);
   client.push = (scope, chatId, key, body, ifMatch, metadata) => push(scope, chatId, key, scope === 'chat' && body?.title === title ? { ...body, workbenchProbe: PROBE } : body, ifMatch, metadata);
   stage = 'upload'; await command({ type: 'thread.cloud.upload', id });
