@@ -1,5 +1,12 @@
 # Changelog
 
+## 1.4.1 — open source (unreleased)
+
+- Tinfoil Workbench is open source under the Apache License 2.0 ([LICENSE](LICENSE)). Third-party components keep their own licences, listed in [NOTICE.md](NOTICE.md), and the licence does not cover Tinfoil's name or logo.
+- The Account view's note on Chat sign-in now gives the tested scope by platform, and the workspace agent's message for a folder it cannot use suggests D:\Work\Tinfoil as an example.
+- The workspace format is unchanged: 1.4.0 and 1.4.1 open each other's workspaces.
+- Android: versionCode 1004001.
+
 ## 1.4.0 — conversation tags
 
 - Settings → Tags holds a list of tags, starting with fourteen presets (Coding, Writing, Research, Learning, Creative, Health, Work, Money, Personal, Travel, Legal, Cyber, NSFW and Ambiguous).
