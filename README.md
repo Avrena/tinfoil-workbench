@@ -235,22 +235,22 @@ The generated `preview/index.html` uses labelled synthetic responses and cannot 
 
 ## Verification
 
-The [1.4.0 validation record](docs/VALIDATION.md), recorded on 1 October 2026, is the source for these results. It separates automated checks, review builds, installed-release checks and work that was not run.
+The [1.4.1 validation record](docs/VALIDATION.md), recorded on 2 October 2026, is the source for these results. 1.4.1 changes the licence and notices only, so the checks with a real account are those of the [1.4.0 record](docs/history/v1.4.0/VALIDATION.md#with-a-real-account). The records separate automated checks, review builds, installed-release checks and work that was not run.
 
 | Recorded scope | Result |
 |---|---|
 | Strict build and Node tests | 583 passed, 0 failed, 1 skipped |
 | Production-renderer browser tests | 533 checks across 12 suites passed |
 | Windows build and native smoke | Packaging gates passed; source, packaged and installed-app checks covered native storage, PDF handling, the agent runner and the approval window |
-| Packaged and installed Windows app | Live inference and sync enclave verification passed; installation over an existing review build was checked |
-| Live tagging checks | Six runs with seven Tinfoil chat models on sets of 13 and 18 conversations; titles and tags judged by reading each conversation |
-| Cloud chats | A test chat's extra field survived a rename in Tinfoil Chat on the web; tags of cloud chats were checked against an in-memory enclave |
-| Android | Debug/live and release checks on Android 14 and 16 emulators; an in-place update from 1.3.0 preserved a draft |
-| Physical Android hardware | Opening signed in after the update, and tags and titles, were checked by hand on one phone for 1.4.0 |
+| Packaged and installed Windows app | Live inference and sync enclave verification passed; installation over an installed 1.4.0 was checked |
+| Live tagging checks (1.4.0) | Six runs with seven Tinfoil chat models on sets of 13 and 18 conversations; titles and tags judged by reading each conversation |
+| Cloud chats (1.4.0) | A test chat's extra field survived a rename in Tinfoil Chat on the web; tags of cloud chats were checked against an in-memory enclave |
+| Android | Debug/live and release checks on Android 14 and 16 emulators; an in-place update from 1.4.0 preserved a draft |
+| Physical Android hardware | Not checked for 1.4.1; for 1.4.0, opening signed in after the update, and tags and titles, were checked by hand on one phone |
 
-The record also documents failed checks and their fixes. Drop and paste were checked with scratch scripts and manual runs, not a committed browser test. Browser viewport and touch emulation do not establish native-device support.
+The records also document failed checks and their fixes. Drop and paste were checked with scratch scripts and manual runs, not a committed browser test. Browser viewport and touch emulation do not establish native-device support.
 
-**Not checked for this release:** tags travelling between two Workbench installs with a real account, a repeated clean Windows installation, a standard-user Windows account and running the portable executable. Earlier open checks remain open unless the record says otherwise; see [not executed](docs/VALIDATION.md#not-executed).
+**Not checked for this release:** a real account, a physical phone, tags travelling between two Workbench installs with a real account, a repeated clean Windows installation, a standard-user Windows account and running the portable executable. Earlier open checks remain open unless the record says otherwise; see [not executed](docs/VALIDATION.md#not-executed).
 
 The [manual acceptance checklist](docs/HANDOFF.md) covers work beyond automated tests. [Rendering measurements](docs/RENDERING.md) describe a synthetic workload, not general performance claims. Earlier records are in [docs/history](docs/history).
 
