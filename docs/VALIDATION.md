@@ -11,6 +11,8 @@ Recorded 21 October 2026 for the 1.5.0 release, which adds remote agent jobs on 
 
 ## Windows
 
+The Windows, browser and Android checks below ran at the build commit `83f37fa`. They ran once before at `b6c83ed`, with the same results; that build was replaced after the CI failure described under [Continuous integration](#continuous-integration).
+
 | Check | Result |
 |---|---|
 | `npm test` (strict build + Node tests) | **614 passed**, 0 failed, 1 skipped (a check that runs only outside Windows). The Node tests include the remote controller, worker and Chat session tests with mocked SSH and provider |
@@ -55,12 +57,16 @@ During development, earlier builds ran real Tinfoil Chat subscription jobs on th
 
 ## Release artifacts
 
-The release files were built from commit `b6c83ed`. The tag commit adds this record, the archived 1.4.1 record and handoff checklist, refreshed screenshots and check records, and documentation updates, none of which is packaged.
+The release files were built from commit `83f37fa`. The tag commit on top of it updates this record and the screenshots and check records from the final run of the browser suites, none of which is packaged.
 
 | File | Bytes | SHA-256 |
 |---|---:|---|
-| `Tinfoil-Workbench-1.5.0-x64-Setup.exe` | 124,421,830 | `6b1d3f9b70582cd0be4964dd10393d7cc12f38d481949059c79aa9db661b7d9f` |
-| `Tinfoil-Workbench-1.5.0-x64-Portable.exe` | 124,196,995 | `833fd3f0b74720435101afff6c3e358f362d811e68b49bdb9ffd9ba1a2020186` |
-| `Tinfoil-Workbench-1.5.0-android.apk` | 4,604,797 | `f59e9a3e52ffd5a15ef51ed9d2bd3ecdd0e6c50b7cbde501287c0dbee34efbda` |
+| `Tinfoil-Workbench-1.5.0-x64-Setup.exe` | 124,421,685 | `f7bcf91fe70f4af4e6672b9c037eb540dc57e96ec33794441f320758766d8a8a` |
+| `Tinfoil-Workbench-1.5.0-x64-Portable.exe` | 124,196,932 | `beeda97f49fd5ad46a4b47ae1b1a926a0801e9b10d601db8f820a45972e23bf6` |
+| `Tinfoil-Workbench-1.5.0-android.apk` | 4,604,741 | `ee4bd9fb82610431afd1b4cc678ccc240773b93cf244b6e3a372b33ce8120f67` |
 
 The Windows files are not code-signed. The APK is signed with APK Signature Scheme v2, with the same release key as 1.4.1 (certificate SHA-256 `6395ead797a520c632156abcd9ee2731869c64ed0ee510ad5b52e887185494cb`), and has versionName 1.5.0 and versionCode 1005000.
+
+## Continuous integration
+
+GitHub Actions ran all three workflows on the pull request. On `1f42704`, the renderer job failed in `ui-responsive.py`: at 320px, with a remote host saved and the role tab shown, the role tab ended 1.2px past the composer edge, because the Linux browser's fallback font is wider than Segoe UI. Verdana reproduced it on Windows. `83f37fa` narrows the role buttons' padding when both tabs show on a narrow screen, which leaves 20px to spare with Verdana. On the build commit `83f37fa` the runs 39532582483 (Windows client), 39532582680 (Android client) and 39532582478 (renderer UI suites, all twenty) passed, and the Windows and Android runs kept their build copies.
