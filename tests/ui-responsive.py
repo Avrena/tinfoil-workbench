@@ -45,8 +45,8 @@ with sync_playwright() as p:
   page.locator('.reply-footer').first.scroll_into_view_if_needed();outside=page.evaluate("()=>{const f=document.querySelector('.reply-footer').getBoundingClientRect();return [...document.querySelectorAll('.reply-footer .reply-actions > *')].filter(e=>{const r=e.getBoundingClientRect();return r.right>f.right+1||r.left<f.left-1;}).map(e=>e.getAttribute('aria-label')||e.textContent)}")
   assert not outside and page.evaluate('document.documentElement.scrollWidth<=innerWidth+1'),(name,outside);checks.append(f'{name}: with version arrows, the reply actions wrap inside the reply instead of running past the screen')
   if w<=1000:
-   page.locator('[data-action=sidebar]').tap();expect(page.locator('.sidebar')).to_be_visible();assert page.locator('.main').evaluate('(e)=>e.inert');page.locator('.sidebar [data-action=close-drawers]').tap();expect(page.locator('.sidebar')).to_be_hidden();page.locator('[data-action=sidebar]').tap();page.locator('#drawer-backdrop').tap(position={'x':w-8,'y':100});expect(page.locator('.sidebar')).to_be_hidden();assert not page.locator('.main').evaluate('(e)=>e.inert');checks.append(f'{name}: navigation opens as a modal drawer and dismisses without trapping the conversation')
-   page.locator('.toolbar [data-action=inspector]').tap();expect(page.locator('#inspector')).to_be_visible();page.locator('#inspector [data-action=inspector]').tap();expect(page.locator('#inspector')).to_be_hidden();checks.append(f'{name}: advanced settings are reachable and dismissible on compact screens')
+   page.locator('#main > .toolbar:not(.remote-toolbar):not(.remote-toolbar) [data-action=sidebar]').tap();expect(page.locator('.sidebar')).to_be_visible();assert page.locator('.main').evaluate('(e)=>e.inert');page.locator('.sidebar [data-action=close-drawers]').tap();expect(page.locator('.sidebar')).to_be_hidden();page.locator('#main > .toolbar:not(.remote-toolbar):not(.remote-toolbar) [data-action=sidebar]').tap();page.locator('#drawer-backdrop').tap(position={'x':w-8,'y':100});expect(page.locator('.sidebar')).to_be_hidden();assert not page.locator('.main').evaluate('(e)=>e.inert');checks.append(f'{name}: navigation opens as a modal drawer and dismisses without trapping the conversation')
+   page.locator('.toolbar:not(.remote-toolbar) [data-action=inspector]').tap();expect(page.locator('#inspector')).to_be_visible();page.locator('#inspector [data-action=inspector]').tap();expect(page.locator('#inspector')).to_be_hidden();checks.append(f'{name}: advanced settings are reachable and dismissible on compact screens')
   chart.locator('.inline-expand').tap();expect(page.locator('#artifact-panel')).to_be_visible();assert page.locator('#artifact-panel').bounding_box()['width']<=w+1;page.locator('[data-panel=close]').tap();expect(page.locator('.main')).to_be_visible();checks.append(f'{name}: artifact inspection expands within the viewport and returns to chat')
   page.locator('#prompt').fill('First line');page.locator('#prompt').press('Enter');expect(page.locator('#prompt')).to_have_value('First line\n');assert page.locator('.turn').count()==1;checks.append(f'{name}: touch Enter inserts a newline instead of accidentally sending')
   page.evaluate('window.__longNames()');page.wait_for_timeout(150);assert page.evaluate('document.documentElement.scrollWidth<=innerWidth+1');checks.append(f'{name}: long thread, project and model names do not widen the app')
@@ -58,11 +58,21 @@ with sync_playwright() as p:
  for width in (360,393):
   context=b.new_context(viewport={'width':width,'height':800},is_mobile=True,has_touch=True,device_scale_factor=1);page=context.new_page();page.on('pageerror',lambda e:errors.append(str(e)));page.set_content(html)
   page.locator('#composer-model').tap();page.locator('[data-quick-model="deepseek-v4-pro"]').first.tap();expect(page.locator('#quick-effort')).to_be_visible()
-  row={k:page.locator(k).bounding_box() for k in ('#composer-model','#composer-model .model-label','#composer-instructions','#send','.composer-tools')}
+  row={k:page.locator(k).bounding_box() for k in ('#composer-model','#composer-model .model-label','#composer-instructions','#send','#composer-form .composer-tools')}
   assert abs(row['#send']['y']-row['#composer-model']['y'])<=4 and row['#send']['x']>row['#composer-instructions']['x']+row['#composer-instructions']['width'],(width,row)
-  assert row['#composer-model .model-label']['width']>=50 and row['#send']['x']+row['#send']['width']<=row['.composer-tools']['x']+row['.composer-tools']['width']+1,(width,row)
+  assert row['#composer-model .model-label']['width']>=50 and row['#send']['x']+row['#send']['width']<=row['#composer-form .composer-tools']['x']+row['#composer-form .composer-tools']['width']+1,(width,row)
   context.close()
  checks.append('phone composer at 360 and 393px: with a thinking-effort picker, Send stays on its row at the right and the model name keeps 50px or more')
+ # The execution choice and explicit message-role controls share the top edge without crowding each other.
+ configured=html.replace('window.tinfoil = Object.freeze({',"remoteSample.hosts=[{id:'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa',name:'Sandbox',alias:'demo-sandbox',draft:remoteDefaults()}];remoteSample.selectedHost=remoteSample.hosts[0].id;window.tinfoil = Object.freeze({",1)
+ context=b.new_context(viewport={'width':320,'height':740},is_mobile=True,has_touch=True,device_scale_factor=1);page=context.new_page();page.on('pageerror',lambda e:errors.append(str(e)));page.set_content(configured)
+ expect(page.locator('#execution-toggle')).to_be_visible()
+ page.locator('.toolbar:not(.remote-toolbar) [data-action=inspector]').tap();page.locator('#view-roleMessages').check();page.locator('#inspector [data-action=inspector]').tap()
+ expect(page.locator('#role-tab')).to_be_visible()
+ bounds={key:page.locator(key).bounding_box() for key in ['#role-tab-row','#execution-toggle','#role-tab']}
+ row,execution,role=[bounds[key] for key in ['#role-tab-row','#execution-toggle','#role-tab']]
+ assert execution['x']>=row['x'] and role['x']>=execution['x']+execution['width'] and role['x']+role['width']<=row['x']+row['width']+1,bounds
+ context.close();checks.append('at 320px, execution and message-role choices fit side by side inside the composer edge')
  # On a phone the effort panel spans the composer on its top edge, with square corners between them, and stays there as
  # the composer grows. A touch drag keeps the thumb under the finger; the release applies the nearest level.
  context=b.new_context(viewport={'width':360,'height':800},is_mobile=True,has_touch=True,device_scale_factor=1);page=context.new_page();page.on('pageerror',lambda e:errors.append(str(e)));page.set_content(html)
@@ -70,13 +80,13 @@ with sync_playwright() as p:
  geometry="()=>{const p=document.querySelector('#effort-panel').getBoundingClientRect(),c=document.querySelector('.composer').getBoundingClientRect();return [p.left-c.left,p.right-c.right,p.bottom-c.top,getComputedStyle(document.querySelector('.composer')).borderTopLeftRadius]}"
  edge=page.evaluate(geometry);assert abs(edge[0])<=.5 and abs(edge[1])<=.5 and abs(edge[2]-1)<=.5 and edge[3]=='0px',edge
  page.evaluate("()=>{const p=document.querySelector('#prompt');p.value='one\\ntwo\\nthree\\nfour';p.dispatchEvent(new Event('input'))}");page.wait_for_timeout(300);edge=page.evaluate(geometry);assert abs(edge[2]-1)<=.5,edge
- track=page.locator('.effort-track').bounding_box();y=track['y']+2;cdp=context.new_cdp_session(page)
+ track=page.locator('#effort-slider .effort-track').bounding_box();y=track['y']+2;cdp=context.new_cdp_session(page)
  cdp.send('Input.dispatchTouchEvent',{'type':'touchStart','touchPoints':[{'x':track['x']+1,'y':y}]})
  for f in (.1,.3,.6,.85):cdp.send('Input.dispatchTouchEvent',{'type':'touchMove','touchPoints':[{'x':track['x']+track['width']*f,'y':y}]});page.wait_for_timeout(40)
- thumb=page.locator('.effort-thumb').bounding_box();assert abs(thumb['x']+thumb['width']/2-(track['x']+track['width']*.85))<=2,(thumb,track);expect(page.locator('#effort-value')).to_have_text('Max')
- cdp.send('Input.dispatchTouchEvent',{'type':'touchEnd','touchPoints':[]});page.wait_for_timeout(350);thumb=page.locator('.effort-thumb').bounding_box()
+ thumb=page.locator('#effort-slider .effort-thumb').bounding_box();assert abs(thumb['x']+thumb['width']/2-(track['x']+track['width']*.85))<=2,(thumb,track);expect(page.locator('#effort-value')).to_have_text('Max')
+ cdp.send('Input.dispatchTouchEvent',{'type':'touchEnd','touchPoints':[]});page.wait_for_timeout(350);thumb=page.locator('#effort-slider .effort-thumb').bounding_box()
  assert abs(thumb['x']+thumb['width']/2-(track['x']+track['width']))<=1,(thumb,track);expect(page.locator('#effort-gauge svg')).to_have_attribute('data-level','2')
- page.locator('.transcript').tap(position={'x':40,'y':40});expect(page.locator('#effort-panel')).to_be_hidden();page.wait_for_timeout(300)
+ page.locator('#transcript').tap(position={'x':40,'y':40});expect(page.locator('#effort-panel')).to_be_hidden();page.wait_for_timeout(300)
  assert page.evaluate("getComputedStyle(document.querySelector('.composer')).borderTopLeftRadius")!='0px'
  context.close()
  checks.append('phone effort panel: spans the composer on its top edge with square corners between them and follows it as it grows; a touch drag keeps the thumb under the finger and applies the nearest level when released')
@@ -90,7 +100,7 @@ with sync_playwright() as p:
  # A shrinking viewport approximates keyboard occupation; actual keyboards are not emulated.
  context=b.new_context(viewport={'width':390,'height':844},is_mobile=True,has_touch=True,device_scale_factor=1);page=context.new_page();page.on('pageerror',lambda e:errors.append(str(e)));page.set_content(html);page.evaluate('window.__seed()');page.locator('#prompt').fill('Draft before rotation');page.wait_for_timeout(160)
  page.set_viewport_size({'width':390,'height':420});page.wait_for_timeout(180);send=page.locator('#send').bounding_box();assert send['y']+send['height']<=420;checks.append('keyboard-height simulation: composer send control stays in the visible viewport')
- page.locator('[data-action=edit-draft]').tap();page.locator('#editor-content').fill('Draft retained across a shorter viewport and rotation.');page.wait_for_timeout(180);save=page.locator('#editor-save').bounding_box();assert save['y']+save['height']<=420;assert page.locator('#editor-content').bounding_box()['height']>=60;checks.append('keyboard-height simulation: fullscreen editor keeps a usable field and reachable Save')
+ page.locator('[data-action=edit-draft]:not(#remote-toolbar *):not(#remote-composer *)').tap();page.locator('#editor-content').fill('Draft retained across a shorter viewport and rotation.');page.wait_for_timeout(180);save=page.locator('#editor-save').bounding_box();assert save['y']+save['height']<=420;assert page.locator('#editor-content').bounding_box()['height']>=60;checks.append('keyboard-height simulation: fullscreen editor keeps a usable field and reachable Save')
  page.set_viewport_size({'width':844,'height':390});page.wait_for_timeout(180);expect(page.locator('#editor-content')).to_have_value('Draft retained across a shorter viewport and rotation.');save=page.locator('#editor-save').bounding_box();assert save['y']+save['height']<=390;page.locator('#editor-save').tap();expect(page.locator('#edit-dialog')).to_be_hidden();expect(page.locator('#prompt')).to_have_value('Draft retained across a shorter viewport and rotation.');checks.append('landscape rotation preserves an open editor and its unsent draft')
  # The instructions editor keeps its actions visible and on top when a keyboard leaves little of the dialog.
  page.set_viewport_size({'width':390,'height':420});page.wait_for_timeout(180);page.locator('#composer-instructions').tap();page.locator('[data-action=instructions-new]').tap()
@@ -107,7 +117,7 @@ with sync_playwright() as p:
  # Capture the actual responsive renderer, not a separate mock design.
  page.evaluate('window.__seed()');page.locator('#prompt').fill('');page.locator('#transcript').evaluate('(e)=>e.scrollTop=0');page.wait_for_timeout(250);page.screenshot(path=str(root/'docs/preview-phone.png'))
  page.locator('[data-action=edit-reply]').tap();page.locator('#inline-content').fill('The revised configuration is consistently faster in this **synthetic sample**.\n\nThe largest difference is in run 6: **94 ms → 61 ms**.\n\nUse the same scale for both series and inspect the original values before choosing a deadline.');page.wait_for_timeout(180);page.screenshot(path=str(root/'docs/editor-phone.png'));page.locator('#inline-content').press('Escape');page.locator('[data-action=inline-discard]').tap()
- page.locator('[data-action=sidebar]').tap();page.screenshot(path=str(root/'docs/navigation-phone.png'));page.keyboard.press('Escape')
+ page.locator('#main > .toolbar:not(.remote-toolbar):not(.remote-toolbar) [data-action=sidebar]').tap();page.screenshot(path=str(root/'docs/navigation-phone.png'));page.keyboard.press('Escape')
  page.set_viewport_size({'width':820,'height':1180});page.locator('#transcript').evaluate('(e)=>e.scrollTop=0');page.wait_for_timeout(180);page.screenshot(path=str(root/'docs/preview-tablet.png'))
  page.locator('.reasoning summary').first.tap();page.locator('[data-action=edit-thinking]').first.tap();page.locator('#inline-reasoning').fill('My note: distinguish measured samples from an assumed deadline. Keep the comparison on a shared scale.');page.wait_for_timeout(180);page.screenshot(path=str(root/'docs/editor-tablet.png'));page.locator('#inline-reasoning').press('Escape');page.locator('[data-action=inline-discard]').tap()
  page.set_viewport_size({'width':1440,'height':1000});page.locator('#transcript').evaluate('(e)=>e.scrollTop=0');page.wait_for_timeout(180);page.screenshot(path=str(root/'docs/preview-desktop.png'))
@@ -122,14 +132,14 @@ with sync_playwright() as p:
   bars=b.new_context(viewport={'width':w,'height':h},is_mobile=True,has_touch=True,device_scale_factor=1);bp=bars.new_page();bp.on('pageerror',lambda e:errors.append(str(e)));bp.set_content(html);bp.evaluate('window.__seed()')
   bp.evaluate("i=>{const r=document.documentElement;r.dataset.platform='android';for(const [k,v] of Object.entries(i))r.style.setProperty('--safe-area-inset-'+k,v+'px');}",inset);bp.wait_for_timeout(150)
   outside=[bp.evaluate(inside,['#app',inset])]
-  for opener,dialog in [('account','#account-dialog'),('settings','#settings-dialog'),('view','#view-dialog'),('palette','#palette-dialog'),('model-picker','#model-dialog'),('instructions-picker','#instructions-dialog'),('project-create','#project-dialog'),('rename','#rename-dialog'),('move-project','#move-dialog'),('edit-draft','#edit-dialog'),(None,'#close-dialog')]:
+  for opener,dialog in [('account','#account-dialog'),('settings','#settings-dialog'),('view','#view-dialog'),('palette','#palette-dialog'),('model-picker','#model-dialog'),('instructions-picker','#instructions-dialog'),('project-create','#project-dialog'),('rename','#rename-dialog'),('move-project','#move-dialog'),('edit-draft','#edit-dialog'),(None,'#close-dialog'),(None,'#remote-model-dialog'),(None,'#remote-instructions-dialog'),(None,'#remote-jobs-dialog'),(None,'#remote-manage-dialog')]:
    if opener:bp.evaluate("a=>{const b=document.createElement('button');b.dataset.action=a;document.body.append(b);b.click();b.remove();}",opener)
    else:bp.evaluate("s=>document.querySelector(s).showModal()",dialog)
    expect(bp.locator(dialog)).to_be_visible();bp.wait_for_timeout(100);outside.append(bp.evaluate(inside,[dialog,inset]))
    bp.evaluate("s=>document.querySelector(s).close()",dialog);expect(bp.locator(dialog)).to_be_hidden()
   bp.evaluate("()=>{const t=document.createElement('div');t.className='toast';t.id='inset-toast';t.textContent='Saved.';document.body.append(t);}");outside.append(bp.evaluate(inside,['#inset-toast',inset]))
   assert not [o for o in outside if o],(name,inset,[o for o in outside if o])
-  checks.append(f'{name}: with system-bar insets {inset}, the shell, all eleven dialogs including the message editor, and a toast stay clear of the bars and cutout')
+  checks.append(f'{name}: with simulated system-bar insets {inset}, the shell, fifteen dialogs including Windows remote dialogs, and a toast stay clear of the bars and cutout')
   # A phone has no window title bar: the toolbar and the navigation drawer start under the status bar.
   bp.evaluate("()=>document.querySelector('[data-action=sidebar]').click()");bp.wait_for_timeout(250)
   top=bp.evaluate("()=>({bar:getComputedStyle(document.querySelector('.titlebar')).display,main:Math.round(document.querySelector('.main').getBoundingClientRect().top),side:Math.round(document.querySelector('.sidebar').getBoundingClientRect().top)})")

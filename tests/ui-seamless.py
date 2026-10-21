@@ -65,7 +65,7 @@ with sync_playwright() as p:
  htmlfigure.locator('.inline-interact').click();expect(htmlfigure.frame_locator('iframe').locator('#value')).to_be_visible();assert htmlfigure.locator('iframe').get_attribute('sandbox')=='allow-scripts'
  htmlfigure.locator('[data-inline-tab=source]').click();assert htmlfigure.locator('iframe').count()==0;htmlfigure.locator('[data-inline-tab=preview]').click();assert htmlfigure.locator('iframe').get_attribute('sandbox')==''
  checks.append('HTML defaults to transparent and leaving an interactive preview actually terminates its frame')
- page.locator('[data-action=view]').click();expect(page.locator('#view-dialog')).to_be_visible();page.evaluate('window.__resetProbe();window.__patch({content:"Modal update queued."});');page.wait_for_timeout(100)
+ page.locator('[data-action=view]:not(#remote-toolbar *):not(#remote-composer *)').click();expect(page.locator('#view-dialog')).to_be_visible();page.evaluate('window.__resetProbe();window.__patch({content:"Modal update queued."});');page.wait_for_timeout(100)
  assert page.evaluate('window.__probe.markdown')==0;assert 'Modal update queued.' not in page.locator('.response-flow').inner_text()
  page.locator('#view-math').uncheck();page.locator('#view-math').check();page.keyboard.press('Escape');expect(page.locator('.response-flow')).to_contain_text('Modal update queued.')
  checks.append('modal controls remain usable above lazy frames while transcript updates wait until dismissal')

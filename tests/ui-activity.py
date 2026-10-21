@@ -113,7 +113,7 @@ with sync_playwright() as p:
  # The workspace agent (docs/WORKSPACE-AGENT.md): off by default, turned on in Advanced, its folder chosen natively (a
  # synthetic path in the preview), its calls drawn by kind; the offline preview never applies or runs anything.
  context=browser.new_context(viewport={'width':1280,'height':900});page=context.new_page();page.on('pageerror',lambda e:errors.append(str(e)));page.on('request',lambda r:requests.append(r.url));page.set_content(html)
- page.locator('.toolbar [data-action=inspector]').click();expect(page.locator('#agent-settings')).to_be_visible();expect(page.locator('#agent-mode')).not_to_be_checked()
+ page.locator('.toolbar:not(.remote-toolbar) [data-action=inspector]').click();expect(page.locator('#agent-settings')).to_be_visible();expect(page.locator('#agent-mode')).not_to_be_checked()
  page.locator('#agent-mode').check();page.locator('#apply-settings').click();assert page.locator('.composer [data-action=agent-folder]').count()==0
  current,made_in=page.locator('#agent-folder-current'),page.locator('#agent-root-current')
  expect(current).to_contain_text('None yet');expect(current).to_have_class(re.compile(r'\bunset\b'));expect(made_in).to_have_text('Not chosen');expect(page.locator('#agent-folder-new')).to_be_hidden()
@@ -126,7 +126,7 @@ with sync_playwright() as p:
  checks.append('with the agent on, Advanced offers three approval levels as inline buttons; a level above asking shows as a flag on the message box, and the note says what still asks')
  page.locator('#inspector [data-action=inspector]').click();page.locator('#prompt').fill('workspace agent demo');page.locator('#send').click();expect(page.locator('#toast')).to_contain_text('Choose where the workspace agent keeps new work')
  checks.append('the workspace agent is off by default and turned on in Advanced, with no folder button on the message box; with neither a folder nor a place for new ones, sending says where to choose')
- page.locator('.toolbar [data-action=inspector]').click();page.locator('[data-action=agent-root]').click();expect(made_in).to_have_text('C:\\Preview\\Tinfoil');expect(current).to_have_text('A new folder in C:\\Preview\\Tinfoil, made when you send')
+ page.locator('.toolbar:not(.remote-toolbar) [data-action=inspector]').click();page.locator('[data-action=agent-root]').click();expect(made_in).to_have_text('C:\\Preview\\Tinfoil');expect(current).to_have_text('A new folder in C:\\Preview\\Tinfoil, made when you send')
  page.locator('[data-action=agent-folder]').click();expect(current).to_have_text('C:\\Preview\\example-project');expect(page.locator('#agent-folder-new')).to_be_visible()
  page.locator('#agent-folder-new').click();expect(current).to_have_text('A new folder in C:\\Preview\\Tinfoil, made when you send');expect(page.locator('#agent-folder-new')).to_be_hidden()
  checks.append('Advanced shows the conversation\'s folder and where new ones are made, both chosen natively; a project folder can be chosen, and dropped for a new folder')
@@ -154,7 +154,7 @@ with sync_playwright() as p:
  edit.locator('[data-action=approve-tool]').click();expect(page.locator('#toast')).to_contain_text('does not execute Python, run commands, change files')
  checks.append('finished agent calls keep their results in the history, and the offline preview refuses to apply or run anything')
  made=re.compile(r'^C:\\Preview\\Tinfoil\\\d{4}-\d{2}-\d{2} workspace agent demo [0-9a-f]{4}$');expect(command.locator('.agent-where')).to_contain_text('C:\\Preview\\Tinfoil\\')
- page.locator('.toolbar [data-action=inspector]').click();expect(current).to_have_text(made);expect(page.locator('#agent-folder-new')).to_be_visible();page.locator('#inspector [data-action=inspector]').click()
+ page.locator('.toolbar:not(.remote-toolbar) [data-action=inspector]').click();expect(current).to_have_text(made);expect(page.locator('#agent-folder-new')).to_be_visible();page.locator('#inspector [data-action=inspector]').click()
  checks.append('sending without a folder gives the conversation a new one, named after the date and its first message, under the chosen place')
  page.evaluate("document.getElementById('toast').classList.add('hidden')");page.screenshot(path=str(root/'docs'/'agent-1280.png'));context.close()  # the README's picture of the agent
  # The approval window's page (desktop/approval-window.mjs), with a stand-in for its bridge: the request, one decision

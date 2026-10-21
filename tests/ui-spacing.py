@@ -63,8 +63,8 @@ with sync_playwright() as p:
         assert abs(column['x']-composer['x'])<=1 and abs(column['width']-composer['width'])<=1,(name,column,composer)
         assert column['width']<=801
         checks.append(f'{name}: transcript and composer share exact left/right edges and a bounded reading width')
-        assert not no_overlap(page,'.toolbar > .icon-button,.toolbar > .thread-heading,.toolbar > .export-menu')
-        assert rect(page,'.toolbar')['height']<=72
+        assert not no_overlap(page,'.toolbar:not(.remote-toolbar) > .icon-button,.toolbar:not(.remote-toolbar) > .thread-heading,.toolbar:not(.remote-toolbar) > .export-menu:not(#remote-toolbar *)')
+        assert rect(page,'.toolbar:not(.remote-toolbar)')['height']<=72
         checks.append(f'{name}: breadcrumb/title and toolbar actions fit without overlap or inflated header height')
         assert page.evaluate('document.documentElement.scrollWidth<=innerWidth+1')
         assert rect(page,'#prompt')['height']<=50
@@ -96,15 +96,15 @@ with sync_playwright() as p:
         assert 8<=region['y']-(jump['y']+jump['height'])<=16,(name,jump,region)
         assert rect(page,'#prompt')['height']>50
         checks.append(f'{name}: multiline draft grows and Latest stays above the measured composer height')
-        page.evaluate('window.__spacingBusy(true)');expect(page.locator('#quick-effort')).to_be_visible();expect(page.locator('#stop')).to_be_visible();page.wait_for_timeout(180)
+        page.evaluate('window.__spacingBusy(true)');expect(page.locator('#quick-effort')).to_be_visible();expect(page.locator('#stop')).to_be_visible();expect(page.locator('#send')).to_be_hidden();page.wait_for_timeout(180)
         bounds=rect(page,'.composer')
         expect(page.locator('#composer-instructions')).to_have_class('instructions-chip is-set')
-        for control in ['#composer-model','#quick-effort','#composer-instructions','#stop','#send']:
+        for control in ['#composer-model','#quick-effort','#composer-instructions','#stop']:
             assert inside(rect(page,control),bounds),(name,control,rect(page,control),bounds)
         assert not no_overlap(page,'.composer-tools > button,.composer-tools > select')
-        checks.append(f'{name}: effort, model, instructions, Stop and Send remain inside the composer without collisions')
+        checks.append(f'{name}: effort, model, instructions and Stop, in Send’s place, remain inside the composer without collisions')
         page.evaluate('window.__spacingBusy(false)');page.locator('#prompt').fill('');page.wait_for_timeout(180)
-        page.locator('#prompt').fill('A draft opened in the larger editor.');page.locator('[data-action=edit-draft]').click();expect(page.locator('#edit-dialog')).to_be_visible()
+        page.locator('#prompt').fill('A draft opened in the larger editor.');page.locator('[data-action=edit-draft]:not(#remote-toolbar *):not(#remote-composer *)').click();expect(page.locator('#edit-dialog')).to_be_visible()
         box=rect(page,'#edit-dialog');save=rect(page,'#editor-save');field=rect(page,'#editor-content')
         assert inside(save,box) and inside(field,box)
         assert not no_overlap(page,'.editor-modes button,.editor-format button')
@@ -134,8 +134,8 @@ with sync_playwright() as p:
         checks.append(f'{name}: artifact workspace tool groups wrap instead of colliding')
         page.locator('[data-panel=close]').click()
         # Settings use the same content inset and do not spill at narrow widths.
-        page.locator('.toolbar [data-action=inspector]').click();expect(page.locator('#inspector')).to_be_visible()
-        assert page.locator('.inspector-body').evaluate('e=>e.scrollWidth<=e.clientWidth+1')
+        page.locator('.toolbar:not(.remote-toolbar) [data-action=inspector]').click();expect(page.locator('#inspector')).to_be_visible()
+        assert page.locator('.inspector-body.local-advanced-panel').evaluate('e=>e.scrollWidth<=e.clientWidth+1')
         heading=page.locator('.field-heading').evaluate('e=>[getComputedStyle(e).marginTop,getComputedStyle(e.querySelector("label")).marginTop,getComputedStyle(e.querySelector("label")).marginBottom]')
         assert heading==['16px','0px','0px'],(name,heading)
         checks.append(f'{name}: advanced fields keep their inset without sideways overflow, and the instructions heading adds no extra margin')
@@ -161,7 +161,7 @@ with sync_playwright() as p:
     # Simulated keyboard occupation, not a hardware/on-screen-keyboard test.
     context=browser.new_context(viewport={'width':390,'height':420},has_touch=True,is_mobile=True)
     page=context.new_page();page.on('pageerror',lambda e:errors.append(str(e)));page.set_content(html);page.evaluate('window.__spacingSeed()')
-    page.locator('#prompt').fill('A draft retained during keyboard-height simulation.');page.locator('[data-action=edit-draft]').tap()
+    page.locator('#prompt').fill('A draft retained during keyboard-height simulation.');page.locator('[data-action=edit-draft]:not(#remote-toolbar *):not(#remote-composer *)').tap()
     assert rect(page,'#editor-content')['height']>=60
     assert rect(page,'#editor-save')['y']+rect(page,'#editor-save')['height']<=420
     checks.append('reduced phone height: editor keeps at least 60px of writable area with visible Save')

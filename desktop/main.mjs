@@ -10,6 +10,8 @@ import { artifactSource, chartSpec, chartSVG, diagramSpec, diagramSVG, tableSpec
 import { markdown, escapeHtml } from '../dist/core/markdown.js';
 import { randomUUID } from 'node:crypto';
 import { EncryptedVault } from './vault.mjs';
+import { RemoteController } from './remote-controller.mjs';
+import { enrollRemoteChat } from './remote-enrollment.mjs';
 import { WorkbenchService } from './service.mjs';
 import { runPython } from './python-runner.mjs';
 import { findPythons, describePython } from './python-find.mjs';
@@ -40,7 +42,7 @@ const origin = 'app://workbench/index.html';
 protocol.registerSchemesAsPrivileged([{ scheme: 'app', privileges: { standard: true, secure: true, supportFetchAPI: true } }]);
 app.enableSandbox();
 app.setAppUserModelId('org.avrena.tinfoil.workbench');
-let window, service, account, accountFlow, closeCoordinator, approvals, quitting = false;
+let window, service, account, accountFlow, closeCoordinator, approvals, remote, quitting = false;
 /** Asks before acting, in Workbench's own window (core/approval.ts `confirmation`) rather than a Windows message box. */
 const confirm = options => approvals.ask(window, confirmation(options));
 if (!app.requestSingleInstanceLock()) app.quit();
@@ -73,6 +75,9 @@ async function launch() {
     token: async force => (await account.sessionToken(force)).bearer,
   })})});
   await service.initialize();
+  remote = new RemoteController({ store: new EncryptedVault(join(app.getPath('userData'), 'remote'), safeStorage), confirm,
+    enroll: (host, send) => enrollRemoteChat(host, send, { BrowserWindow, session, confirm }) });
+  await remote.initialize();
   syncTheme();
   // Cloud chats sync after sign-in and then every ten minutes while the app is open.
   if (!smoke) setInterval(() => service.syncCloud(), 600_000).unref?.();
@@ -137,6 +142,10 @@ async function launch() {
   window.on('closed', () => { closeCoordinator?.dispose(); window = null; app.quit(); });
   ipcMain.handle('workbench:snapshot', guarded(async () => service.snapshot()));
   ipcMain.handle('workbench:command', guarded(async (_event, input) => command(input)));
+  ipcMain.handle('workbench:remote', guarded(async (_event, input) => {
+    if (process.platform !== 'win32') throw new InputError('Remote agents are available in the Windows app.');
+    return remote.execute(input);
+  }));
   ipcMain.handle('workbench:folder', guarded(async (_event, path) => droppedFolder(path)));
   await window.loadURL(origin);
   if (smoke) {
@@ -289,6 +298,8 @@ async function command(input) {
       if (!closeCoordinator?.acknowledge(identifier(c.requestId))) throw new InputError('This close request is no longer active.');
       break;
     case 'window.close-response':
+      if (c.allow && remote.busy) throw new InputError('Finish the pending remote action before closing. Running remote jobs do not prevent closing.');
+      if (c.allow) await remote.flush();
       if (typeof c.allow !== 'boolean' || !await persistCloseDecision(closeCoordinator, identifier(c.requestId), c.allow, () => service.save())) throw new InputError('This close request is no longer active.');
       // Approval may destroy the renderer; do not perform any new operations.
       break;
@@ -536,5 +547,5 @@ app.on('before-quit', event => {
   // Preserve partial text even when verification does not support cancellation.
   let timer;
   const grace = new Promise(resolve => { timer = setTimeout(resolve, 5000); });
-  Promise.race([Promise.allSettled([service.shutdown(),account?.shutdown()]), grace]).finally(() => { clearTimeout(timer); app.quit(); });
+  Promise.race([Promise.allSettled([service.shutdown(),account?.shutdown(),remote?.shutdown()]), grace]).finally(() => { clearTimeout(timer); app.quit(); });
 });

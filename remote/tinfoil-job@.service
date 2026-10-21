@@ -1,0 +1,28 @@
+[Unit]
+Description=Tinfoil Workbench unattended job %i
+After=network-online.target docker.service
+Wants=network-online.target
+Requires=docker.service
+
+[Service]
+Type=exec
+User=tinfoil-runner
+Group=tinfoil-runner
+WorkingDirectory=/usr/local/lib/tinfoil-workbench
+ExecStart=/usr/local/lib/tinfoil-workbench-node remote/worker.mjs %i
+ExecStopPost=+/usr/local/lib/tinfoil-workbench/remote/broker.py --stop-job %i
+LoadCredential=session-key:/etc/tinfoil-workbench/session-key
+Environment=PLAYWRIGHT_BROWSERS_PATH=/opt/tinfoil-workbench-browsers
+UMask=0077
+Restart=no
+RuntimeMaxSec=3700
+TimeoutStopSec=30
+KillMode=control-group
+MemoryMax=640M
+TasksMax=256
+CPUQuota=50%
+PrivateTmp=yes
+ProtectHome=yes
+ProtectSystem=full
+StandardOutput=null
+StandardError=journal

@@ -3,7 +3,7 @@ Usage: python tests/render-cost.py --baseline /path/to/v0.5-preview.html
 Instruments in-memory copies only. Tracks Markdown calls/input, measured function
 CPU time, and template characters supplied to updateMarkup (not total heap/GPU).
 """
-import argparse, json, statistics
+import argparse, json, statistics, platform
 from pathlib import Path
 from playwright.sync_api import sync_playwright
 parser=argparse.ArgumentParser();parser.add_argument('--baseline');parser.add_argument('--runs',type=int,default=3);parser.add_argument('--chromium',default=None);args=parser.parse_args()
@@ -46,7 +46,7 @@ with sync_playwright() as p:
   results[name]={'runs':rows,'median':{k:round(statistics.median(r[k] for r in rows),3) for k in rows[0]}}
  browser.close()
 import hashlib
-report={'current_version':version,'baseline_sha256':hashlib.sha256(Path(args.baseline).read_bytes()).hexdigest() if args.baseline else None,'scope':'Synthetic production-renderer fixture: 30 paced appends, five retained math/code sections and charts, collapsed reasoning; setup excluded. Not API latency, Windows, GPU power, or token billing. Times are instrumentation on a shared Linux Chromium host.','results':results}
+report={'current_version':version,'platform':platform.platform(),'baseline_sha256':hashlib.sha256(Path(args.baseline).read_bytes()).hexdigest() if args.baseline else None,'scope':'Synthetic production-renderer fixture: 30 paced appends, five retained math/code sections and charts, collapsed reasoning; setup excluded. Not API latency, native Electron, GPU power, or token billing. Times are Chromium instrumentation on the reported test host.','results':results}
 if 'baseline' in results:
  a,b=results['baseline']['median'],results[version]['median'];report['reductions_percent']={k:round(100*(1-b[k]/a[k]),2) for k in ['markdownCharacters','templateCharacters','markdownCalls'] if a[k]}
  # Regression budget, not the earlier v0.4->v0.5 optimization target.

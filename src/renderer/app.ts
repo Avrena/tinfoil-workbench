@@ -1,4 +1,7 @@
+import { heading, conversationMenu, readingButtons, pendingSettings as pendingMarkup, generationFields, reasoningDisclosure, answerReadActions, answerFooter, answerSignature, effortMarkup } from './conversation-ui.js';
+import { EffortControl } from './effort-control.js';
 import { accountFooter, accountOverview } from './account-view.js';
+import { RemoteAgents, executionToggle } from './remote-view.js';
 import { Reveal } from './reveal.js';
 import { activityMarkup, ActivityDetailsRenderer, onActivityRoll } from './activity-view.js';
 import { toolActive } from '../core/activity.js';
@@ -21,7 +24,7 @@ import { viewPreferences, type ViewPreferences } from '../core/preferences.js';
 import { themeTokens, themeVariant, type ThemePreferences } from '../core/themes.js';
 import { renderDataPreview, staticPreview } from './artifacts.js';
 import { escapeHtml as e, clearMarkdownCaches, extractCodeBlocks } from '../core/markdown.js';
-import { effortGauge, turnEffortGauge, icon, button } from './icons.js';
+import { icon, button } from './icons.js';
 import { AGENT_TOOL_NAMES, AGENT_LIMITS } from '../core/agent.js';
 import { STARTER_INSTRUCTIONS, activeInstructions } from '../core/instructions.js';
 import { instructionsListMarkup, instructionsSummary } from './instructions-view.js';
@@ -48,12 +51,12 @@ function backgroundSlider(key:'strength'|'blur'|'greyscale'|'dim',label:string,u
 app.innerHTML = `<div class="shell no-inspector" id="shell">
   <header class="titlebar"><div class="title-brand">${icon('logo')}<span>Tinfoil Workbench</span></div><button class="title-search" data-action="palette" aria-label="Open command palette">${icon('search')}<span>Search or command</span><kbd class="shortcut">Ctrl K</kbd></button><div class="title-trailing"><span id="preview-label" class="preview-label hidden">Offline preview</span><div class="window-controls">${button('minimize','Minimize','minus')}${button('maximize','Maximize or restore','square')}${button('close','Close window','close')}</div></div></header>
   <aside class="sidebar" aria-label="Conversations"><div class="sidebar-head"><h2>Workspace</h2>${button('new','New conversation','plus','class="icon-button"')}${button('close-drawers','Close navigation','close','class="icon-button drawer-close"')}</div><div class="sidebar-search">${icon('search')}<input id="search" type="search" placeholder="Search conversations, or #tag" aria-label="Filter conversations"></div><div class="tag-filter" id="tag-filter" role="group" aria-label="Show conversations with these tags" hidden></div><div class="nav-section-heading"><h2><button type="button" class="nav-section-toggle" data-action="nav-fold" data-section="projects" id="projects-toggle" aria-expanded="true" aria-controls="nav-projects">${icon('down')}<span>Projects</span></button></h2><span id="projects-count"></span>${button('project-create','New project','plus','class="icon-button"')}</div><div class="sr-only" id="thread-count"></div><div class="thread-list" id="thread-list"></div><div class="sidebar-bottom"><button class="account-footer" data-action="account" id="account-footer" aria-label="Account & connection"></button><button data-action="settings">${icon('settings')}Settings</button></div></aside>
-  <main class="main" id="main"><div class="chat-backdrop" id="chat-backdrop" aria-hidden="true" hidden><div class="backdrop-picture"></div><div class="backdrop-texture"></div></div><header class="toolbar">${button('sidebar','Toggle conversation sidebar','panel','class="icon-button"')}<div class="thread-heading"><div class="thread-crumbs"><button class="project-breadcrumb" data-action="thread-project" id="project-breadcrumb" title="Move thread to project">Unfiled</button><button type="button" class="thread-tags" data-action="thread-tags" id="thread-tags"></button></div><h1><button class="toolbar-title" data-action="rename-thread" id="thread-title" title="Rename thread"></button></h1><button id="branch-origin" class="branch-origin hidden" data-action="original-thread">Original thread</button></div><span class="spacer"></span>${button('find','Find in conversation','search','class="icon-button"')}${button('view','Reading & visibility','eye','class="icon-button"')}<details class="export-menu"><summary aria-label="Conversation menu" title="Conversation menu">${icon('more')}</summary><div class="export-popover"><button data-action="account">Account & connection</button><button data-action="rename">Rename thread</button><button data-action="thread-tags">Tags…</button><button data-action="move-project">Move to project…</button><button data-action="cloud-upload" id="cloud-upload" hidden>Move to Tinfoil cloud</button><button class="mobile-menu-item" data-action="mobile-find">Find in thread</button><button class="mobile-menu-item" data-action="mobile-view">Reading & visibility</button><button data-action="pin">Pin / unpin</button><button data-action="compare" id="compare-toggle" aria-pressed="false">Compare models</button><button data-action="instructions-picker">System instructions…</button><button data-action="export-md">Export Markdown</button><button data-action="export-json">Export JSON</button><button data-action="import">Import conversation</button><button data-action="delete" class="danger">Delete conversation…</button></div></details>${button('artifacts','Artifact workspace','panel','class="icon-button"')}${button('inspector','Advanced conversation settings','settings','class="icon-button"')}</header>
+  <main class="main" id="main"><div class="chat-backdrop" id="chat-backdrop" aria-hidden="true" hidden><div class="backdrop-picture"></div><div class="backdrop-texture"></div></div><header class="toolbar">${button('sidebar','Toggle conversation sidebar','panel','class="icon-button"')}${heading(`<button class="project-breadcrumb" data-action="thread-project" id="project-breadcrumb" title="Move thread to project">Unfiled</button><button type="button" class="thread-tags" data-action="thread-tags" id="thread-tags"></button>`,'thread-title','New conversation','Rename thread',`<button id="branch-origin" class="branch-origin hidden" data-action="original-thread">Original thread</button>`)}<span class="spacer"></span>${readingButtons()}${conversationMenu(`<button data-action="account">Account & connection</button><button data-action="rename">Rename thread</button><button data-action="thread-tags">Tags…</button><button data-action="move-project">Move to project…</button><button data-action="cloud-upload" id="cloud-upload" hidden>Move to Tinfoil cloud</button><button class="mobile-menu-item" data-action="mobile-find">Find in thread</button><button class="mobile-menu-item" data-action="mobile-view">Reading & visibility</button><button data-action="pin">Pin / unpin</button><button data-action="compare" id="compare-toggle" aria-pressed="false">Compare models</button><button data-action="instructions-picker">System instructions…</button><button data-action="export-md">Export Markdown</button><button data-action="export-json">Export JSON</button><button data-action="import">Import conversation</button><button data-action="delete" class="danger">Delete conversation…</button>`)}${button('artifacts','Artifact workspace','panel','class="icon-button"')}${button('inspector','Advanced conversation settings','settings','class="icon-button"')}</header>
     <div id="find-bar" class="find-bar hidden"><input id="find-input" type="search" placeholder="Find in this conversation" aria-label="Find in this conversation"><span id="find-count"></span>${button('find-prev','Previous match','up','class="icon-button"')}${button('find-next','Next match','down','class="icon-button"')}${button('find-close','Close find','close','class="icon-button"')}</div>
     <div id="notice" class="notice hidden" role="status"></div><div class="transcript" id="transcript" tabindex="0" aria-label="Conversation"><div id="transcript-inner" class="transcript-inner"></div></div><button class="jump hidden" id="jump" data-action="jump">${icon('down')}Latest</button>
-    <div class="composer-region"><div class="pending-settings hidden" id="pending-settings" role="status"><span>Unapplied settings</span><button type="button" data-action="apply-pending">Apply</button><button type="button" data-action="discard-pending">Discard</button></div><div class="message-edit hidden" id="message-edit" role="status"><span class="message-edit-label">${icon('write')}<span id="message-edit-label">Editing a message</span></span><span class="message-edit-note">Send makes a new version</span><button type="button" data-action="message-edit-cancel">Cancel</button></div><div class="role-tab-row" id="role-tab-row" hidden><div class="role-tab" id="role-tab" role="radiogroup" aria-label="Add this message as">${([['user','person','User'],['assistant','spark','Assistant'],['system','settings','System']] as const).map(([role,glyph,label])=>`<button type="button" role="radio" data-role-choice="${role}" aria-checked="${role==='user'}" tabindex="${role==='user'?0:-1}">${icon(glyph)}<span>${label}</span></button>`).join('')}</div><div class="composer-flags" id="composer-flags" hidden><button type="button" class="composer-flag" id="tools-badge" data-action="show-inspector" hidden>${icon('code')}<span>Python</span></button><button type="button" class="composer-flag" id="agent-badge" data-action="show-inspector" hidden>${icon('terminal')}<span>Agent</span></button></div></div><form id="composer-form" class="composer"><div class="attachments hidden" id="attachments"></div><textarea id="prompt" enterkeyhint="enter" placeholder="Message Tinfoil…" aria-label="Message" rows="1" maxlength="160000"></textarea><div class="composer-tools">${button('attach','Attach files: text and code, pictures and PDFs (or drop or paste them)','attach','class="icon-button"')}${button('edit-draft','Expand message editor','expand','class="icon-button"')}<button type="button" data-action="model-picker" class="model-name" id="composer-model">Choose model</button><span id="quick-effort-wrap" class="quick-effort-wrap hidden"><button type="button" id="quick-effort" class="quick-effort" data-action="effort-toggle" aria-haspopup="dialog" aria-expanded="false" aria-controls="effort-panel" aria-label="Thinking effort"><span id="effort-gauge" class="effort-gauge" aria-hidden="true"></span></button><div id="effort-panel" class="effort-panel" role="dialog" aria-label="Thinking effort" hidden><div class="effort-panel-head"><span>Thinking effort</span><strong id="effort-value">Default</strong></div><div id="effort-slider" class="effort-slider" role="slider" tabindex="0" aria-label="Thinking effort" aria-valuemin="0" aria-valuemax="1" aria-valuenow="0"><div class="effort-track"><div class="effort-fill"></div><div id="effort-ticks" class="effort-ticks"></div><div class="effort-thumb"></div></div></div><div id="effort-stops" class="effort-stops"></div></div></span><button type="button" data-action="instructions-picker" class="instructions-chip" id="composer-instructions" aria-label="System instructions">${icon('instructions')}<span id="composer-instructions-name"></span></button><span class="spacer"></span><button type="button" data-action="stop" class="stop hidden" id="stop">${icon('stop')}Stop</button><button type="submit" class="send" id="send" title="Send message">${icon('send')}<span class="sr-only">Send</span></button></div></form><div class="composer-meta"><span id="compose-hint">Enter to send · Shift + Enter for a new line</span><span id="context-size"></span></div></div>
+    <div class="composer-region">${pendingMarkup('pending-settings')}<div class="message-edit hidden" id="message-edit" role="status"><span class="message-edit-label">${icon('write')}<span id="message-edit-label">Editing a message</span></span><span class="message-edit-note">Send makes a new version</span><button type="button" data-action="message-edit-cancel">Cancel</button></div><div class="role-tab-row" id="role-tab-row" hidden>${executionToggle('execution-toggle','local')}<div class="role-tab" id="role-tab" role="radiogroup" aria-label="Add this message as">${([['user','person','User'],['assistant','spark','Assistant'],['system','settings','System']] as const).map(([role,glyph,label])=>`<button type="button" role="radio" data-role-choice="${role}" aria-checked="${role==='user'}" tabindex="${role==='user'?0:-1}">${icon(glyph)}<span>${label}</span></button>`).join('')}</div><div class="composer-flags" id="composer-flags" hidden><button type="button" class="composer-flag" id="tools-badge" data-action="show-inspector" hidden>${icon('code')}<span>Python</span></button><button type="button" class="composer-flag" id="agent-badge" data-action="show-inspector" hidden>${icon('terminal')}<span>Agent</span></button></div></div><form id="composer-form" class="composer"><div class="attachments hidden" id="attachments"></div><textarea id="prompt" enterkeyhint="enter" placeholder="Message Tinfoil…" aria-label="Message" rows="1" maxlength="160000"></textarea><div class="composer-tools">${button('attach','Attach files: text and code, pictures and PDFs (or drop or paste them)','attach','class="icon-button"')}${button('edit-draft','Expand message editor','expand','class="icon-button"')}<button type="button" data-action="model-picker" class="model-name" id="composer-model">Choose model</button>${effortMarkup()}<button type="button" data-action="instructions-picker" class="instructions-chip" id="composer-instructions" aria-label="System instructions">${icon('instructions')}<span id="composer-instructions-name"></span></button><span class="spacer"></span><button type="button" data-action="stop" class="send stop hidden" id="stop" title="Stop">${icon('stop')}<span class="sr-only">Stop</span></button><button type="submit" class="send" id="send" title="Send message">${icon('send')}<span class="sr-only">Send</span></button></div></form><div class="composer-meta"><span id="compose-hint">Enter to send · Shift + Enter for a new line</span><span id="context-size"></span></div></div>
   </main>
-  <aside class="inspector" id="inspector"><header class="inspector-header"><span>Advanced</span>${button('inspector','Close advanced settings','close','class="icon-button"')}</header><div class="inspector-body"><form id="config-form"><section><div class="eyebrow">Conversation</div><datalist id="models"></datalist><div id="compare-field" class="hidden"><label for="compare-model">Compare with</label><input id="compare-model" list="models" placeholder="Second model ID" autocomplete="off"><p>Two independent requests. Select one reply to continue.</p></div><div class="field-heading"><label for="instructions">System instructions <span class="field-optional">Optional</span></label><button type="button" class="field-action" data-action="instructions-picker" aria-label="Choose saved or starter instructions" title="Choose saved or starter instructions">Choose…</button></div><textarea id="instructions" maxlength="40000" aria-describedby="instructions-applied"></textarea><p id="instructions-applied" class="instructions-applied" hidden></p></section><section><div class="eyebrow">Generation</div><div class="two-fields"><div><label for="temperature">Temperature</label><input id="temperature" type="number" min="0" max="2" step="0.1" placeholder="Default"></div><div><label for="max-tokens">Output limit</label><input id="max-tokens" type="number" min="1" max="131072" step="1" value="32768"></div></div><div id="reasoning-controls"><label for="reasoning">Thinking effort</label><select id="reasoning"></select></div><div id="thinking-controls">${choice('thinking-mode','Thinking mode',THINKING)}</div><p id="capability-note"></p><div id="compare-reasoning-controls" class="hidden"><label for="compare-reasoning">Comparison model effort</label><select id="compare-reasoning"></select><div id="compare-thinking-controls">${choice('compare-thinking-mode','Comparison thinking',THINKING)}</div><p id="compare-capability-note"></p></div><label class="toggle-row"><span>Charts, documents & visual tools</span><input id="visual-tools" type="checkbox"></label><p>In-app charts, tables and documents, made without Python. Files are saved only when you choose Save.</p>${choice('tools-mode','Model-requested Python',[['off','minus','Off','Off'],['ask','shield','Ask','Ask before every run']])}<div id="python-interpreter" class="python-interpreter" hidden><div id="python-status" class="python-status" role="status"></div><div id="python-choice" class="python-choice" hidden><label for="python-found">Python to use</label><select id="python-found"></select></div><div class="python-actions"><button type="button" data-action="python-find" id="python-find">Find installed Python</button><button type="button" data-action="python-pick">Choose python.exe…</button><button type="button" data-action="python-get" id="python-get" hidden>Get Python…</button></div></div><p>Runs on this computer with your permissions, not in a sandbox. Each run asks first, unless this conversation’s workspace agent runs commands without asking.</p><div class="eyebrow activity-settings-heading">Provider tools & delegation</div><label class="toggle-row"><span>Tinfoil web search</span><input id="web-search" type="checkbox"></label><p>Tinfoil’s built-in, MCP-backed search. Needs provider access; additional tool usage may apply.</p>${choice('delegate-mode','Text-only sub-agents',[['off','minus','Off','Off'],['ask','shield','Ask','Ask before each request']])}<p>The same model with only the task as context: up to two extra requests per send, without tools or further sub-agents.</p><div id="agent-settings" class="agent-settings hidden"><div class="eyebrow activity-settings-heading">Workspace agent · Windows</div><label class="toggle-row"><span>Work in a folder: read, change files, run commands</span><input id="agent-mode" type="checkbox"></label>${choice('agent-shell','Shell',[['powershell','terminal','PowerShell','Windows PowerShell 5.1'],['bash','branch','Git Bash','Git Bash']])}${choice('agent-approval','Approvals',[['ask','shield','Ask','Ask before every command and change'],['changes','write','Auto-edit','Apply changes in the folder without asking'],['auto','terminal','Auto-run','Also run commands without asking']],true)}<p id="agent-approval-note" class="agent-approval-note"></p><div class="agent-folders" id="agent-folders"><div class="agent-folder-row"><span class="agent-folder-label">This conversation’s folder</span><span class="agent-folder-path" id="agent-folder-current"></span></div><div class="agent-folder-actions"><button type="button" data-action="agent-folder" id="agent-folder-choose">Choose a project folder…</button><button type="button" data-action="agent-folder-new" id="agent-folder-new" hidden>Use a new folder</button></div><div class="agent-folder-row"><span class="agent-folder-label">New folders are made in</span><span class="agent-folder-path" id="agent-root-current"></span></div><div class="agent-folder-actions"><button type="button" data-action="agent-root" id="agent-root-choose">Choose…</button></div></div><p>The model reads files in the conversation’s folder without asking. Commands run with your Windows account’s permissions, not in a sandbox; with web search on too, web pages can suggest them. Not in Tinfoil cloud chats.</p></div><details class="tool-support"><summary>API support & limits</summary><p>Batch: multiple tool calls in one completion round, executed sequentially here. This is not an offline billing Batch API.</p><p>MCP: displays Tinfoil-managed search and code-execution events. Arbitrary MCP server connections are not configured by this client.</p><p>Native hosted sub-agent events have not been verified. The optional delegate tool makes a separate approved Chat Completions request.</p></details><button class="primary apply" type="submit" id="apply-settings">Apply settings</button></section></form><section class="inspector-editing"><div class="eyebrow">Editing · all conversations</div><label class="toggle-row"><span>Add messages in other roles</span><input id="view-roleMessages" type="checkbox"></label><p>Shows a User, Assistant and System tab on the message box, to add an assistant or system message without asking a model. Tinfoil cloud chats have no place for them.</p></section><details class="connection-details"><summary>Connection & verification</summary><div id="connection-card" class="connection-card"></div></details></div></aside>
+  <aside class="inspector" id="inspector"><header class="inspector-header"><span id="inspector-title">Advanced</span>${button('inspector','Close advanced settings','close','class="icon-button"')}</header><div class="inspector-body local-advanced-panel"><form id="config-form"><section><div class="eyebrow">Conversation</div><datalist id="models"></datalist><div id="compare-field" class="hidden"><label for="compare-model">Compare with</label><input id="compare-model" list="models" placeholder="Second model ID" autocomplete="off"><p>Two independent requests. Select one reply to continue.</p></div><div class="field-heading"><label for="instructions">System instructions <span class="field-optional">Optional</span></label><button type="button" class="field-action" data-action="instructions-picker" aria-label="Choose saved or starter instructions" title="Choose saved or starter instructions">Choose…</button></div><textarea id="instructions" maxlength="40000" aria-describedby="instructions-applied"></textarea><p id="instructions-applied" class="instructions-applied" hidden></p></section><section><div class="eyebrow">Generation</div>${generationFields('temperature','max-tokens',131072,'0.1')}<div id="reasoning-controls"><label for="reasoning">Thinking effort</label><select id="reasoning"></select></div><div id="thinking-controls">${choice('thinking-mode','Thinking mode',THINKING)}</div><p id="capability-note"></p><div id="compare-reasoning-controls" class="hidden"><label for="compare-reasoning">Comparison model effort</label><select id="compare-reasoning"></select><div id="compare-thinking-controls">${choice('compare-thinking-mode','Comparison thinking',THINKING)}</div><p id="compare-capability-note"></p></div><label class="toggle-row"><span>Charts, documents & visual tools</span><input id="visual-tools" type="checkbox"></label><p>In-app charts, tables and documents, made without Python. Files are saved only when you choose Save.</p>${choice('tools-mode','Model-requested Python',[['off','minus','Off','Off'],['ask','shield','Ask','Ask before every run']])}<div id="python-interpreter" class="python-interpreter" hidden><div id="python-status" class="python-status" role="status"></div><div id="python-choice" class="python-choice" hidden><label for="python-found">Python to use</label><select id="python-found"></select></div><div class="python-actions"><button type="button" data-action="python-find" id="python-find">Find installed Python</button><button type="button" data-action="python-pick">Choose python.exe…</button><button type="button" data-action="python-get" id="python-get" hidden>Get Python…</button></div></div><p>Runs on this computer with your permissions, not in a sandbox. Each run asks first, unless this conversation’s workspace agent runs commands without asking.</p><div class="eyebrow activity-settings-heading">Provider tools & delegation</div><label class="toggle-row"><span>Tinfoil web search</span><input id="web-search" type="checkbox"></label><p>Tinfoil’s built-in, MCP-backed search. Needs provider access; additional tool usage may apply.</p>${choice('delegate-mode','Text-only sub-agents',[['off','minus','Off','Off'],['ask','shield','Ask','Ask before each request']])}<p>The same model with only the task as context: up to two extra requests per send, without tools or further sub-agents.</p><div id="agent-settings" class="agent-settings hidden"><div class="eyebrow activity-settings-heading">Workspace agent · Windows</div><label class="toggle-row"><span>Work in a folder: read, change files, run commands</span><input id="agent-mode" type="checkbox"></label>${choice('agent-shell','Shell',[['powershell','terminal','PowerShell','Windows PowerShell 5.1'],['bash','branch','Git Bash','Git Bash']])}${choice('agent-approval','Approvals',[['ask','shield','Ask','Ask before every command and change'],['changes','write','Auto-edit','Apply changes in the folder without asking'],['auto','terminal','Auto-run','Also run commands without asking']],true)}<p id="agent-approval-note" class="agent-approval-note"></p><div class="agent-folders" id="agent-folders"><div class="agent-folder-row"><span class="agent-folder-label">This conversation’s folder</span><span class="agent-folder-path" id="agent-folder-current"></span></div><div class="agent-folder-actions"><button type="button" data-action="agent-folder" id="agent-folder-choose">Choose a project folder…</button><button type="button" data-action="agent-folder-new" id="agent-folder-new" hidden>Use a new folder</button></div><div class="agent-folder-row"><span class="agent-folder-label">New folders are made in</span><span class="agent-folder-path" id="agent-root-current"></span></div><div class="agent-folder-actions"><button type="button" data-action="agent-root" id="agent-root-choose">Choose…</button></div></div><p>The model reads files in the conversation’s folder without asking. Commands run with your Windows account’s permissions, not in a sandbox; with web search on too, web pages can suggest them. Not in Tinfoil cloud chats.</p></div><details class="tool-support"><summary>API support & limits</summary><p>Batch: multiple tool calls in one completion round, executed sequentially here. This is not an offline billing Batch API.</p><p>MCP: displays Tinfoil-managed search and code-execution events. Arbitrary MCP server connections are not configured by this client.</p><p>Native hosted sub-agent events have not been verified. The optional delegate tool makes a separate approved Chat Completions request.</p></details><button class="primary apply" type="submit" id="apply-settings">Apply settings</button></section></form><section class="inspector-editing"><div class="eyebrow">Editing · all conversations</div><label class="toggle-row"><span>Add messages in other roles</span><input id="view-roleMessages" type="checkbox"></label><p>Shows a User, Assistant and System tab on the message box, to add an assistant or system message without asking a model. Tinfoil cloud chats have no place for them.</p></section><details class="connection-details"><summary>Connection & verification</summary><div id="connection-card" class="connection-card"></div></details></div></aside>
   <button id="drawer-backdrop" data-action="close-drawers" aria-label="Close drawer" tabindex="-1" hidden></button>
   <div class="drop-overlay" id="drop-overlay" hidden><div class="drop-card">${icon('upload')}<strong>Drop to attach</strong><span>Text and code files, pictures and PDFs</span><span class="drop-folder">A folder is given to the workspace agent as its path</span></div></div>
   <footer class="statusbar"><button data-action="verify" id="status-connection"></button><span class="spacer"></span><span id="status-activity" role="status" aria-live="polite"></span></footer>
@@ -89,6 +92,47 @@ const artifactPanel = new ArtifactPanel($('shell'), {
 });
 const inlineArtifacts = new InlineArtifacts(entry=>artifactPanel.open(entry));
 const responsive = new ResponsiveLayout($('shell'),()=>{if(state){applyView();updateComposerHint();sizeComposer();}},()=>artifactPanel.close());
+const remoteAgents = new RemoteAgents($('shell'), bridge, {
+  // Public display metadata only. Remote availability is checked by the remote Chat session at submission.
+  models:()=>pickerModels([],state?.capabilities??[]),
+  loadModels:async()=>{if(state&&state.modelCatalog!=='ready')await dispatch({type:'models.catalog'});},
+  modelCatalogState:()=>state?.modelCatalog??'idle',
+  // The sanitized catalog (effort levels and thinking switches) and the saved instruction library, read when needed.
+  // Remote tasks never see a conversation's own settings, instructions or attachments.
+  capabilities:()=>state?.capabilities??[],
+  instructionPresets:()=>state?.workspace.instructionPresets??[],
+  reading:()=>view,
+  showAdvanced:()=>{void action('show-inspector');},
+  edit:session=>editor.open(session),
+  copy:async text=>{if(await dispatch({type:'clipboard',text}))toast('Copied.');},
+  rendered:()=>{if(!$('find-bar').classList.contains('hidden')&&$<HTMLInputElement>('find-input').value)findText();},
+  configurationChanged:()=>{renderExecutionToggle();if(state)renderSidebar();},
+  navigationChanged:()=>{if(state)renderSidebar();},
+});
+function renderExecutionToggle():void {
+  $('execution-toggle').hidden=!bridge?.remote||state?.platform==='android'||!remoteAgents.configured;
+  composerEdge();
+}
+/** Where Chat's transcript was scrolled when Remote took the view, put back when it returns. */
+let chatScroll:{top:number;bottom:boolean}|null=null;
+function keepChatScroll():void {const t=$('transcript');chatScroll={top:t.scrollTop,bottom:t.scrollHeight-t.scrollTop-t.clientHeight<110};}
+function restoreChatScroll():void {
+  const saved=chatScroll;chatScroll=null;if(!saved)return;
+  requestAnimationFrame(()=>{const t=$('transcript');t.scrollTop=saved.bottom?t.scrollHeight:saved.top;$('jump').classList.toggle('hidden',t.scrollHeight-t.scrollTop-t.clientHeight<150);});
+}
+/** Back to the conversation from Remote. The remote draft is saved first; when that fails the view stays. */
+async function leaveRemote():Promise<boolean> {
+  if(!remoteAgents.visible)return true;
+  if(!await remoteAgents.hide())return false;
+  clearFind();renderSidebar();applyView();restoreChatScroll();scheduleTranscript(true);return true;
+}
+/** The composer's Local / Remote tab. A switch saves the draft being left and stays put if that fails. It never sends,
+ * stops or clears anything: a chat that is answering goes on answering, and each side keeps its own draft. */
+async function execution(mode:string,keyboard=false):Promise<void> {
+  if(mode==='remote'){await action('remote');if(keyboard&&remoteAgents.visible)document.querySelector<HTMLElement>('#remote-execution [data-execution=remote]')?.focus();return;}
+  if(mode==='local'&&remoteAgents.visible&&await leaveRemote())(keyboard&&!$('execution-toggle').hidden?document.querySelector<HTMLElement>('#execution-toggle [data-execution=local]')!:$('prompt')).focus();
+}
+document.querySelector('.sidebar-bottom')!.insertAdjacentHTML('afterbegin',`<button type="button" data-action="remote" id="remote-nav">${icon('terminal')}Remote agents</button>`);
 const editor = new MessageEditor(()=>transcriptScheduler.cancel(),()=>scheduleTranscript(true));
 const inlineEditor = new InlineReplyEditor(edit=>dispatch({type:'reply.edit',id:edit.threadId,turnId:edit.turnId,replyId:edit.replyId,content:edit.draftContent,reasoning:edit.draftReasoning,expectedContent:edit.content,expectedReasoning:edit.reasoning}),
   edit=>{replyCache.delete(edit.replyId);scheduleTranscript(true);});
@@ -158,6 +202,9 @@ function accept(snapshot:Snapshot):void {
   const sequence = (snapshot as Snapshot & { sequence?:number }).sequence ?? ++revision;
   if (sequence < revision) return;
   revision=sequence; state=snapshot;state.workspace.projects??=[];state.workspace.instructionPresets??=[];
+  $('remote-nav').hidden=state.platform==='android';
+  // Android has no remote executor: no tab, and its composer stays as it was.
+  renderExecutionToggle();
   if(state.platform&&document.documentElement.dataset.platform!==state.platform){
     document.documentElement.dataset.platform=state.platform;
     const motion=document.querySelector<HTMLOptionElement>('#view-motion option[value="system"]');
@@ -200,8 +247,10 @@ function accept(snapshot:Snapshot):void {
   renderAgentFolder(thread);
   renderMessageEdit();
   $('send').querySelector('span')!.textContent=composerRole()!=='user'?'Add':thread.settings.compare?'Send to 2':'Send';
-  $<HTMLButtonElement>('send').disabled=!!state.busyThreadId || sending;
-  $('stop').classList.toggle('hidden',state.busyThreadId!==thread.id);
+  // While this conversation's reply runs, Stop takes Send's place, and focus in that place moves with it.
+  const send=$<HTMLButtonElement>('send'),stop=$<HTMLButtonElement>('stop'),running=state.busyThreadId===thread.id,slot=document.activeElement===send||document.activeElement===stop;
+  send.disabled=!!state.busyThreadId || sending;send.classList.toggle('hidden',running);stop.classList.toggle('hidden',!running);
+  const shown=running?stop:send;if(slot&&document.activeElement!==shown)(shown.disabled?$('prompt'):shown).focus();
   updateComposerHint();
   const size=thread.turns.reduce((n,t)=>n+t.prompt.length+t.replies.filter(r=>r.id===t.selectedReplyId).reduce((s,r)=>s+r.content.length,0)+t.attachments.reduce((s,a)=>s+a.content.length,0),thread.settings.systemPrompt.length);
   $('context-size').textContent=size?`${size.toLocaleString()} context characters`:'No context yet';
@@ -241,8 +290,10 @@ function cloudConnected():boolean { return !!state.cloud&&state.cloud.state!=='o
 const tagFilter=new Set<string>();
 function renderSidebar():void {
   const filter=$<HTMLInputElement>('search').value.toLowerCase(),tagging=state.workspace.tagging;
+  const remoteOn=!!bridge?.remote&&state.platform!=='android'&&remoteAgents.configured;
+  const remoteList=remoteOn&&remoteAgents.visible?remoteAgents.sidebar(filter):null;
   for(const id of [...tagFilter])if(!tagging.tags.some(t=>t.id===id))tagFilter.delete(id);
-  const signature=JSON.stringify([filter,state.workspace.activeId,state.busyThreadId,state.workspace.projects,[...collapsedProjects],state.cloudLoading,state.cloud?.state,state.workspace.view.threadTab,view.threadGroup,view.projectsFolded,view.threadsFolded,tagging.tags,[...tagFilter],state.tagStatus?.running,state.workspace.threads.map(t=>[t.id,t.title,t.projectId,t.pinned,t.updatedAt,t.turns.length,t.cloud?.loaded,t.cloudPending,t.tags,filter?t.turns.map(turn=>[turn.prompt,...turn.replies.map(r=>r.content)]):null])]);
+  const signature=JSON.stringify([filter,remoteAgents.visible,remoteOn,remoteList,state.workspace.activeId,state.busyThreadId,state.workspace.projects,[...collapsedProjects],state.cloudLoading,state.cloud?.state,state.workspace.view.threadTab,view.threadGroup,view.projectsFolded,view.threadsFolded,tagging.tags,[...tagFilter],state.tagStatus?.running,state.workspace.threads.map(t=>[t.id,t.title,t.projectId,t.pinned,t.updatedAt,t.turns.length,t.cloud?.loaded,t.cloudPending,t.tags,filter?t.turns.map(turn=>[turn.prompt,...turn.replies.map(r=>r.content)]):null])]);
   if(signature===navigationSignature)return;navigationSignature=signature;
   // "#name" finds conversations by tag; other text also matches tag names.
   const byTag=tagSearch(filter);
@@ -253,14 +304,15 @@ function renderSidebar():void {
   };
   const threads=[...state.workspace.threads].sort((a,b)=>Number(b.pinned)-Number(a.pinned)||b.updatedAt-a.updatedAt).filter(t=>[...tagFilter].every(id=>t.tags?.includes(id))&&matches(t));
   const narrowed=!!filter||tagFilter.size>0;
-  const cloudOn=cloudConnected(),tab=state.workspace.view.threadTab,syncing=state.cloud?.state==='syncing';
+  const cloudOn=cloudConnected(),tab=remoteList?'remote':cloudOn?state.workspace.view.threadTab:'local',syncing=state.cloud?.state==='syncing';
   // Hover actions sit beside the row's button, not inside it: a button cannot contain buttons.
   const actions=(t:Thread)=>`<span class="thread-actions">${cloudOn&&!t.cloud&&!t.cloudPending&&!t.projectId&&t.turns.length?button('row-cloud-upload',`Move “${e(t.title)}” to Tinfoil cloud`,'upload',`class="icon-button" data-row="${e(t.id)}"${state.busyThreadId?' disabled':''}`):''}${button('row-tags',`Tags of “${e(t.title)}”`,'tag',`class="icon-button" data-row="${e(t.id)}"`)}${button('row-delete',`Delete “${e(t.title)}”`,'trash',`class="icon-button" data-row="${e(t.id)}"`)}</span>`;
   // A tagged conversation shows its tags where an untagged one shows its turn count.
   const item=(t:Thread)=>{
     const chips=tagChips(t,tagging),detail=t.cloud&&!t.cloud.loaded?(state.cloudLoading?.includes(t.id)?'Loading from Tinfoil cloud':'Tinfoil cloud'):`${t.turns.length} ${t.turns.length===1?'turn':'turns'}`;
     const when=t.id===state.busyThreadId?'Generating':t.id===state.tagStatus?.running?'Tagging…':new Date(t.updatedAt).toLocaleDateString(undefined,{month:'short',day:'numeric'});
-    return `<div class="thread-row"><button class="thread ${t.id===state.workspace.activeId?'selected':''}${t.cloud?' cloud':''}" data-thread="${e(t.id)}" aria-current="${t.id===state.workspace.activeId?'page':'false'}" title="${e(t.title)}${t.cloud?' (Tinfoil cloud)':''}">${icon(t.pinned?'pin':t.cloud?'cloud':'chat')}<span class="thread-copy"><strong>${e(t.title)}</strong>${chips?`<span class="row-tags">${chips}</span>`:''}<small>${e(detail)} · ${when}</small></span></button>${actions(t)}</div>`;
+    const selected = !remoteAgents.visible && t.id === state.workspace.activeId;
+    return `<div class="thread-row"><button class="thread ${selected?'selected':''}${t.cloud?' cloud':''}" data-thread="${e(t.id)}" aria-current="${selected?'page':'false'}" title="${e(t.title)}${t.cloud?' (Tinfoil cloud)':''}">${icon(t.pinned?'pin':t.cloud?'cloud':'chat')}<span class="thread-copy"><strong>${e(t.title)}</strong>${chips?`<span class="row-tags">${chips}</span>`:''}<small>${e(detail)} · ${when}</small></span></button>${actions(t)}</div>`;
   };
   const projects=(state.workspace.projects??[]).map(project=>{
     const children=threads.filter(t=>t.projectId===project.id);if(narrowed&&!children.length&&!project.name.toLowerCase().includes(filter))return '';
@@ -277,15 +329,17 @@ function renderSidebar():void {
   else{const day=new Date();day.setHours(0,0,0,0);sections=group('Today',recent.filter(t=>t.updatedAt>=+day))+group('Earlier',recent.filter(t=>t.updatedAt<+day));}
   // The tag row lists the tags that conversations have; choosing several shows conversations that have them all.
   const used=tagging.tags.filter(tag=>state.workspace.threads.some(t=>t.tags?.includes(tag.id))||tagFilter.has(tag.id));
-  $('tag-filter').hidden=!used.length;
+  $('tag-filter').hidden=!!remoteList||!used.length;
   setMarkup($('tag-filter'),used.map(tag=>`<button type="button" class="tag-filter-chip" data-tag-filter="${e(tag.id)}" aria-pressed="${tagFilter.has(tag.id)}">${tagChip(tag)}</button>`).join(''));
   // A search shows every section; folding hides a section's list and keeps its heading.
   const foldProjects=view.projectsFolded&&!narrowed,foldThreads=view.threadsFolded&&!narrowed,count=state.workspace.projects?.length??0;
   $('projects-toggle').setAttribute('aria-expanded',String(!foldProjects));$('projects-count').textContent=count?String(count):'';
   const empty=narrowed?'No matching threads':!cloudOn?'No unfiled threads':tab==='cloud'?'No cloud chats':'No local threads';
-  setMarkup($('thread-list'),`<div id="nav-projects"${foldProjects?' hidden':''}>${projects||(narrowed?'':'<p class="nav-empty">Keep related threads together.</p>')}</div>`+`<div class="nav-section-heading"><h2><button type="button" class="nav-section-toggle" data-action="nav-fold" data-section="threads" aria-expanded="${!foldThreads}" aria-controls="nav-threads">${icon('down')}<span>Threads</span></button></h2><span>${loose.length}</span>${tagged?button('thread-group',byTags?'Group threads by date':'Group threads by tag','tag',`class="icon-button thread-group-toggle" aria-pressed="${byTags}"`):''}${cloudOn?button('cloud-sync',syncing?'Syncing Tinfoil cloud chats':'Sync Tinfoil cloud chats','sync',`class="icon-button cloud-sync${syncing?' syncing':''}"${syncing?' disabled':''}`):''}</div><div id="nav-threads"${foldThreads?' hidden':''}>`
-    +(cloudOn?`<div class="thread-tabs" role="group" aria-label="Threads to show">${(['cloud','local'] as const).map(name=>`<button type="button" data-action="thread-tab" data-tab="${name}" aria-pressed="${tab===name}">${icon(name==='cloud'?'cloud':'lock')}<span>${name==='cloud'?'Cloud':'Local'}</span></button>`).join('')}</div>`:'')
-    +group('Pinned',pinned)+sections+(!loose.length?`<p class="nav-empty">${empty}</p>`:'')+'</div>');
+  const tabs=[...(cloudOn?['cloud']:[]),...(remoteOn?['remote']:[]),'local'];
+  const refresh=remoteList?button('remote-refresh',remoteList.refreshing?'Refreshing remote tasks':'Refresh remote tasks','sync',`class="icon-button cloud-sync${remoteList.refreshing?' syncing':''}"${remoteList.disabled?' disabled':''}`):cloudOn?button('cloud-sync',syncing?'Syncing Tinfoil cloud chats':'Sync Tinfoil cloud chats','sync',`class="icon-button cloud-sync${syncing?' syncing':''}"${syncing?' disabled':''}`):'';
+  setMarkup($('thread-list'),`<div id="nav-projects"${foldProjects?' hidden':''}>${projects||(narrowed?'':'<p class="nav-empty">Keep related threads together.</p>')}</div>`+`<div class="nav-section-heading"><h2><button type="button" class="nav-section-toggle" data-action="nav-fold" data-section="threads" aria-expanded="${!foldThreads}" aria-controls="nav-threads">${icon('down')}<span>Threads</span></button></h2><span>${remoteList?remoteList.count:loose.length}</span>${tagged&&!remoteList?button('thread-group',byTags?'Group threads by date':'Group threads by tag','tag',`class="icon-button thread-group-toggle" aria-pressed="${byTags}"`):''}${refresh}</div><div id="nav-threads"${foldThreads?' hidden':''}>`
+    +(tabs.length>1?`<div class="thread-tabs" role="group" aria-label="Threads to show">${tabs.map(name=>`<button type="button" data-action="thread-tab" data-tab="${name}" aria-pressed="${tab===name}">${icon(name==='cloud'?'cloud':name==='remote'?'terminal':'lock')}<span>${name==='cloud'?'Cloud':name==='remote'?'Remote':'Local'}</span></button>`).join('')}</div>`:'')
+    +(remoteList?remoteList.html:group('Pinned',pinned)+sections+(!loose.length?`<p class="nav-empty">${empty}</p>`:''))+'</div>');
 }
 const modelName=(id:string)=>pickerModel(id,state.capabilities).name;
 /** The conversation's tags beside its title (a tag mark when it has none), and the tags dialog and Settings → Tags. */
@@ -390,23 +444,20 @@ function replyMarkup(reply:Reply, turn:Turn):string {
   const hasArtifact=tools.some(t=>t.artifacts.length);
   // A single answer starts with its content. Side-by-side lanes still name their model up front.
   return `${turn.replies.length>1?`<div class="message-label lane-label" data-key="identity"><span class="assistant-dot">${icon('logo')}</span><span>${e(reply.model)}</span></div>`:''}
-    <div class="reply-context ${(!reply.reasoning||view.reasoning==='hidden')&&!tools.length?'hidden':''}" data-key="context">${reply.reasoning&&view.reasoning!=='hidden'?`<details class="reasoning ${thinking?'is-thinking':''}" data-key="reasoning" data-disclosure="reason-${e(reply.id)}" ${reasonOpen?'open':''}><summary><span class="reasoning-label">${thinking?'Thinking':'Reasoning'}</span>${thinking?thinkingTimer(reply,'reason'):''}<span class="thinking-wave" aria-hidden="true"><i></i><i></i><i></i></span><small>${!thinking&&reply.thinkingMs?`Thought for ${thinkingClock(reply.thinkingMs)} · `:''}${reply.edit?.reasoningEdited?'Manually edited · local only':'Provided by the model'}</small></summary><div class="reasoning-content" data-key="reason-text" data-rich-host></div>${!streaming?`<div class="reasoning-actions"><button data-action="edit-thinking" data-turn="${e(turn.id)}" data-reply="${e(reply.id)}">${icon('write')}Edit thinking text</button></div>`:''}</details>`:''}
+    <div class="reply-context ${(!reply.reasoning||view.reasoning==='hidden')&&!tools.length?'hidden':''}" data-key="context">${reply.reasoning&&view.reasoning!=='hidden'?`${reasoningDisclosure({key:'reasoning',attrs:`data-disclosure="reason-${e(reply.id)}"`,contentAttrs:'data-key="reason-text"',open:reasonOpen,thinking,label:(thinking?'Thinking':'Reasoning')+(thinking?thinkingTimer(reply,'reason'):''),detail:(!thinking&&reply.thinkingMs?`Thought for ${thinkingClock(reply.thinkingMs)} · `:'')+(reply.edit?.reasoningEdited?'Manually edited · local only':'Provided by the model'),actions:!streaming?`<div class="reasoning-actions"><button data-action="edit-thinking" data-turn="${e(turn.id)}" data-reply="${e(reply.id)}">${icon('write')}Edit thinking text</button></div>`:''})}`:''}
     <div class="reply-tool-activity" data-key="tools">${activityMarkup(reply)}</div></div>
     <div class="reply-content response-flow ${writing?'streaming-answer':''}${flowingReplies.has(reply.id)?' flowing':''}" data-key="answer" aria-busy="${streaming}">${responseFlow(reply,raw)}${!streaming&&!reply.content&&!hasArtifact&&!reply.error?'<div class="waiting">No answer text was returned.</div>':''}</div>
     ${streaming?`<div class="response-activity ${reply.status==='awaiting_approval'?'needs-approval':''} ${thinking&&reply.reasoning&&view.reasoning!=='hidden'?'sr-only':''}" data-key="activity" role="status" aria-live="polite"><span class="activity-orbit" aria-hidden="true"></span><span>${status}${thinking&&reply.thinkingSince!==undefined?` · ${thinkingTimer(reply,'status')}`:''}${steps?` · step ${steps} of ${AGENT_LIMITS.rounds}`:''}</span></div>`:''}
     ${reply.error?`<div class="reply-note" data-key="error" role="status">${e(reply.error)}</div>`:''}
-    <div class="reply-footer" data-key="footer"><div class="reply-actions" data-key="actions">${pager?versionPager(turn,'reply'):''}${reply.status==='complete'?`<button data-action="edit-reply" data-turn="${e(turn.id)}" data-reply="${e(reply.id)}" title="Edit the answer">${icon('write')}<span class="sr-only">Edit</span></button>`:''}<button data-action="copy-reply" data-reply="${e(reply.id)}" title="Copy answer">${icon('copy')}<span class="sr-only">Copy</span></button><button data-action="source" data-reply="${e(reply.id)}" aria-pressed="${raw}" title="${raw?'Show the rendered answer':'Show the source'}">${icon('code')}<span class="sr-only">Source</span></button>${!streaming?`<button data-action="retry" data-turn="${e(turn.id)}" title="Retry: ask again. This reply stays as a version">${icon('sync')}<span class="sr-only">Retry</span></button>`:''}${reply.status==='complete'?`<button data-action="branch" data-turn="${e(turn.id)}" data-reply="${e(reply.id)}" title="Branch: continue in a new conversation">${icon('branch')}<span class="sr-only">Branch</span></button>`:''}${reply.status==='complete'&&turn.replies.length>1?(selected?'<span class="chosen-label">Selected</span>':`<button class="choose-reply" data-action="choose" data-turn="${e(turn.id)}" data-reply="${e(reply.id)}">Use reply</button>`):''}</div>${replySignature(reply)}</div>`;
+    ${answerFooter(`${pager?versionPager(turn,'reply'):''}${reply.status==='complete'?`<button data-action="edit-reply" data-turn="${e(turn.id)}" data-reply="${e(reply.id)}" title="Edit the answer">${icon('write')}<span class="sr-only">Edit</span></button>`:''}${answerReadActions(reply.id,raw)}${!streaming?`<button data-action="retry" data-turn="${e(turn.id)}" title="Retry: ask again. This reply stays as a version">${icon('sync')}<span class="sr-only">Retry</span></button>`:''}${reply.status==='complete'?`<button data-action="branch" data-turn="${e(turn.id)}" data-reply="${e(reply.id)}" title="Branch: continue in a new conversation">${icon('branch')}<span class="sr-only">Branch</span></button>`:''}${reply.status==='complete'&&turn.replies.length>1?(selected?'<span class="chosen-label">Selected</span>':`<button class="choose-reply" data-action="choose" data-turn="${e(turn.id)}" data-reply="${e(reply.id)}">Use reply</button>`):''}`,replySignature(reply))}`;
 }
 /** Quiet provenance after the answer: model, the instructions it was sent with, edits and opt-in metadata. */
 function replySignature(reply:Reply):string {
-  const parts=[`<span class="signature-model">${e(reply.model)}</span>`],plain=[reply.model];
-  if(reply.systemPromptName!==undefined){const name=reply.systemPromptName||'Custom instructions';plain.push('System instructions: '+name);parts.push(`<span class="signature-instructions">${icon('instructions')}<span class="sr-only">System instructions: </span>${e(name)}</span>`);}
-  if(reply.edit){plain.push('Edited; the original text is preserved');parts.push('<span class="edited-label">Edited</span>');}
-  if(view.metadata){const timing=`${reply.status} · ${(reply.elapsedMs/1000).toFixed(1)}s`;plain.push(timing);parts.push(`<span class="meta">${e(timing)}</span>`);}
-  if(view.metadata&&reply.usage){const usage=`${reply.usage.input.toLocaleString()} in · ${reply.usage.output.toLocaleString()} out`;plain.push(usage+' (main model requests only)');parts.push(`<span class="usage">${usage}</span>`);}
-  // Separated by spacing, not glyphs. A wide footer keeps it on one line and truncates it (the title
-  // holds everything); a narrow one gives it its own line, where it may wrap.
-  return `<p class="reply-signature" data-key="signature" title="${e(plain.join(' · '))}">${parts.join('')}</p>`;
+  const extras:{html:string;title:string}[]=[];
+  if(reply.edit)extras.push({html:'<span class="edited-label">Edited</span>',title:'Edited; the original text is preserved'});
+  if(view.metadata){const timing=`${reply.status} · ${(reply.elapsedMs/1000).toFixed(1)}s`;extras.push({html:`<span class="meta">${e(timing)}</span>`,title:timing});}
+  if(view.metadata&&reply.usage){const usage=`${reply.usage.input.toLocaleString()} in · ${reply.usage.output.toLocaleString()} out`;extras.push({html:`<span class="usage">${usage}</span>`,title:usage+' (main model requests only)'});}
+  return answerSignature(reply.model,reply.systemPromptName,extras);
 }
 const reveal=new Reveal(),flowingReplies=new Set<string>(),reducedMotion=matchMedia('(prefers-reduced-motion: reduce)');
 let revealing=false;
@@ -501,73 +552,13 @@ function effortOptions(select:HTMLSelectElement,model:string,value:string):void 
   for(const effort of ['default',...cap.effort]){const option=document.createElement('option');option.value=effort;option.textContent=effort==='default'?'Provider default':effort[0]!.toUpperCase()+effort.slice(1);select.append(option);}
   select.value=cap.effort.includes(value)?value:'default';
 }
-function renderQuickEffort():void {
-  const s=current().settings,cap=capabilityFor(s.model,state.capabilities),levels=['default',...cap.effort],button=$<HTMLButtonElement>('quick-effort'),slider=$('effort-slider');
-  const signature=JSON.stringify([s.model,s.reasoningEffort,cap.effort]);
-  if(button.dataset.signature!==signature&&effortDrag===null){
-    const index=Math.max(0,levels.indexOf(s.reasoningEffort)),last=levels.length-1;
-    slider.setAttribute('aria-valuemax',String(last));
-    setMarkup($('effort-ticks'),levels.map(()=>'<span class="effort-tick"></span>').join(''));
-    setMarkup($('effort-stops'),levels.map((level,i)=>`<button type="button" data-effort-stop="${i}" aria-pressed="${i===index}">${e(effortName(level))}</button>`).join(''));
-    // Each tick and stop name sits where the thumb stops for its level.
-    for(const list of [$('effort-ticks'),$('effort-stops')])[...list.children].forEach((item,i)=>(item as HTMLElement).style.setProperty('--tick',String(last?i/last:0)));
-    setEffort(index);button.dataset.signature=signature;
-  }
-  $('quick-effort-wrap').classList.toggle('hidden',!cap.effort.length);button.disabled=!!state.busyThreadId;slider.setAttribute('aria-disabled',String(!!state.busyThreadId));
-  if(!cap.effort.length||state.busyThreadId)closeEffort();
-}
-const effortName=(level:string)=>level==='default'?'Default':level[0]!.toUpperCase()+level.slice(1);
-const effortLevels=()=>['default',...capabilityFor(current().settings.model,state.capabilities).effort];
-/** The composer's thinking effort: a gauge button that opens a slider over the model's levels. The gauge, the name
- * and the accessible labels follow the slider while it moves; the choice is applied when it is released. */
-function showEffort(index:number):void {
-  const levels=effortLevels(),name=effortName(levels[index]??'default'),gauge=$('effort-gauge');
-  if(gauge.querySelector('svg')?.dataset.levels!==String(Math.max(1,levels.length-1)))setMarkup(gauge,effortGauge(levels.length-1));
-  turnEffortGauge(gauge.querySelector('svg')!,index);$('effort-value').textContent=name;$('effort-slider').setAttribute('aria-valuetext',name);
-  const label=index?`Thinking effort: ${name}`:'Thinking effort: Default (the provider setting)';$('quick-effort').title=label;$('quick-effort').setAttribute('aria-label',label);
-  for(const stop of $('effort-stops').querySelectorAll<HTMLElement>('[data-effort-stop]'))stop.setAttribute('aria-pressed',String(Number(stop.dataset.effortStop)===index));
-}
-/** Moves the slider to a level: the thumb glides to its stop, or, while it is dragged, stays at `at` (0 to 1 along the
- * track) under the pointer while the level it is nearest is shown. */
-function setEffort(index:number,at?:number):void {
-  const slider=$('effort-slider'),last=effortLevels().length-1;
-  slider.style.setProperty('--at',String(at??(last?index/last:0)));slider.setAttribute('aria-valuenow',String(index));showEffort(index);
-}
-/** The panel stands on the composer's top edge: across the whole composer on a phone, elsewhere centred on the gauge.
- * The composer clips its overflow, so the panel is fixed, and it is placed again whenever the composer moves or
- * changes size while it is open (the keyboard, a resized window, a longer message). It slides out of the edge. */
-function placeEffort():void {
-  const panel=$('effort-panel');if(panel.hidden)return;
-  const composer=document.querySelector<HTMLElement>('.composer')!,box=composer.getBoundingClientRect(),gauge=$('quick-effort').getBoundingClientRect(),full=matchMedia('(max-width: 600px)').matches;
-  composer.classList.toggle('effort-attached',full);panel.style.width=full?`${box.width}px`:'';
-  const width=panel.offsetWidth,inset=full?0:12;
-  panel.style.left=`${full?box.left:Math.max(box.left+inset,Math.min(box.right-inset-width,gauge.left+gauge.width/2-width/2))}px`;
-  panel.style.top=`${box.top+1-panel.offsetHeight}px`;
-}
-function openEffort():void {
-  const panel=$('effort-panel');delete panel.dataset.closing;panel.hidden=false;$('quick-effort').setAttribute('aria-expanded','true');document.querySelector('.composer-region')!.classList.add('effort-open');
-  placeEffort();$('effort-slider').focus({preventScroll:true});
-}
-function closeEffort(refocus=false):void {
-  const panel=$('effort-panel');if(panel.hidden||panel.dataset.closing)return;
-  $('quick-effort').setAttribute('aria-expanded','false');document.querySelector('.composer-region')!.classList.remove('effort-open');if(refocus)$('quick-effort').focus();
-  // It slides back into the composer before it is hidden (at once when motion is reduced).
-  const done=()=>{if(!panel.dataset.closing)return;delete panel.dataset.closing;panel.hidden=true;document.querySelector('.composer')!.classList.remove('effort-attached');};
-  panel.dataset.closing='true';
-  if(matchMedia('(prefers-reduced-motion: reduce)').matches)done();else{panel.addEventListener('animationend',done,{once:true});setTimeout(done,300);}
-}
-function commitEffort():void {
-  const level=effortLevels()[Number($('effort-slider').getAttribute('aria-valuenow'))]??'default';
-  if(configDirty){toast('Apply pending Advanced changes first.',true);delete $('quick-effort').dataset.signature;renderQuickEffort();return;}
-  if(level!==current().settings.reasoningEffort)void dispatch({type:'thread.settings',id:current().id,settings:{...current().settings,reasoningEffort:level}});
-}
-/** The pointer being dragged along the effort slider (a finger, a pen or the mouse), or null. */
-let effortDrag:number|null=null;
-function effortPoint(event:PointerEvent):number {
-  const track=$('effort-slider').querySelector('.effort-track')!.getBoundingClientRect();
-  return track.width?Math.max(0,Math.min(1,(event.clientX-track.left)/track.width)):0;
-}
-function dragEffort(event:PointerEvent):void {const at=effortPoint(event);setEffort(Math.round(at*(effortLevels().length-1)),at);}
+const quickEffort = new EffortControl('',()=>{const settings=current().settings;return {levels:capabilityFor(settings.model,state.capabilities).effort,value:settings.reasoningEffort,disabled:!!state.busyThreadId};},async level=>{
+  if(configDirty){toast('Apply pending Advanced changes first.',true);return;}
+  if(level!==current().settings.reasoningEffort)await dispatch({type:'thread.settings',id:current().id,settings:{...current().settings,reasoningEffort:level}});
+});
+function renderQuickEffort():void {quickEffort.render();}
+function placeEffort():void {quickEffort.place();}
+function closeEffort(refocus=false):void {quickEffort.close(refocus);}
 function renderReasoningControls():void {
   const s=current().settings,model=s.model,compare=$<HTMLInputElement>('compare-model').value;
   for(const [id,m,value,mode] of [['reasoning',model,s.reasoningEffort,s.thinkingMode],['compare-reasoning',compare,s.compareReasoningEffort,s.compareThinkingMode]] as const){
@@ -580,28 +571,6 @@ function renderReasoningControls():void {
   }
   $('compare-reasoning-controls').classList.toggle('hidden',!s.compare);syncChoices();
 }
-// A press puts the thumb under the pointer, which it follows until released; it then settles on the nearest level.
-$('effort-slider').addEventListener('pointerdown',event=>{
-  const slider=$('effort-slider');if(event.button!==0||slider.getAttribute('aria-disabled')==='true')return;
-  event.preventDefault();slider.focus({preventScroll:true});slider.setPointerCapture(event.pointerId);effortDrag=event.pointerId;slider.classList.add('dragging');dragEffort(event);
-});
-$('effort-slider').addEventListener('pointermove',event=>{if(effortDrag===event.pointerId)dragEffort(event);});
-for(const type of ['pointerup','pointercancel','lostpointercapture'] as const)$('effort-slider').addEventListener(type,event=>{
-  if(effortDrag!==event.pointerId)return;effortDrag=null;$('effort-slider').classList.remove('dragging');
-  if(type==='pointerup'){setEffort(Number($('effort-slider').getAttribute('aria-valuenow')));commitEffort();}
-  else{delete $('quick-effort').dataset.signature;renderQuickEffort();}
-});
-$('effort-slider').addEventListener('keydown',event=>{
-  const slider=$('effort-slider'),last=effortLevels().length-1,now=Number(slider.getAttribute('aria-valuenow'));
-  const next=({ArrowLeft:now-1,ArrowDown:now-1,PageDown:now-1,ArrowRight:now+1,ArrowUp:now+1,PageUp:now+1,Home:0,End:last} as Record<string,number>)[event.key];
-  if(next===undefined)return;event.preventDefault();
-  const index=Math.max(0,Math.min(last,next));if(slider.getAttribute('aria-disabled')==='true'||index===now)return;
-  setEffort(index);commitEffort();
-});
-$('effort-stops').addEventListener('click',event=>{const stop=(event.target as Element).closest<HTMLElement>('[data-effort-stop]');if(!stop||$('effort-slider').getAttribute('aria-disabled')==='true')return;setEffort(Number(stop.dataset.effortStop));commitEffort();});
-document.addEventListener('pointerdown',event=>{if(!$('effort-panel').hidden&&!(event.target as Element).closest('#quick-effort-wrap'))closeEffort();},true);
-document.addEventListener('keydown',event=>{if(event.key==='Escape'&&!$('effort-panel').hidden&&!$('effort-panel').dataset.closing){event.preventDefault();event.stopPropagation();closeEffort(true);}},true);
-addEventListener('resize',placeEffort);window.visualViewport?.addEventListener('resize',placeEffort);
 $('compare-model').addEventListener('input',renderReasoningControls);
 let connectionSignature='';
 function renderConnection():void {
@@ -792,6 +761,7 @@ function saveDraft():void {
   draftTimer=setTimeout(()=>{ void dispatch({type:'thread.draft',id,text:value,attachments:files}); },550);
 }
 async function flushDraft():Promise<boolean> {
+  if(!await remoteAgents.flush())return false;
   clearTimeout(draftTimer);
   if(!state) return false;
   const id=current().id, value=$<HTMLTextAreaElement>('prompt').value; drafts.set(id,value);
@@ -894,7 +864,7 @@ function pickChoice(b:HTMLButtonElement):void {
   select.value=b.dataset.value!;select.dispatchEvent(new Event('input',{bubbles:true}));select.dispatchEvent(new Event('change',{bubbles:true}));syncChoices();
 }
 /** The message box's top edge holds the role tab (left) and the Python and agent flags (right). */
-function composerEdge():void { $('role-tab-row').hidden=$('role-tab').hidden&&$('composer-flags').hidden; }
+function composerEdge():void { $('role-tab-row').hidden=$('execution-toggle').hidden&&$('role-tab').hidden&&$('composer-flags').hidden; }
 function renderComposerRole():void {
   const thread=current(),edit=messageEdits.get(thread.id);
   // Tinfoil cloud chats have no place for them (service.mjs refuses them as well).
@@ -960,13 +930,13 @@ async function answerClose(allow:boolean):Promise<void> {
 bridge?.onCloseRequested?.(id=>{void(async()=>{
   closeRequest=id;
   await dispatch({type:'window.close-ack',requestId:id});
-  if(sending||editor.isSaving){await answerClose(false);toast('Finish the pending save or send before closing.',true);return;}
+  if(sending||editor.isSaving||remoteAgents.busy){await answerClose(false);toast('Finish the pending save, send or remote action before closing.',true);return;}
   const reasons:string[]=[];
   if(editor.hasUnsavedChanges)reasons.push('The open editor has unsaved changes.');
   if(inlineEditor.dirty)reasons.push('An answer being edited has unsaved changes.');
   if(messageEdits.size)reasons.push('A message being edited has not been sent.');
   if(instructionsDirty())reasons.push('The instructions editor has unsaved changes.');
-  if(configDrafts.size)reasons.push('Unapplied Advanced settings will be discarded.');
+  if(configDrafts.size||remoteAgents.hasPendingSettings)reasons.push('Unapplied Advanced settings will be discarded.');
   if(state.busyThreadId)reasons.push('The active response and tool work will be stopped; received text is retained.');
   if(reasons.length){$('close-detail').textContent=reasons.join(' ');showDialog('close-dialog');}
   else await answerClose(true);
@@ -1016,7 +986,7 @@ document.querySelectorAll('dialog').forEach(dialog=>dialog.addEventListener('clo
   dialog.querySelector('.dialog-feedback')?.remove();scheduleTranscript(true);
 }));
 function dismiss():void { document.querySelectorAll<HTMLDialogElement>('dialog[open]').forEach(d=>{if(d===editor.dialog)editor.requestClose();else if(d.id==='instructions-dialog'&&instructionsDirty())leaveInstructions('close');else d.close();}); }
-const commands=[['account','Account & connection','lock',''],['artifacts','Toggle artifact workspace','panel','Ctrl Shift A'],['focus','Toggle focus mode','eye','Ctrl Shift F'],['view','Reading & visibility','eye',''],['find','Find in conversation','search','Ctrl F'],['thread-tags','Tags of this conversation','tag',''],['new','New conversation','plus','Ctrl N'],['settings','Settings & connection','settings','Ctrl ,'],['show-inspector','Model configuration','panel',''],['instructions-picker','System instructions','instructions',''],['connect','Verify enclave & refresh models','shield',''],['import','Import conversation','upload',''],['export-md','Export conversation as Markdown','download','']];
+const commands=[['remote','Remote agents','terminal',''],['account','Account & connection','lock',''],['artifacts','Toggle artifact workspace','panel','Ctrl Shift A'],['focus','Toggle focus mode','eye','Ctrl Shift F'],['view','Reading & visibility','eye',''],['find','Find in conversation','search','Ctrl F'],['thread-tags','Tags of this conversation','tag',''],['new','New conversation','plus','Ctrl N'],['settings','Settings & connection','settings','Ctrl ,'],['show-inspector','Model configuration','panel',''],['instructions-picker','System instructions','instructions',''],['connect','Verify enclave & refresh models','shield',''],['import','Import conversation','upload',''],['export-md','Export conversation as Markdown','download','']];
 function palette():void { $<HTMLInputElement>('palette-search').value=''; renderPalette(); showDialog('palette-dialog'); $('palette-search').focus(); }
 function renderPalette():void {
   const filter=$<HTMLInputElement>('palette-search').value.toLowerCase();
@@ -1026,11 +996,24 @@ async function connect():Promise<void> {
   if(connecting) return; connecting=true; renderConnection();
   await dispatch({type:'connect'}); connecting=false; renderConnection();
 }
+const REMOTE_KEEPS=new Set(['remote','remote-job','remote-refresh','thread-tab','nav-fold','sidebar','close-drawers','minimize','maximize','close','keep-open','confirm-close','palette','dismiss','account','settings','conversations','connect','docs','tags-manage','find','mobile-find','find-close','find-next','find-prev','view','mobile-view','focus','inspector','show-inspector']);
 async function action(name:string, target?:HTMLElement):Promise<void> {
   if(!state) return;
+  // Shared actions address the active execution mode without changing the selected destination.
+  if(remoteAgents.visible){
+    if(name==='new'){remoteAgents.newTask();return;}
+    if(name==='edit-draft'){await remoteAgents.editDraft();return;}
+    if(name==='apply-pending'){await remoteAgents.applySettings();return;}
+    if(name==='discard-pending'){remoteAgents.discardSettings();return;}
+    if(name==='copy-reply'||name==='source'){await remoteAgents.answerAction(name,target?.dataset.reply??'');return;}
+    if(name==='rename-thread'||name==='rename'){if(!remoteAgents.canRename)return;$<HTMLInputElement>('rename-input').value=remoteAgents.title;showDialog('rename-dialog');return;}
+  }
+  // Remote keeps the view for navigation, window, account and settings actions; anything about a conversation returns to it first.
+  if(remoteAgents.visible&&!REMOTE_KEEPS.has(name)&&!/^(account|background)-/.test(name)) {if(!await leaveRemote())return;}
   const thread=current();
   if(name!=='dismiss'&&$<HTMLDialogElement>('palette-dialog').open) $<HTMLDialogElement>('palette-dialog').close();
   switch(name) {
+    case 'remote':if(remoteAgents.visible){remoteAgents.focusComposer();break;}if(!await flushDraft())break;keepChatScroll();clearFind();closeEffort();artifactPanel.close(false);responsive.close();{const opening=remoteAgents.open();renderSidebar();applyView();await opening;}break;
     case 'keep-open':await answerClose(false);break;
     case 'confirm-close':await answerClose(true);break;
     case 'apply-pending':if(!$<HTMLFormElement>('config-form').checkValidity()){await action('show-inspector');}$<HTMLFormElement>('config-form').requestSubmit();break;
@@ -1076,10 +1059,15 @@ async function action(name:string, target?:HTMLElement):Promise<void> {
     case 'agent-folder':await dispatch({type:'agent.folder',id:thread.id});break;
     case 'agent-folder-new':await dispatch({type:'agent.folder.clear',id:thread.id});break;
     case 'agent-root':await dispatch({type:'agent.root'});break;
-    case 'effort-toggle':$('effort-panel').hidden||$('effort-panel').dataset.closing?openEffort():closeEffort();break;
+    case 'effort-toggle':quickEffort.toggle();break;
     case 'row-cloud-upload':if(target?.dataset.row)await dispatch({type:'thread.cloud.upload',id:target.dataset.row});break;
     case 'row-delete':if(target?.dataset.row)await dispatch({type:'thread.delete',id:target.dataset.row});break;
-    case 'thread-tab':if(target?.dataset.tab==='cloud'||target?.dataset.tab==='local')await setView({threadTab:target.dataset.tab});break;
+    case 'thread-tab':
+      if(target?.dataset.tab==='remote'){if(remoteAgents.configured&&state.platform!=='android')await action('remote');}
+      else if((target?.dataset.tab==='cloud'||target?.dataset.tab==='local')&&await leaveRemote())await setView({threadTab:target.dataset.tab});
+      break;
+    case 'remote-job':remoteAgents.selectJob(target?.dataset.jobId??'');if(responsive.compact)responsive.close();break;
+    case 'remote-refresh':await remoteAgents.refreshJobs();break;
     case 'thread-group':await setView({threadGroup:view.threadGroup==='tag'?'date':'tag'});break;
     case 'thread-tags':openTagDialog(thread.id);break;
     case 'row-tags':if(target?.dataset.row)openTagDialog(target.dataset.row);break;
@@ -1222,12 +1210,15 @@ document.addEventListener('click',event=>{
   // The picker swaps views and closes on single clicks, so a second click of a double-click
   // would act on whatever replaced the pressed button. No control there uses double-clicks.
   if(event.detail>1&&target.closest('#instructions-dialog')){event.preventDefault();return;}
+  // Stop appears where Send was as the reply starts, so the second click of a double-click on Send must not stop it.
+  if(event.detail>1&&target.id==='stop'){event.preventDefault();return;}
+  if(target.dataset.execution){void execution(target.dataset.execution);return;}
   if(target.dataset.instructions){void chooseInstructions(target);return;}
   if(target.dataset.quickModel){chooseModel(target.dataset.quickModel);return;}
   if(target.dataset.action) { void action(target.dataset.action,target); return; }
   if(target.dataset.tagToggle){const t=tagDialogThread(),id=target.dataset.tagToggle,mine=t.tags??[];void dispatch({type:'thread.tags',id:t.id,tags:mine.includes(id)?mine.filter(x=>x!==id):[...mine,id]});return;}
   if(target.dataset.tagFilter){const id=target.dataset.tagFilter;if(!tagFilter.delete(id))tagFilter.add(id);renderSidebar();return;}
-  if(target.dataset.thread) { void (async()=>{if(!await flushDraft())return; await dispatch({type:'thread.select',id:target.dataset.thread!});if(responsive.compact)responsive.close();})(); return; }
+  if(target.dataset.thread) { void (async()=>{if(!await flushDraft()||!await leaveRemote())return; await dispatch({type:'thread.select',id:target.dataset.thread!});if(responsive.compact)responsive.close();})(); return; }
   if(target.dataset.prompt!==undefined) { $<HTMLTextAreaElement>('prompt').value=target.dataset.prompt.replace(/\\n/g,'\n'); sizeComposer(); saveDraft(); $('prompt').focus(); return; }
   if(target.dataset.removeFile!==undefined) { const files=pendingFiles.get(current().id)??[]; files.splice(Number(target.dataset.removeFile),1); renderAttachments(); saveDraft(); return; }
   if(target.classList.contains('copy-code')) { const content=target.closest('.code-block')?.querySelector('pre code')?.textContent; if(content) void dispatch({type:'clipboard',text:content}).then(ok=>{if(ok)toast('Code copied.');}); }
@@ -1303,10 +1294,13 @@ function applyView():void {
   applyTheme(view.theme);paintBackground();
   if(view.focus)artifactPanel.close(false);
   responsive.apply(view.sidebar,view.inspector,view.focus);
+  // The shared panel says whose settings it holds.
+  $('inspector-title').textContent=remoteAgents.visible?'Advanced · Remote':'Advanced';
   document.documentElement.classList.toggle('reduce-motion',view.motion==='reduced');
   $('shell').classList.toggle('focus-mode',view.focus);
   $('shell').classList.toggle('show-metadata',view.metadata);
   $('shell').classList.toggle('wrap-all-code',view.wrapCode);
+  remoteAgents.updateReading(view);
 }
 async function setView(partial:Partial<ViewPreferences>):Promise<void> {
   const updated={...view,...partial};
@@ -1356,12 +1350,12 @@ $('model-dialog').addEventListener('keydown',event=>{
 });
 function clearFind():void {
   document.querySelectorAll('mark.search-match').forEach(m=>m.replaceWith(document.createTextNode(m.textContent??'')));
-  $('transcript-inner').normalize();$('find-count').textContent='';
+  $('transcript-inner').normalize();$('remote-job-output').normalize();$('find-count').textContent='';
 }
 function findText():void {
   clearFind();findIndex=0;
   const query=$<HTMLInputElement>('find-input').value.toLowerCase();if(!query)return;
-  const walker=document.createTreeWalker($('transcript-inner'),NodeFilter.SHOW_TEXT);
+  const walker=document.createTreeWalker(remoteAgents.visible?$('remote-job-output'):$('transcript-inner'),NodeFilter.SHOW_TEXT);
   const nodes:Text[]=[];let node:Node|null;
   while((node=walker.nextNode())){const parent=node.parentElement;if(parent?.closest('.user-prompt,.reply-content')&&!parent.closest('math,annotation,button,svg'))nodes.push(node as Text);}
   let count=0;
@@ -1412,15 +1406,24 @@ window.visualViewport?.addEventListener('resize',()=>sizeComposer());
 $('prompt').addEventListener('input',()=>{sizeComposer(); if(state)saveDraft();});
 // Files dropped anywhere in the window, or pasted, are attached to the message being written; the overlay says so
 // while a drag with files is over the window. Drags from inside the page (selected text) carry no files.
-document.addEventListener('dragenter',event=>{if(!carriesFiles(event)||topModal())return;event.preventDefault();if(dragDepth++===0)showDropOverlay(true);});
-document.addEventListener('dragover',event=>{if(!carriesFiles(event))return;event.preventDefault();event.dataTransfer!.dropEffect=topModal()?'none':'copy';});
+document.addEventListener('dragenter',event=>{if(!carriesFiles(event)||topModal())return;event.preventDefault();if(remoteAgents.visible)return;if(dragDepth++===0)showDropOverlay(true);});
+document.addEventListener('dragover',event=>{if(!carriesFiles(event))return;event.preventDefault();event.dataTransfer!.dropEffect=topModal()||remoteAgents.visible?'none':'copy';});
 document.addEventListener('dragleave',event=>{if(!carriesFiles(event)||!dragDepth)return;if(--dragDepth===0)showDropOverlay(false);});
-document.addEventListener('drop',event=>{if(!carriesFiles(event))return;event.preventDefault();dragDepth=0;showDropOverlay(false);if(!topModal())void takeTransfer(transferFiles(event.dataTransfer!));});
+document.addEventListener('drop',event=>{if(!carriesFiles(event))return;event.preventDefault();dragDepth=0;showDropOverlay(false);if(remoteAgents.visible){toast('File upload is not available for remote workspaces.');return;}if(!topModal())void takeTransfer(transferFiles(event.dataTransfer!));});
 document.addEventListener('paste',event=>{
   const target=event.target as HTMLElement|null,data=event.clipboardData;
+  if(remoteAgents.visible&&data?.files.length){event.preventDefault();toast('File upload is not available for remote workspaces.');return;}
   // Another field pastes as usual; the message box and the rest of the page attach pasted files.
   if(!data||!data.files.length||topModal()||(target?.closest('input,textarea,select,[contenteditable="true"]')&&target.id!=='prompt'))return;
   event.preventDefault();void takeTransfer(transferFiles(data));
+});
+// The Local / Remote tab is one radio group: an arrow key, Home or End switches, and focus follows to the shown tab.
+document.addEventListener('keydown',event=>{
+  const choice=(event.target as Element|null)?.closest?.<HTMLElement>('.execution-tab [data-execution]');
+  if(!choice||event.isComposing||!['ArrowLeft','ArrowRight','ArrowUp','ArrowDown','Home','End'].includes(event.key))return;
+  event.preventDefault();
+  const next=event.key==='Home'?'local':event.key==='End'?'remote':choice.dataset.execution==='local'?'remote':'local';
+  if(next!==choice.dataset.execution)void execution(next,true);
 });
 $('role-tab').addEventListener('click',event=>{const choice=(event.target as Element).closest<HTMLElement>('[data-role-choice]');if(choice)chooseRole(choice);});
 // One tab stop for the group; the arrow keys move between the roles that can be chosen.
@@ -1469,7 +1472,7 @@ $('key-form').addEventListener('submit',event=>{
 });
 $('project-form').addEventListener('submit',event=>{event.preventDefault();const name=$<HTMLInputElement>('project-name').value;void dispatch(projectEditingId?{type:'project.rename',id:projectEditingId,name}:{type:'project.create',name}).then(ok=>{if(ok)dismiss();});});
 $('move-form').addEventListener('submit',event=>{event.preventDefault();void dispatch({type:'thread.move',id:current().id,projectId:$<HTMLSelectElement>('move-project').value||null}).then(ok=>{if(ok)dismiss();});});
-$('rename-form').addEventListener('submit',event=>{event.preventDefault();void dispatch({type:'thread.rename',id:current().id,title:$<HTMLInputElement>('rename-input').value}).then(ok=>{if(ok)dismiss();});});
+$('rename-form').addEventListener('submit',event=>{event.preventDefault();const title=$<HTMLInputElement>('rename-input').value;void (remoteAgents.visible?remoteAgents.rename(title):dispatch({type:'thread.rename',id:current().id,title})).then(ok=>{if(ok)dismiss();});});
 $('tag-new-form').addEventListener('submit',event=>{event.preventDefault();void addDialogTag();});
 document.addEventListener('keydown',event=>{
   if(event.isComposing||document.querySelector('dialog[open]'))return;
@@ -1500,4 +1503,10 @@ $('transcript').addEventListener('toggle',event=>{const d=event.target;if(d inst
 window.addEventListener('error',()=>toast('The interface encountered an error. Restart before sending another request.',true));
 window.addEventListener('unhandledrejection',()=>toast('An operation failed. Your existing conversations were not intentionally reset.',true));
 if(!bridge) { $('notice').textContent='Desktop bridge unavailable. Launch with npm start, or use npm run preview for an explicitly offline demonstration.'; $('notice').classList.remove('hidden'); $<HTMLButtonElement>('send').disabled=true; }
-else { bridge.subscribe(accept); bridge.snapshot().then(accept).catch(error=>toast(error instanceof Error?error.message:'Unable to open workspace.',true)); }
+else {
+  bridge.subscribe(accept);
+  bridge.snapshot().then(snapshot=>{
+    accept(snapshot);
+    if(snapshot.platform!=='android')void remoteAgents.loadConfiguration().catch(()=>{ /* Remote setup offers a retry and shows any load error. */ });
+  }).catch(error=>toast(error instanceof Error?error.message:'Unable to open workspace.',true));
+}

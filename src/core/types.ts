@@ -265,6 +265,8 @@ export type Command =
   | { type: 'window.close-response'; requestId: string; allow: boolean }
   | { type: 'window.close-ack'; requestId: string };
 export interface DesktopBridge {
+  /** Windows-only, fixed remote-controller operations; never a generic SSH or shell bridge. */
+  remote?(command: import('./remote.js').RemoteCommand): Promise<import('./remote.js').RemoteResponse>;
   snapshot(): Promise<Snapshot>;
   onCloseRequested?(callback: (requestId: string) => void): () => void;
   command(command: Command): Promise<{ snapshot: Snapshot; attachments?: Attachment[]; files?: PickedFile[]; artifact?: Artifact; picture?: string | null }>;

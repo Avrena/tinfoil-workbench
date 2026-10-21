@@ -14,7 +14,7 @@ window.__accountPulse=()=>emit();
 assert marker in html;html=html.replace(marker,marker+fixture,1)
 def check(label):checks.append(label)
 def open_account(page,touch=False):
-    menu=page.locator('.export-menu > summary');(menu.tap if touch else menu.click)()
+    menu=page.locator('.export-menu:not(#remote-toolbar *) > summary');(menu.tap if touch else menu.click)()
     b=page.locator('.export-popover [data-action=account]');(b.tap if touch else b.click)()
     expect(page.locator('#account-dialog')).to_be_visible()
 def sample(page):page.locator('[data-action=account-sample]').click()

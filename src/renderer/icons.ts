@@ -9,7 +9,7 @@ const paths: Record<string,string> = {
   branch:'M6 3v12M18 9a9 9 0 0 1-9 9M18 3a3 3 0 1 0 0 6a3 3 0 1 0 0-6M6 15a3 3 0 1 0 0 6a3 3 0 1 0 0-6',
   attach:'m8 13 6-6a3 3 0 0 1 4 4l-8 8a5 5 0 0 1-7-7l8-8',
   send:'M12 20V4M5 11l7-7 7 7', stop:'M6 6h12v12H6z', close:'m6 6 12 12M18 6 6 18',
-  more:'M5 12h.01M12 12h.01M19 12h.01', panel:'M3 4h18v16H3zM15 4v16',
+  more:'M5 12h.01M12 12h.01M19 12h.01', history:'M3 12a9 9 0 1 0 2.6-6.4M3 4v4h4M12 7v5l3 2', panel:'M3 4h18v16H3zM15 4v16',
   copy:'M8 8h12v13H8zM15 8V3H3v13h5', download:'M12 3v12m-5-5 5 5 5-5M4 17v4h16v-4',
   upload:'M12 17V3m-5 5 5-5 5 5M4 17v4h16v-4', code:'m8 6-6 6 6 6m8-12 6 6-6 6M14 3 10 21',
   write:'m4 16 12-12 4 4L8 20H4zM13 7l4 4', spark:'m12 3 2.4 6.6L21 12l-6.6 2.4L12 21l-2.4-6.6L3 12l6.6-2.4z',

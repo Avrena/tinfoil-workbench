@@ -193,7 +193,6 @@
 .quick-effort-wrap .quick-effort:disabled { opacity: .5; }
 .composer-tools .spacer { min-width: 4px; }
 .composer-tools .send { width: 32px; min-width: 32px; height: 32px; flex-shrink: 0; }
-.composer-tools .stop { min-height: 32px; padding: 6px 8px; flex-shrink: 0; }
 .composer-meta { margin-top: 6px; padding-inline: 0; line-height: 1.4; }
 .attachments { padding: 12px 16px 0; gap: 8px; }
 .jump { bottom: calc(var(--composer-region-height, 124px) + 12px); right: var(--content-gutter); padding: 8px 12px; }
@@ -271,7 +270,6 @@ dialog:not(.message-editor) .modal-body { padding: 8px 20px 20px; }
   .composer-tools > .icon-button, .composer-tools .send { min-width: 44px; width: 44px; height: 44px; }
   #composer-model { height: 44px; }
   .quick-effort-wrap { width: 44px; height: 44px; }
-  .composer-tools .stop { min-height: 44px; }
   .editor-format button { min-height: 40px; min-width: 40px; }
   .editor-footer-actions button { min-height: 44px; }
 }
@@ -313,9 +311,8 @@ dialog:not(.message-editor) .modal-body { padding: 8px 20px 20px; }
   #composer-model .model-chevron { display: none; }
   #composer-model .maker-badge { width: 18px; height: 18px; }
   .composer-tools .spacer { min-width: 0; }
-  .composer-tools .send, .composer-tools .stop { min-width: 44px; height: 44px; }
+  .composer-tools .send { min-width: 44px; height: 44px; }
   .composer-tools .send { margin-inline-start: auto; }
-  .composer-tools .stop { padding: 8px; }
   .quick-effort-wrap { width: 44px; height: 44px; }
   .composer-meta { margin-top: 4px; font-size: 9px; }
   .attachments { padding: 12px 12px 4px; }
@@ -579,11 +576,13 @@ dialog:not(.message-editor) .modal-body { padding: 8px 20px 20px; }
 @keyframes sync-spin { to { transform: rotate(360deg); } }
 @media (prefers-reduced-motion: reduce) { .nav-section-heading .cloud-sync.syncing svg { animation: none; } }
 
-/* Cloud/Local list toggle under the Threads heading while Tinfoil cloud chats are connected. */
+/* Configured sources share the Threads switch: Cloud, Remote, Local. */
 .thread-tabs { display: flex; gap: 4px; margin: 0 7px 6px; padding: 2px; border-radius: 7px; background: var(--n1); }
 .thread-tabs button { flex: 1; display: flex; align-items: center; justify-content: center; gap: 6px; height: 26px; border-radius: 5px; font-size: 11px; color: var(--n70); }
 .thread-tabs button svg { width: 13px; height: 13px; }
 .thread-tabs button[aria-pressed="true"] { background: var(--n10); color: var(--h42); }
+.thread-tabs:has([data-tab="remote"]) button { min-width: 0; gap: 4px; padding-inline: 4px; }
+.remote-thread-host { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 
 /* Thread rows: Move to cloud and Delete appear on hover or keyboard focus, beside the row's own button. */
 .thread-row { position: relative; }
@@ -974,5 +973,187 @@ dialog:not(.message-editor) .modal-body { padding: 8px 20px 20px; }
   .tag-option, .tag-look, .tag-swatch, .tag-style, .tag-icon, .tag-row > .icon-button { min-width: 44px; min-height: 44px; }
   .tagging-run button, .tag-list-actions button, .tag-remove-confirm button { min-height: 40px; }
   .tag-new input, .tag-new button { height: 40px; }
-  .thread-tags { min-height: 23px; }
+  .thread-crumbs, .thread-tags { min-height: 23px; }
 }
+
+/* Remote tasks in the main view: the remote toolbar, a transcript in Chat's reading column and a composer in Chat's
+   place. Remote has its own drafts and output DOM; polling never replaces anything of Chat's. */
+/* Reuse Chat's heading, breadcrumb and icon-button geometry, including its touch breakpoints. */
+#remote-heading:focus{outline:none}
+#remote-jobs-button{position:relative}
+.remote-dot{position:absolute;top:5px;right:5px;width:6px;height:6px}
+.remote-dot[hidden]{display:none}
+
+.remote-transcript{container-type:inline-size}
+.remote-inner{display:flex;flex-direction:column;padding-top:var(--space-5)}
+.remote-inner>.notice{margin:0 0 var(--space-4)}
+.remote-inner>.remote-feedback{display:flex;align-items:center;gap:var(--space-3);margin:0 0 var(--space-4);padding:var(--space-3) var(--space-4);overflow-wrap:anywhere;line-height:1.55}
+.remote-inner>.remote-feedback>span{flex:1;min-width:0}
+.remote-inner>[hidden]{display:none!important}
+.remote-inner label{display:block;font-size:12px;margin:0}
+.remote-inner input,.remote-inner select,.remote-inner textarea{max-width:100%}
+.remote-inner summary:not(.reply *),.remote-dialog summary{display:flex;align-items:center;gap:var(--space-2);min-height:32px;padding:var(--space-1) 0}
+.remote-inner details:not(.reply *),.remote-dialog details{margin:0}
+.remote-actions{display:flex;flex-wrap:wrap;align-items:center;gap:var(--space-2);margin-top:var(--space-3)}
+
+/* No job shown: a welcome like Chat's, with setup only while it blocks the first job, and the latest jobs. */
+.remote-welcome{flex:1;display:flex;flex-direction:column;justify-content:center;gap:var(--space-6);padding:var(--space-8) 0}
+.remote-welcome-head{text-align:center}
+.remote-welcome-head h2{margin:0}
+.remote-welcome-head p{margin:var(--space-3) auto 0;max-width:56ch;line-height:1.6}
+.remote-setup{display:grid;gap:var(--space-4);width:100%;max-width:560px;margin:0 auto;padding:var(--space-5)}
+.remote-setup[hidden],.remote-recent[hidden]{display:none}
+.remote-setup h3{margin:0}
+.remote-setup-slots{display:grid;gap:var(--space-4)}
+.remote-setup .remote-auth p{margin:0}
+.remote-recent{width:100%;max-width:560px;margin:0 auto}
+.remote-recent-head{display:flex;align-items:center;justify-content:space-between;gap:var(--space-3);margin:0 0 var(--space-2)}
+.remote-recent h3{margin:0}
+.remote-link{padding:2px 4px;min-height:0;display:inline}
+.remote-job-list{display:grid;gap:2px}
+.remote-job-row{display:block;width:100%;padding:var(--space-3);min-height:52px}
+.remote-job-copy{display:block;min-width:0}
+.remote-job-copy strong{display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;line-height:1.45;overflow-wrap:anywhere}
+.remote-job-copy small{display:block;margin-top:var(--space-1)}
+.remote-empty{margin:0;padding:var(--space-4) 0}
+#remote-host-form,#remote-create-form{display:flex;align-items:end;gap:var(--space-3);flex-wrap:wrap;margin-top:var(--space-2)}
+#remote-host-form label,#remote-create-form label{flex:1 1 180px;margin:0;font-size:12px}
+#remote-host-form label input,#remote-create-form label input{display:block;width:100%;margin-top:var(--space-2)}
+
+/* A job: its state, then the task and the agent's turn in recorded order, then its details. */
+.remote-job-detail{padding:0 0 var(--space-8)}
+.remote-job-title{margin:0 0 var(--space-5);line-height:1.4;overflow-wrap:anywhere}
+.remote-job-title:focus{outline:none}
+.remote-job-state{display:block}
+.remote-job-task{display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;overflow:hidden;margin-top:var(--space-1);font-size:15px}
+/* The task bubble opens the transcript, so the heading keeps the task only for screen readers. */
+.remote-job-detail:has(.remote-user-row) .remote-job-task{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}
+#remote-job-error{margin:var(--space-4) 0 0;padding:var(--space-3) var(--space-4)}
+.remote-job-output{outline-offset:6px}
+.remote-user-row:has(> .remote-task-rest[open])>.user-prompt{display:none}
+.remote-task-rest>summary{justify-content:flex-end}
+.remote-task-rest>.user-prompt{margin-top:var(--space-2)}
+.remote-message{margin:0 0 var(--space-5);min-width:0}
+.remote-message:last-child{margin-bottom:0}
+.remote-reply-content>:first-child{margin-top:0}
+.remote-reply-content>:last-child{margin-bottom:0}
+.remote-tool-entry{margin:0 0 var(--space-4)}
+.remote-tool-entry>.remote-tool{margin:0}
+.remote-progress{margin:var(--space-3) 0 0}
+.remote-agent-turn>.waiting,.remote-agent-turn>.muted{margin:0}
+.remote-disclosure{margin-top:var(--space-5);padding-top:var(--space-2)}
+.remote-disclosure>pre{margin:var(--space-2) 0 0}
+.remote-tool{margin:var(--space-1) 0 0 var(--space-4)}
+.remote-tool summary{flex-wrap:wrap;gap:var(--space-1) var(--space-2)}
+.remote-tool summary code{min-width:0;max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.remote-tool .remote-status{margin-left:auto}
+.remote-tool h5{margin:var(--space-3) 0 var(--space-1)}
+.remote-tool pre{margin:0;max-height:360px;overflow:auto}
+.remote-tool>p{margin:var(--space-2) 0}
+.remote-job-more{margin-top:var(--space-8);padding-top:var(--space-2)}
+.remote-meta dl{display:grid;grid-template-columns:max-content minmax(0,1fr);gap:var(--space-1) var(--space-5);margin:var(--space-3) 0 var(--space-4);font-size:12px}
+.remote-meta dl>div{display:contents}
+.remote-meta dd{margin:0;overflow-wrap:anywhere}
+.remote-job-system{margin:0 0 var(--space-4)}
+.remote-job-system[hidden]{display:none}
+.remote-job-system pre{margin:var(--space-2) 0 0;max-height:320px;overflow:auto;padding:var(--space-3);border:1px solid var(--line);border-radius:6px}
+#remote-delete-job{margin-bottom:var(--space-2)}
+
+/* The composer: the Local / Remote tab on its top edge, where the task runs inside it, then the task and its tools. */
+.execution-tab{position:relative;z-index:1;display:flex;flex:none;gap:2px;margin-bottom:-1px;padding:3px 3px 2px}
+.execution-tab[hidden]{display:none}
+.execution-tab:not([hidden])+.role-tab{margin-left:6px}
+.execution-tab button{min-width:0;min-height:0;height:24px;gap:5px;padding:0 9px;border-radius:7px}
+.execution-tab button svg{width:12px;height:12px}
+@media (pointer: coarse), (hover: none) { .execution-tab button { height: 32px; padding: 0 11px; } }
+.remote-edge{align-items:flex-end}
+.remote-edge .remote-draft-state{margin:0 0 5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0}
+.remote-running{display:flex;align-items:center;flex-wrap:wrap;gap:var(--space-2) var(--space-3);max-width:var(--content-width);margin:0 auto var(--space-2);padding:6px 6px 6px 12px;border-radius:8px}
+.remote-running>#remote-running-text{flex:1 1 200px;min-width:0;overflow-wrap:anywhere}
+.remote-running-dot{width:7px;height:7px;flex:none}
+.remote-running button{min-height:28px;padding:4px 10px;font-size:12px}
+.remote-context{display:flex;flex-wrap:wrap;align-items:center;gap:2px var(--space-3);padding:8px 10px 0;min-width:0}
+.remote-composer .remote-context-field{display:inline-flex;align-items:center;gap:4px;margin:0;min-width:0;max-width:100%}
+.remote-context-field svg{width:13px;height:13px;flex:none}
+/* Each picker is as wide as its current name, not its longest option. */
+.remote-context-field select{field-sizing:content;width:auto;min-width:0;max-width:280px;height:26px;padding:0 4px;border-radius:6px;text-overflow:ellipsis}
+.remote-composer textarea{padding-top:8px}
+#remote-model-button{max-width:230px;height:32px;padding:4px 8px;font-size:11px;flex:0 1 auto;gap:6px}
+#remote-model-button .model-label{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.remote-model-tag{flex:none;padding:0 5px;line-height:16px}
+#remote-model-button .model-chevron{display:inline-flex;flex:none}
+#remote-model-button .model-chevron svg{width:13px;height:13px}
+.remote-advanced-button{position:relative}
+.remote-advanced-button.is-set::after,.remote-advanced-button.is-invalid::after{content:'';position:absolute;top:6px;right:5px;border:3px solid currentColor;border-radius:50%}
+.composer-tools .remote-start,.composer-tools .remote-stop{width:auto;min-width:32px;padding:0 12px 0 9px;gap:6px;display:inline-flex;align-items:center;font-size:12px}
+.remote-composer-meta{justify-content:flex-start}
+.remote-composer-meta>span{min-width:0;overflow-wrap:anywhere}
+
+/* Dialogs: Jobs, Manage, the model, instructions and Advanced. */
+#remote-model-dialog,#remote-advanced-dialog,#remote-instructions-dialog{width:min(600px,92vw)}
+#remote-jobs-dialog{width:min(560px,92vw)}
+#remote-manage-dialog{width:min(640px,92vw)}
+.remote-model-hint{margin:var(--space-3) 0 0}
+.remote-dialog .eyebrow{margin:var(--space-5) 0 0}
+.remote-dialog section:first-of-type>.eyebrow{margin-top:var(--space-2)}
+.remote-advanced-body .two-fields>div>label,.remote-number>label,.remote-effort-row>label{margin:var(--space-4) 0 var(--space-2)}
+.remote-advanced-body .two-fields p{margin:var(--space-1) 0 0}
+.remote-effort-row[hidden],.remote-advanced-body .choice-row[hidden],.remote-settings-warning[hidden],.remote-settings-error[hidden]{display:none}
+.remote-capability-note{margin:var(--space-3) 0 0}
+.remote-limits{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:0 var(--space-3)}
+.remote-limits-section>p{margin:var(--space-2) 0 0}
+.remote-settings-warning{margin:var(--space-2) 0;padding:var(--space-3) var(--space-4);line-height:1.55}
+.remote-settings-error{margin:var(--space-4) 0 0;font-size:12px}
+.remote-advanced-foot{margin:var(--space-4) 0 0;line-height:1.55}
+.remote-advanced-body input[aria-invalid=true]{border-color:var(--danger)}
+.remote-dialog .modal-actions button{display:inline-flex;align-items:center;gap:6px}
+.remote-section{padding:var(--space-5) 0}
+.remote-section:first-child{padding-top:var(--space-2)}
+.remote-section h3{margin:0 0 var(--space-3);font-size:13px}
+.remote-note,.remote-section>p{margin:0 0 var(--space-3);overflow-wrap:anywhere}
+.remote-section details{margin-top:var(--space-2)}
+.remote-section details>p{margin:var(--space-2) 0 0;max-width:72ch}
+.remote-auth p{margin:0;max-width:72ch}
+#remote-forget{margin-top:var(--space-4)}
+
+@media(max-width:780px){
+  .remote-welcome{padding:var(--space-6) 0}
+}
+@media(max-width:600px){
+  .remote-limits{grid-template-columns:minmax(0,1fr)}
+  #remote-model-button{min-width:0;max-width:124px;height:44px;padding:4px;flex:8 1 64px;gap:4px}
+  #remote-model-button .model-chevron,#remote-model-button .remote-model-tag{display:none}
+  #remote-model-button .maker-badge{width:18px;height:18px}
+  .remote-advanced-button.is-set::after,.remote-advanced-button.is-invalid::after{top:10px;right:6px}
+  .composer-tools .remote-start,.composer-tools .remote-stop{width:44px;min-width:44px;padding:0;justify-content:center}
+  .remote-start-label,.remote-stop-label{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}
+  /* Host and workspace share one row, each taking half and shortening its name. */
+  .remote-composer .remote-context-field{flex:0 1 auto}
+  .remote-context-field select{max-width:100%}
+  /* With the role tab beside it, the Local / Remote tab keeps its icons and names them for assistive technology only. */
+  .role-tab-row:has(.role-tab:not([hidden])) .execution-tab span{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}
+}
+@media(max-width:360px){
+  /* Beside the role tab on the narrowest phones, the icon-only Local / Remote tab gives up some padding so both fit. */
+  .role-tab-row:has(.role-tab:not([hidden])) .execution-tab button{padding:0 5px}
+  .execution-tab:not([hidden])+.role-tab{margin-left:3px}
+  .role-tab-row:has(.execution-tab:not([hidden])) .role-tab button{padding:0 8px}
+  #remote-model-button{max-width:100px}
+  .remote-tool-button{min-width:32px;padding:0 6px}
+}
+@media(pointer:coarse),(hover:none){
+  .remote-tool-button{min-height:44px}
+  #remote-model-button{height:44px}
+  .remote-context-field select{height:36px}
+}
+
+/* Shared transcript and Advanced components own their spacing in both modes. */
+#remote-config-form .apply{margin-top:16px}
+/* Buttons are inline-flex, which overrides the hidden attribute; remote surfaces hide what they mark hidden. */
+.remote-dialog [hidden],.remote-inner [hidden],.remote-advanced-body [hidden]{display:none!important}
+/* Apply is the one primary action; Discard (only with pending changes) and Reset (only away from the defaults) sit under it. */
+.remote-advanced-actions{display:flex;flex-wrap:wrap;gap:var(--space-1) var(--space-2);margin-top:var(--space-2)}
+.remote-advanced-actions button{font-size:12px;padding:6px 10px;min-height:32px}
+/* In setup the host form is the step itself, under its own heading; Manage keeps it behind "Add a host". */
+#remote-setup-slots>#remote-host-settings>summary{display:none}
+@media(max-width:600px){.remote-toolbar>[data-action=find],.remote-toolbar>[data-action=view]{display:none}}

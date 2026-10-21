@@ -28,9 +28,9 @@ jobs:
         run: |
           python -m pip install playwright==1.63.0 pillow==12.3.0
           python -m playwright install --with-deps chromium
-      - name: Ten production-renderer suites (synthetic fixtures, no network)
+      - name: Production-renderer suites (synthetic fixtures, no network)
         run: |
-          for suite in ui-smoke ui-artifacts ui-inline ui-seamless ui-editing ui-responsive ui-spacing ui-activity ui-account ui-handoff ui-cloud ui-charts; do
+          for suite in ui-smoke ui-artifacts ui-inline ui-seamless ui-editing ui-responsive ui-spacing ui-activity ui-account ui-handoff ui-cloud ui-charts ui-remote ui-remote-transcript ui-remote-composer ui-remote-availability ui-shared-execution ui-remote-polish ui-stop-slot ui-remote-sidebar; do
             echo "::group::$suite"
             python "tests/$suite.py"
             echo "::endgroup::"

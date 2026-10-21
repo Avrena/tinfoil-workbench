@@ -9,6 +9,7 @@ contextBridge.exposeInMainWorld('tinfoil', Object.freeze({
     return () => ipcRenderer.removeListener('workbench:close-request', listener);
   },
   snapshot: async () => unwrap(await ipcRenderer.invoke('workbench:snapshot')),
+  remote: async command => unwrap(await ipcRenderer.invoke('workbench:remote', command)),
   command: async command => unwrap(await ipcRenderer.invoke('workbench:command', command)),
   // Only a file object from a real drop or paste has a path, so the page cannot name a folder here; the main process
   // checks it and remembers it for the message that attaches it.

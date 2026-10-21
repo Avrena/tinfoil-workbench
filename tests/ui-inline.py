@@ -75,10 +75,10 @@ with sync_playwright() as p:
  page.evaluate('window.__fixture({status:"streaming",phase:"thinking",reasoning:"Actual fixture reasoning"})');expect(page.locator('.is-thinking')).to_be_visible()
  page.emulate_media(reduced_motion='reduce');assert page.locator('.thinking-wave i').first.evaluate('(e)=>getComputedStyle(e).animationName')=='none'
  checks.append('OS reduced-motion preference disables thinking and entry animations')
- page.emulate_media(reduced_motion='no-preference');page.locator('[data-action=view]').click();page.locator('#view-motion').select_option('reduced');page.keyboard.press('Escape')
+ page.emulate_media(reduced_motion='no-preference');page.locator('[data-action=view]:not(#remote-toolbar *):not(#remote-composer *)').click();page.locator('#view-motion').select_option('reduced');page.keyboard.press('Escape')
  expect(page.locator('html')).to_have_class('reduce-motion');assert page.locator('.thinking-wave i').first.evaluate('(e)=>getComputedStyle(e).animationName')=='none'
  checks.append('application reading preferences can independently reduce motion')
- page.locator('[data-action=view]').click();page.locator('#view-motion').select_option('system');page.keyboard.press('Escape');page.evaluate('window.__fixture({status:"stopped",phase:"answering",error:"Stopped. Partial output was preserved."})');expect(page.locator('.response-activity')).to_have_count(0);expect(chart).to_be_visible();expect(page.locator('.reply-note')).to_contain_text('Partial output')
+ page.locator('[data-action=view]:not(#remote-toolbar *):not(#remote-composer *)').click();page.locator('#view-motion').select_option('system');page.keyboard.press('Escape');page.evaluate('window.__fixture({status:"stopped",phase:"answering",error:"Stopped. Partial output was preserved."})');expect(page.locator('.response-activity')).to_have_count(0);expect(chart).to_be_visible();expect(page.locator('.reply-note')).to_contain_text('Partial output')
  checks.append('stopping preserves the inline artifact and partial text but ends all progress indicators')
  # Keep scroll anchored when reading older content.
  page.locator('#transcript').evaluate('(e)=>e.scrollTop=0');before=page.locator('#transcript').evaluate('(e)=>e.scrollTop')

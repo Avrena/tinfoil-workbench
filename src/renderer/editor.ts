@@ -3,7 +3,7 @@ import { escapeHtml as escape, markdown } from '../core/markdown.js';
 import { editSpan } from '../core/editing.js';
 /** The expanded composer: a larger editor for the draft. Answers are edited in place (inline-editor.ts) and messages in
  * the composer itself. */
-export interface EditorSession { title:string; content:string; attachmentNames?:string[]; save:(content:string)=>Promise<boolean> }
+export interface EditorSession { title:string; content:string; note?:string; attachmentNames?:string[]; save:(content:string)=>Promise<boolean> }
 /** One retained editing surface. Snapshots never write into an open editor. */
 export class MessageEditor {
   readonly dialog:HTMLDialogElement;
@@ -51,7 +51,7 @@ export class MessageEditor {
   private dirty():boolean {return !!this.session&&this.input().value!==this.session.content;}
   open(session:EditorSession):void {
     if(this.dialog.open)return;this.session=session;this.mode='write';this.saving=false;
-    this.get('editor-title').textContent=session.title;this.input().value=session.content;
+    this.get('editor-note').textContent=session.note??'Saved to this thread’s composer. Nothing is sent to the model.';this.get('editor-title').textContent=session.title;this.input().value=session.content;
     const files=session.attachmentNames??[];this.get('editor-attachments').hidden=!files.length;this.get('editor-attachments').classList.toggle('hidden',!files.length);this.get('editor-attachments').textContent=files.length?'Attachments retained: '+files.join(' · '):'';
     this.get('editor-discard',true).hidden=true;this.refresh();this.opened();openModal(this.dialog);this.input().focus();
   }

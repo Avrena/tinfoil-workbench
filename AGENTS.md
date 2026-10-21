@@ -1,5 +1,37 @@
 # Working on Tinfoil Workbench
 
+The optional headless Linux entry point in `remote/` follows
+docs/REMOTE-AGENT.md. Explicit operator submission with `workspace-auto` permits
+unattended container tools for that job. Remote inference uses Chat subscription
+access only: reuse AccountSession identity, expiry, quota and renewal checks,
+attest every renewed provider client, and never fall back to developer API access.
+Enrollment uses a fresh native Tinfoil sign-in and explicit VPS-transfer
+confirmation, never regular-browser cookies or the installed app's saved account.
+Keep its provider credentials and
+controller files outside tool containers, retain attestation and zero retries,
+and never extend this policy to desktop/local calls or the renderer bridge.
+Remote job records are access-controlled server files, not the desktop encrypted
+vault. Keep lifecycle and cleanup operations operator-only.
+
+The Windows Remote execution composer uses a distinct fixed `workbench:remote` IPC
+surface, guarded by the same exact sender checks as ordinary commands. The
+renderer never supplies an executable, SSH options, shell syntax or credentials.
+Use verified OpenSSH aliases and keep profiles/task drafts in the separate
+OS-encrypted remote vault. Native approval binds the exact captured task, host,
+workspace, model, system instructions, generation settings and limits. A lost submit reply must block another start until
+a later overview reconciles its request ID; neither transport nor model calls
+are replayed. Stop must remain usable while another lifecycle operation waits.
+Keep remote drafts, output and account enrollment separate from conversation
+history and Tinfoil cloud sync. Remote execution is Windows-only; do not expose
+an unimplemented Android executor or broaden the shared command bridge.
+
+Chat and Remote share conversation-ui.ts, EffortControl, the Advanced shell,
+MessageEditor and reading/search interactions. Extend these shared surfaces rather
+than duplicating their markup or behavior in Remote. Execution adapters own the
+separate settings, drafts and capabilities. Remote Advanced edits require Apply;
+pending values never enter a submitted job. Local task titles are display-only
+metadata in the remote vault, never provider or SSH request fields.
+
 Publish repository or release changes only with explicit authorization. Do not commit credentials, vaults, real transcripts, generated private files or signing keys (Windows or Android). Do not fabricate repository, release, CI, dependency or live-provider results.
 
 Maintain separation between the vanilla TypeScript renderer, fixed data-only preload, guarded native commands, provider/tool service and encrypted vault. The renderer gets no generic IPC, shell, filesystem or URL-fetch bridge; the workspace agent's commands and file tools run in the main process only, each command and change after its own confirmation in an approval window that the main process opens (its own `app://approval` origin and preload; the conversation page cannot answer it) (docs/WORKSPACE-AGENT.md). Preserve SDK attestation/EHBP, renderer network denial and exact sender checks. API keys are not Tinfoil Chat subscription sessions.

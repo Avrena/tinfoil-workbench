@@ -18,6 +18,35 @@ Interactive JavaScript can still consume CPU/memory and process text entered int
 
 PDF creation occurs in a separate no-preload, JavaScript-disabled window with network/file destinations denied and bounded output. PDF.js renders pages as canvas/text with eval, XFA and interactive actions disabled. Password-protected files are unsupported. Keep Electron/PDF.js current after dependency review; malformed files and renderer bugs remain relevant attack surfaces. Actual Windows PDF execution requires the supplied smoke test and manual review.
 
+## Optional remote worker
+
+The Linux headless worker has a separate opt-in authorization boundary:
+explicit `workspace-auto` job submission allows unattended commands inside
+resource-limited Docker containers. It does not relax desktop approvals.
+Only the controller receives the encrypted Chat session's decryption key through
+systemd credentials; tool containers receive neither credentials nor a host
+filesystem or Docker socket. A dedicated native enrollment flow transfers a fresh
+Tinfoil session after explicit confirmation. Inference tokens stay in memory and
+renew through Workbench's existing AccountSession; there is no API-key fallback.
+Job records are plaintext, access-controlled server files, not the desktop
+encrypted vault. Host administrators can read them and the provider credential.
+Docker shares the host kernel and is not a hostile multi-tenant VM boundary.
+The Windows remote composer stores only remote profiles and task drafts in a separate
+OS-encrypted vault. It uses fixed, validated IPC commands and verified OpenSSH
+configuration aliases; SSH runs in the main process. Host addition, autonomous
+start, session transfer and deletion use native approval windows. Start binds
+the captured task, resolved model, workspace, system instructions, generation
+settings and limits. A lost start response
+is reconciled before another submission is allowed, without replaying the
+request. Remote output is bounded, field-validated and rendered with escaped
+Markdown; code has no execution or preview action. Switching execution modes
+flushes the outgoing draft and keeps local and remote content independent.
+Remote mode does not attach local files or add remote output to conversation
+history. Instruction names are display-only; custom text supplements the
+workspace guide, and reasoning parameters come from the worker's bounded,
+sanitized public model catalog.
+See [remote agent operation and limitations](docs/REMOTE-AGENT.md).
+
 ## Python is not a sandbox
 
 Native Python has the user's account permissions and can access files/network. Isolated mode, a reduced environment, temporary cwd, no shell interpolation, time/output limits and best-effort tree termination do not provide OS containment. Only explicitly approved code should run. No generic terminal or silent package installer is exposed; the workspace agent's commands are approved one at a time (below).

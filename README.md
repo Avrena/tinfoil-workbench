@@ -4,6 +4,8 @@ An unofficial client for [Tinfoil](https://tinfoil.sh) confidential AI on **Wind
 
 Chat supports model-aware thinking controls, comparison, editing, versions, branching, projects and inline visual artifacts, in an encrypted local workspace. On Windows, a workspace agent can work in a folder with your approval, and Tinfoil cloud chats sync both ways, pictures included. Both platforms take pictures and PDFs as attachments and offer themes and a chat background. See the [changelog](CHANGELOG.md) for what changed in each release.
 
+On Windows, **Remote** (beside the message input, once a host is added) runs unattended agent jobs in workspaces on your own Linux Docker host over SSH, with the same transcript, model picker, system instructions and Advanced settings as Chat. Each start is reviewed in an approval window, jobs keep running after Workbench closes, and inference uses a dedicated Tinfoil Chat subscription sign-in, with no developer API fallback. See [setup, operation and the SSH CLI](docs/REMOTE-AGENT.md).
+
 [Install](#install) · [Platforms](#platforms) · [Build from source](#build-from-source) · [Known limitations](#known-limitations) · [Verification](#verification)
 
 ![Windows renderer with synthetic demonstration data](docs/preview.png)

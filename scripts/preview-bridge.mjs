@@ -156,7 +156,44 @@ async function simulate(thread,jobs){
 }
 /** Pictures stored by `image.add`, kept only for this page's life. */
 const previewImages=new Map();
+// Remote UI preview: synthetic, memory-only controller. No SSH or provider access.
+const remoteSample={version:1,hosts:[],selectedHost:null},remoteWorkspaces=[],remoteJobs=[];
+let remoteEnrolled=false,remoteUnavailable=false;
+const remoteSampleID=()=>crypto.randomUUID().replaceAll('-','');
+const remoteDefaults=()=>({workspace:'',prompt:'',model:'default',systemPrompt:'',systemPromptName:'',temperature:null,reasoningEffort:'default',thinkingMode:'default',maxSeconds:1800,maxRounds:20,maxCalls:40,maxTokens:4096});
+async function remotePreview(c){
+  const host=remoteSample.hosts.find(h=>h.id===c.host),local=extra=>({local:structuredClone(remoteSample),...extra});
+  const overview=()=>({protocol:1,features:{jobSettings:true},auth:{enrolled:remoteEnrolled,defaultModel:'deepseek-v4-1-flash'},workspaces:structuredClone(remoteWorkspaces),jobs:structuredClone(remoteJobs.map(({content,reasoning,partial,transcript,tools,settings,...job})=>({...job,prompt:job.prompt?.slice(0,160)}))),jobsTruncated:false,checkedAt:Date.now()/1000});
+  if(c.type==='load')return local();
+  if(c.type==='host.add'){const h={id:remoteSampleID(),name:c.name,alias:c.alias,draft:remoteDefaults()};remoteSample.hosts.push(h);remoteSample.selectedHost=h.id;return local();}
+  if(!host)throw Error('Choose a preview host.');
+  if(c.type==='draft.set'){host.draft=structuredClone(c.draft);return local();}
+  if(c.type==='job.rename'){if(!remoteJobs.some(j=>j.id===c.id))throw Error('Choose an existing job.');host.jobTitles={...host.jobTitles,[c.id]:c.title};return local();}
+  if(c.type==='host.select'){remoteSample.selectedHost=host.id;return local();}
+  if(c.type==='host.remove'){remoteSample.hosts=remoteSample.hosts.filter(h=>h!==host);remoteSample.selectedHost=remoteSample.hosts[0]?.id??null;return local();}
+  if(remoteUnavailable)throw Error('Synthetic SSH connection failure.');
+  if(c.type==='refresh'){const detail=remoteJobs.find(j=>j.id===c.id)||(!c.id?remoteJobs[0]:undefined);return local({overview:overview(),...(detail?{detail:structuredClone(detail),...(!c.id?{selectedJob:detail.id}:{})}:{})});}
+  if(c.type==='enroll'||c.type==='disconnect'){remoteEnrolled=c.type==='enroll';return local({overview:overview()});}
+  if(c.type==='workspace.create'){if(remoteWorkspaces.length>=4)throw Error('Workspace limit reached (4).');const w={id:remoteSampleID(),name:c.name,createdAt:Date.now()/1000,lastUsed:Date.now()/1000,quotaBytes:2147483648,activeJobs:[]};remoteWorkspaces.push(w);host.draft.workspace=w.id;return local({overview:overview()});}
+  if(c.type==='workspace.archive')return local({overview:overview(),message:'Synthetic archive saved on the preview host; not downloaded.'});
+  if(c.type==='workspace.delete'){const i=remoteWorkspaces.findIndex(w=>w.id===c.id);if(remoteWorkspaces[i]?.activeJobs.length)throw Error('Stop the active job first.');if(i>=0)remoteWorkspaces.splice(i,1);if(host.draft.workspace===c.id)host.draft.workspace='';return local({overview:overview()});}
+  if(c.type==='submit'){
+    if(remoteJobs.some(j=>['running','authenticating'].includes(j.status)))throw Error('One job at a time.');
+    const draft=host.draft,w=remoteWorkspaces.find(w=>w.id===draft.workspace);if(!w||!remoteEnrolled)throw Error('Connect Chat and choose a workspace.');
+    const job={id:remoteSampleID(),workspace:w.id,prompt:draft.prompt,model:draft.model==='default'?'deepseek-v4-1-flash':draft.model,status:'running',createdAt:Date.now()/1000,rounds:1,calls:1,verified:true,content:'I will run the synthetic check.',transcript:[{id:'assistant-0',role:'assistant',content:'I will run the synthetic check.',reasoning:''},{id:'tool-0',role:'tool',tool:0}],tools:[{id:remoteSampleID(),name:'run_command',arguments:'{"command":"python3 check.py"}',status:'running'}]};
+    const {workspace:unusedWorkspace,prompt:unusedPrompt,model:unusedModel,...settings}=draft;job.settings=structuredClone(settings);
+    remoteJobs.unshift(job);w.activeJobs=[job.id];host.draft.prompt='';
+    setTimeout(()=>{if(job.status!=='running')return;const content='Synthetic remote task completed. No network or provider request was made.';Object.assign(job,{status:'complete',rounds:2,content:job.content+'\n\n'+content,partial:{},finishedAt:new Date().toISOString()});job.transcript.push({id:'assistant-1',role:'assistant',content,reasoning:''});job.tools[0].status='complete';job.tools[0].result={stdout:'PASS\n',exitCode:0};w.activeJobs=[];},1800);
+    return local({selectedJob:job.id});
+  }
+  const job=remoteJobs.find(j=>j.id===c.id);
+  if(c.type==='job.read')return local({detail:structuredClone(job)});
+  if(c.type==='job.stop'){if(job){job.status='stopped';job.reason='operator';job.error='Stopped. Partial results and workspace changes are kept.';const w=remoteWorkspaces.find(w=>w.id===job.workspace);if(w)w.activeJobs=[];}return local({detail:structuredClone(job)});}
+  if(c.type==='job.delete'){const i=remoteJobs.indexOf(job);if(i>=0)remoteJobs.splice(i,1);return local({overview:overview()});}
+  throw Error('Unsupported synthetic remote action.');
+}
 window.tinfoil=Object.freeze({
+  remote:remotePreview,
   snapshot:async()=>snapshot(),subscribe:fn=>{listeners.add(fn);return()=>listeners.delete(fn);},
   // Synthetic folders: an extensionless, typeless file stands for a dropped folder (the app asks its host).
   folderFor:async file=>!file.type&&!/\.[A-Za-z0-9]+$/.test(file.name)?{path:'D:\\Preview\\'+file.name,name:file.name}:null,
