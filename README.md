@@ -229,6 +229,7 @@ The generated `preview/index.html` uses labelled synthetic responses and cannot 
 | Android backgrounding | Android can stop an in-progress reply when the app leaves the screen. Interrupted replies are marked; use Retry to ask again. |
 | Local execution | Neither the agent nor Python is a sandbox. Agent commands are not folder-confined. Interactive programs and long-running servers are unsupported; Stop and timeout termination are best effort. |
 | Agent conversations | A conversation that has used the agent stays on this computer and cannot move to Tinfoil cloud chats. |
+| Remote agents | Windows only, one job at a time per host, and no automatic resume after an interruption. Jobs run unattended in Docker containers, which share the host's kernel and are not a boundary between hostile users. Host administrators can read job records and the remote Chat session. |
 | Cloud chats | The list is limited to the 300 most recent chats. Folder attachments are refused. Cloud projects are managed in Tinfoil Chat. |
 | Tags | Tinfoil Chat on the web keeps a cloud chat's tags but does not show them, and its backups leave them out. Exports leave tags out. Android has no cloud chats, so tags on a phone stay there. How well a model tags depends on the model. |
 | Cloud pictures and widgets | A picture Tinfoil no longer has reaches the model as a note; other fetch failures can block sending. Charts, timelines and stat cards are rendered; other Tinfoil widgets are listed as not displayed. Workbench visuals are not written back, so Tinfoil Chat shows those answers as text. |
@@ -237,28 +238,29 @@ The generated `preview/index.html` uses labelled synthetic responses and cannot 
 
 ## Verification
 
-The [1.4.1 validation record](docs/VALIDATION.md), recorded on 2 October 2026, is the source for these results. 1.4.1 changes the licence and notices only, so the checks with a real account are those of the [1.4.0 record](docs/history/v1.4.0/VALIDATION.md#with-a-real-account). The records separate automated checks, review builds, installed-release checks and work that was not run.
+The [1.5.0 validation record](docs/VALIDATION.md), recorded on 21 October 2026, is the source for these results. The records separate automated checks, development builds, release-build checks and work that was not run.
 
 | Recorded scope | Result |
 |---|---|
-| Strict build and Node tests | 583 passed, 0 failed, 1 skipped |
-| Production-renderer browser tests | 533 checks across 12 suites passed |
-| Windows build and native smoke | Packaging gates passed; source, packaged and installed-app checks covered native storage, PDF handling, the agent runner and the approval window |
-| Packaged and installed Windows app | Live inference and sync enclave verification passed; installation over an installed 1.4.0 was checked |
+| Strict build and Node tests | 614 passed, 0 failed, 1 skipped |
+| Production-renderer browser tests | 587 checks across 20 suites passed, 53 of them in the eight Remote suites |
+| Windows build and native smoke | Packaging gates passed; source and packaged-app checks covered native storage, PDF handling, the agent runner and the approval window |
+| Packaged Windows app | Live inference and sync enclave verification passed |
+| Remote host | Linux tests of dependency environments, cleanup, profiles, link handling, settings and display passed on a test host; development builds ran real Chat subscription jobs there, including one that kept running while Workbench was closed |
 | Live tagging checks (1.4.0) | Six runs with seven Tinfoil chat models on sets of 13 and 18 conversations; titles and tags judged by reading each conversation |
 | Cloud chats (1.4.0) | A test chat's extra field survived a rename in Tinfoil Chat on the web; tags of cloud chats were checked against an in-memory enclave |
-| Android | Debug/live and release checks on Android 14 and 16 emulators; an in-place update from 1.4.0 preserved a draft |
-| Physical Android hardware | Not checked for 1.4.1; for 1.4.0, opening signed in after the update, and tags and titles, were checked by hand on one phone |
+| Android | Debug/live and release checks on Android 14 and 16 emulators; an in-place update from 1.4.1 preserved a draft |
+| Physical Android hardware | Not checked for 1.5.0; for 1.4.0, opening signed in after the update, and tags and titles, were checked by hand on one phone |
 
 The records also document failed checks and their fixes. Drop and paste were checked with scratch scripts and manual runs, not a committed browser test. Browser viewport and touch emulation do not establish native-device support.
 
-**Not checked for this release:** a real account, a physical phone, tags travelling between two Workbench installs with a real account, a repeated clean Windows installation, a standard-user Windows account and running the portable executable. Earlier open checks remain open unless the record says otherwise; see [not executed](docs/VALIDATION.md#not-executed).
+**Not checked for this release:** the release build against a real remote host, a real account in Chat, a physical phone, tags travelling between two Workbench installs with a real account, an install over an installed copy, a repeated clean Windows installation, a standard-user Windows account and running the portable executable. Earlier open checks remain open unless the record says otherwise; see [not executed](docs/VALIDATION.md#not-executed).
 
 The [manual acceptance checklist](docs/HANDOFF.md) covers work beyond automated tests. [Rendering measurements](docs/RENDERING.md) describe a synthetic workload, not general performance claims. Earlier records are in [docs/history](docs/history).
 
 ## Documentation
 
-- **Using Workbench:** [Accounts](docs/ACCOUNT.md) · [Cloud chats](docs/CLOUD.md) · [Workspace agent](docs/WORKSPACE-AGENT.md) · [Activity and tools](docs/ACTIVITY.md) · [Editing and mobile layout](docs/EDITING-AND-MOBILE.md)
+- **Using Workbench:** [Accounts](docs/ACCOUNT.md) · [Cloud chats](docs/CLOUD.md) · [Workspace agent](docs/WORKSPACE-AGENT.md) · [Remote agents](docs/REMOTE-AGENT.md) · [Activity and tools](docs/ACTIVITY.md) · [Editing and mobile layout](docs/EDITING-AND-MOBILE.md)
 - **Platforms and builds:** [Android](docs/ANDROID.md) · [Android sign-in](docs/ANDROID-ACCOUNT.md) · [Releasing](docs/RELEASING.md) · [Validation](docs/VALIDATION.md) · [Manual acceptance](docs/HANDOFF.md)
 - **Design and changes:** [Architecture](docs/ARCHITECTURE.md) · [Security](SECURITY.md) · [Spacing](docs/SPACING.md) · [Rendering](docs/RENDERING.md) · [Changelog](CHANGELOG.md) · [Notices](NOTICE.md)
 
