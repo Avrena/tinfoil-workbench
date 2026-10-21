@@ -30,7 +30,7 @@
     "android:apk": "node scripts/android-build.mjs"
   },
   "dependencies": {
-    "tinfoil": "1.2.1",
+    "tinfoil": "1.2.2",
     "zod": "4.6.5"
   },
   "devDependencies": {
