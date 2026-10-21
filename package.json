@@ -41,7 +41,7 @@
     "electron": "44.4.5",
     "electron-builder": "26.17.0",
     "esbuild": "0.28.2",
-    "pdfjs-dist": "6.3.289",
+    "pdfjs-dist": "6.4.299",
     "typescript": "7.0.2"
   },
   "build": {
