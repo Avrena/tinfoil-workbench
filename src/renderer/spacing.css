@@ -1137,7 +1137,7 @@ dialog:not(.message-editor) .modal-body { padding: 8px 20px 20px; }
   /* Beside the role tab on the narrowest phones, the icon-only Local / Remote tab gives up some padding so both fit. */
   .role-tab-row:has(.role-tab:not([hidden])) .execution-tab button{padding:0 5px}
   .execution-tab:not([hidden])+.role-tab{margin-left:3px}
-  .role-tab-row:has(.execution-tab:not([hidden])) .role-tab button{padding:0 8px}
+  .role-tab-row:has(.execution-tab:not([hidden])) .role-tab button{padding:0 5px;gap:4px}
   #remote-model-button{max-width:100px}
   .remote-tool-button{min-width:32px;padding:0 6px}
 }
