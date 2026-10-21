@@ -97,8 +97,8 @@ Android only installs updates signed with the same key. Keep an offline backup o
 `tests/android-device.py` runs on one attached emulator or device (Python 3 with `websocket-client`, `ANDROID_HOME` set, English system locale):
 
 ```powershell
-python tests/android-device.py --debug --live --apk release/Tinfoil-Workbench-1.4.1-android-debug.apk
-python tests/android-device.py --release --apk release/Tinfoil-Workbench-1.4.1-android.apk
+python tests/android-device.py --debug --live --apk release/Tinfoil-Workbench-1.5.0-android-debug.apk
+python tests/android-device.py --release --apk release/Tinfoil-Workbench-1.5.0-android.apk
 ```
 
 Installing replaces the app and its local data on that device. The two modes cover:

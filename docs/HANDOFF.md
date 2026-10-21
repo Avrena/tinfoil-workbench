@@ -1,4 +1,4 @@
-# Manual acceptance checklist — 1.4.1
+# Manual acceptance checklist — 1.5.0
 
 This checklist covers what automated checks cannot establish.
 
@@ -70,6 +70,21 @@ For opt-in delegation, inspect the explicit task and approve one short child req
 
 For the workspace agent (Windows), turn it on in Advanced for a new conversation. Send without choosing anything: Workbench must say where to choose. Choose where new folders are made (your home folder and a drive root must be refused), send again and check that a new, empty folder named after the date and the message appears there and that later messages keep it. For a project, choose a folder with a small project in it in Advanced; the message box has no folder button. Ask what the project does: the model must list and read files without asking. Ask it to fix something small: each change must show its diff in the conversation and in the approval window, and each command its exact text, shell and folder there, with any path outside the folder marked; Decline must have the focus, Esc must decline, and closing the window must decline. Decline one command and one change and check that nothing ran or changed, then approve one of each. Edit a file yourself while a change to it waits for approval; approving must then write nothing. Stop a long command (`Start-Sleep -Seconds 60`) and check that it ends. Set Approvals to Auto-run ("Also run commands without asking"): a Workbench confirmation window (not a Windows message box) must appear first, the message box's top edge must show "Agent · auto-run" and "Python · auto" in amber, `npm.cmd test` must run without asking and be marked "approved automatically", and `Remove-Item` or a command naming a path outside the folder must still ask and say why; with model-requested Python on, a Python run must not ask and must be marked "approved automatically"; set it back to asking from the page and check that the next command and the next Python run ask. Try Git Bash if Git for Windows is installed. A Tinfoil cloud chat must not offer the agent.
 
+## 4a. Accept remote agents (Windows)
+
+Use a test Linux host that you administer, with the worker installed as [REMOTE-AGENT.md](REMOTE-AGENT.md) describes, and an OpenSSH alias with a verified host key and key-only login. State a token budget first: each job is a full agent run of up to its round and output limits.
+
+1. Before a host is saved, the composer has no **Local / Remote** switch. Open **Remote agents** in the sidebar and add the host: the confirmation must name the alias. The switch then appears; forget the host and it must disappear again.
+2. Change the host's key in `known_hosts` to a wrong one: Workbench must refuse to connect and say the host key is not trusted. Restore it.
+3. Connect remote Chat: a fresh Tinfoil sign-in opens, and a second confirmation names the account and the SSH host before anything is sent. The local conversation account must be unaffected.
+4. Create a workspace, type a task, choose a model, system instructions and an Advanced setting (it must wait for **Apply**), then **Review & start**: the approval window must show exactly that task, model, workspace, instructions, settings and limits. Cancel once and check that the draft is kept; then start.
+5. While the job runs, **Stop job** must sit where **Review & start** was, also after **New task**. Close Workbench during the job, reopen it, and check that the job went on and its transcript shows replies, reasoning and tool calls in order.
+6. Start another job and stop it: partial output and workspace changes must remain and the job must be reported as stopped by you. Let a short time limit end a third job: it must be reported as limited, not stopped.
+7. In the sidebar's Threads **Remote** tab, tasks must be grouped by workspace, searchable, and open their transcript; **Cloud** and **Local** must return to Chat with its draft intact.
+8. Archive a workspace and delete another, and delete a job record: each destructive step must ask first and name what it removes.
+
+Record the host's distribution, Docker version, the models used and their token usage, and any failure.
+
 ## 5. Display and packaging gate
 
 On Windows test normal and maximized windows, snap layouts and 100/125/150/200% scaling. Check a long thread title, long email, dialog focus return, high contrast/reduced motion, IME and rapid Reading/focus/sidebar toggles. A prior intermittent rapid checkbox hit-test issue did not recur in this revision’s 12-cycle run; continue this stress check rather than treating it as conclusively fixed.
@@ -82,7 +97,7 @@ After the checks above:
 npm run dist:win
 ```
 
-The command gates packaging behind doctor, tests and native smoke and never publishes. Expected outputs are `release/Tinfoil-Workbench-1.4.1-x64-Setup.exe` and `release/Tinfoil-Workbench-1.4.1-x64-Portable.exe`. Validate the generated filenames and test both on a clean standard-user Windows installation. Code signing is not configured; do not describe artifacts as signed or instructions to disable OS protection. ARM64 requires its own real machine/runner validation.
+The command gates packaging behind doctor, tests and native smoke and never publishes. Expected outputs are `release/Tinfoil-Workbench-1.5.0-x64-Setup.exe` and `release/Tinfoil-Workbench-1.5.0-x64-Portable.exe`. Validate the generated filenames and test both on a clean standard-user Windows installation. Code signing is not configured; do not describe artifacts as signed or instructions to disable OS protection. ARM64 requires its own real machine/runner validation.
 
 Optional PowerShell orchestration: `./scripts/Local-Build.ps1 -Bootstrap -Package`. This script’s native execution remains untested here; the npm commands above are the reference sequence.
 
@@ -109,4 +124,4 @@ Record the device model, Android version, WebView version, the key's billing mod
 
 ## What is deliberately not in the release
 
-No credentials, signing keys, node_modules or font binaries. No cloud sync on Android, arbitrary MCP client configuration, automatic hosted-code provisioning, Windows code signing, or Android Google or Apple sign-in, Python or HTML-to-PDF. Chat sign-in has been exercised on Windows from source and in the installed app, and on Android, on one phone, with a debug build and with release-signed builds up to 1.0.0; the other sign-in methods and the native protected actions still need acceptance on real hardware with a real account.
+No credentials, signing keys, node_modules or font binaries. No remote executor on Android, concurrent remote jobs or automatic resume of interrupted remote jobs. No cloud sync on Android, arbitrary MCP client configuration, automatic hosted-code provisioning, Windows code signing, or Android Google or Apple sign-in, Python or HTML-to-PDF. Chat sign-in has been exercised on Windows from source and in the installed app, and on Android, on one phone, with a debug build and with release-signed builds up to 1.0.0; the other sign-in methods and the native protected actions still need acceptance on real hardware with a real account.

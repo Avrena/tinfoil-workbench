@@ -1,5 +1,19 @@
 # Changelog
 
+## 1.5.0 — remote agents
+
+- Windows: **Remote** runs unattended agent jobs on your own Linux Docker host over SSH. The host needs the remote worker installed first; see [docs/REMOTE-AGENT.md](docs/REMOTE-AGENT.md).
+  - Add a host from **Remote agents** in the sidebar with a display name and an OpenSSH alias that already has a verified host key and a login key. Workbench never takes passwords, keys or SSH options. Once a host is saved, a **Local / Remote** switch appears beside the message input, and the Threads list gains a **Remote** tab with the host's tasks grouped by workspace.
+  - A task has Chat's transcript, model picker with maker logos, system instructions, thinking effort and Advanced settings (which wait for **Apply**), plus the host, the workspace and job limits. **Review & start** shows the exact task, model, workspace, instructions, settings and limits in an approval window before anything is sent.
+  - A job runs in disposable containers in its workspace, with public Internet access but no host files, credentials or private networks, and keeps running after Workbench closes. **Stop job** takes the place of **Review & start** while it runs. If the reply to a start is lost, the next start waits until a refresh finds the job; nothing is sent twice.
+  - The transcript shows replies, reasoning and tool calls in their order, with Copy and Source on each answer. **Jobs** lists earlier runs. **Manage** creates, archives and deletes workspaces and deletes job records, each after a confirmation.
+  - Inference uses a dedicated Tinfoil Chat subscription sign-in, made in a fresh sign-in window and sent to the host only after a confirmation. There is no API-key fallback. The host keeps the session encrypted.
+  - Host profiles and task drafts are kept in their own encrypted file on this PC, apart from conversations and cloud sync. A task title you change is kept on this PC only.
+- The host side is in `remote/`: a controller reached over SSH, a root-owned broker that is the worker's only `sudo` command, a systemd job unit, a development tool image, an optional Kali command-line profile, per-workspace dependency environments (`workbench-env`) and an operator CLI (`tinfoil-workspace`) whose cleanup only lists candidates and whose delete archives first. One job runs at a time.
+- Chat: **Stop** now takes the place of **Send** while a reply is written, instead of appearing beside it, and the second click of a double-click on Send does not stop the reply it started. The conversation menu's button is easier to see.
+- Android has no remote executor; the composer change to Stop applies there too. versionCode 1005000.
+- The workspace format is unchanged: 1.4.1 and 1.5.0 open each other's workspaces. The remote profiles are a separate file, which 1.4.1 ignores.
+
 ## 1.4.1 — open source
 
 - Tinfoil Workbench is open source under the Apache License 2.0 ([LICENSE](LICENSE)). Third-party components keep their own licences, listed in [NOTICE.md](NOTICE.md), and the licence does not cover Tinfoil's name or logo.
