@@ -34,7 +34,7 @@
     "zod": "4.6.7"
   },
   "devDependencies": {
-    "@capacitor/android": "8.5.2",
+    "@capacitor/android": "8.5.3",
     "@capacitor/cli": "8.5.3",
     "@capacitor/core": "8.5.2",
     "buffer": "6.0.3",
