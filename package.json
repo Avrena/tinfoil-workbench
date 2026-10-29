@@ -39,7 +39,7 @@
     "@capacitor/core": "8.5.2",
     "buffer": "6.0.3",
     "electron": "44.9.0",
-    "electron-builder": "26.17.0",
+    "electron-builder": "26.18.0",
     "esbuild": "0.28.2",
     "pdfjs-dist": "6.4.299",
     "typescript": "7.0.2"
